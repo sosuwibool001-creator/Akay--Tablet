@@ -11,19 +11,17 @@ const wss = new WebSocket.Server({ server });
 const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-// ให้บริการไฟล์ Static บนโฟลเดอร์โปรเจกต์
-app.use(express.static(__dirname));
-
+// ✨ แก้ไขตรงนี้ให้ชี้มาที่ไฟล์ index-tablet.html โดยตรงแบบชัดเจน
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// WebSocket Proxy: รับสัญญาณจากแท็บเล็ต แล้วแปะ API Key ยิงหา Google แบบปลอดภัย
+// WebSocket Proxy: รับสัญญาณจากแท็บเล็ต แล้วแปะ API Key ยิงหา Google
 wss.on('connection', (clientWs) => {
     console.log('📱 แท็บเล็ตเชื่อมต่อเข้ามาที่หลังบ้านสำเร็จ!');
 
     if (!GEMINI_API_KEY) {
-        console.error('❌ Error: ยังไม่ได้กำหนด GEMINI_API_KEY ในไฟล์ .env');
+        console.error('❌ Error: ยังไม่ได้กำหนด GEMINI_API_KEY');
         clientWs.close();
         return;
     }
@@ -32,17 +30,15 @@ wss.on('connection', (clientWs) => {
     const googleWs = new WebSocket(targetUrl);
 
     googleWs.on('open', () => {
-        console.log('🚀 เชื่อมต่อกับ Google Gemini Live API สำเร็จ (ซ่อน Key เรียบร้อย)');
+        console.log('🚀 เชื่อมต่อกับ Google Gemini Live API สำเร็จ');
     });
 
-    // ส่งต่อข้อความจาก แท็บเล็ต -> Google
     clientWs.on('message', (message) => {
         if (googleWs.readyState === WebSocket.OPEN) {
             googleWs.send(message);
         }
     });
 
-    // ส่งต่อข้อความจาก Google -> แท็บเล็ต
     googleWs.on('message', (data) => {
         if (clientWs.readyState === WebSocket.OPEN) {
             clientWs.send(data);
@@ -51,7 +47,6 @@ wss.on('connection', (clientWs) => {
 
     clientWs.on('close', () => {
         if (googleWs.readyState === WebSocket.OPEN) googleWs.close();
-        console.log('📱 แท็บเล็ตตัดการเชื่อมต่อ');
     });
 
     googleWs.on('close', () => {
@@ -64,8 +59,5 @@ wss.on('connection', (clientWs) => {
 });
 
 server.listen(PORT, () => {
-    console.log(`=================================================`);
-    console.log(`🚀 Genesis Master Backend Proxy Running!`);
-    console.log(`📱 เปิดเว็บบนแท็บเล็ตได้ที่: http://localhost:${PORT}`);
-    console.log(`=================================================`);
+    console.log(`Server running on port ${PORT}`);
 });
