@@ -181,6 +181,7 @@
         }
         button.stop-btn { background-color: var(--accent-red); }
         button.clear-btn { background-color: var(--accent-orange); }
+        button.switch-cam-btn { background-color: #5856d6; }
 
         .gemini-input-bar {
             display: flex;
@@ -331,6 +332,7 @@
 
         <div class="dashboard-controls">
             <button id="snapBtn" class="standard-btn">📸 ตรวจยา (Manual)</button>
+            <button id="switchCamBtn" class="standard-btn switch-cam-btn">🔄 สลับกล้อง</button>
             <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
         </div>
 
@@ -365,6 +367,7 @@
     const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const snapBtn = document.getElementById('snapBtn');
+    const switchCamBtn = document.getElementById('switchCamBtn');
     const clearMemBtn = document.getElementById('clearMemBtn');
     const sendTextBtn = document.getElementById('sendTextBtn');
     const textInput = document.getElementById('textInput');
@@ -388,6 +391,9 @@
     let isModelSpeaking = false;
     let isListening = false;
     
+    // ตัวแปรควบคุมกล้อง (เริ่มต้นใช้กล้องหน้า/หันเข้าหาผู้ใช้ หรือ environment)
+    let useFrontCamera = true;
+
     // ตัวแปรสำหรับระบบสตรีมเสียงพูดสดผ่าน Web Audio API
     let audioInputProcessor = null;
     let microphoneStream = null;
@@ -447,15 +453,41 @@
 
     async function initCamera() {
         try {
-            mediaStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: 1280, height: 720 }, 
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: { 
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 },
+                    facingMode: useFrontCamera ? "user" : "environment"
+                }, 
                 audio: { echoCancellation: true, noiseSuppression: true } 
-            });
+            };
+
+            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
             console.warn("Camera error: " + err.message);
+            // Fallback หากกล้องระบุ facingMode ไม่สำเร็จ
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                video.srcObject = mediaStream;
+            } catch (e) {
+                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
+            }
         }
     }
+
+    // ฟังก์ชันสลับกล้องหน้า/หลัง
+    async function switchCamera() {
+        useFrontCamera = !useFrontCamera;
+        await initCamera();
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เปลี่ยนเป็นใช้งาน${useFrontCamera ? "กล้องหน้า" : "กล้องหลัง"}เรียบร้อยครับ 📷`;
+    }
+
+    switchCamBtn.addEventListener('click', switchCamera);
 
     startBtn.addEventListener('click', async () => {
         isUserActiveSession = true;
@@ -490,7 +522,7 @@
                         },
                         tools: [{ googleSearch: {} }],
                         systemInstruction: {
-                            parts: [{ text: `คุณคือเจ ผู้ช่วยอัจฉริยะบนแท็บเล็ต ทำหน้าที่ดูแลผู้สูงอายุอย่างอบอุ่น\n\n${medProfileText}` }]
+                            parts: [{ text: `คุณคือเจ ผู้ช่วยอัจฉริยะบนแท็บเล็ต ทำหน้าที่ดูแลผู้สูงอายุอย่างอบอุ่น\n\n${medProfileText}\n\nคุณสามารถรับคำสั่งเสียงเพื่อสลับกล้องหน้า/หลังได้ หากผู้ใช้สั่งว่า "เปลี่ยนเป็นกล้องหลัง" หรือ "ใช้กล้องหลัง" หรือ "สลับกล้อง" ให้ตอบรับและระบบจะมีฟังก์ชันรองรับ` }]
                         }
                     }
                 }));
@@ -507,7 +539,19 @@
                             if (part.text) responseText += part.text;
                             if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
                         }
-                        if (responseText) statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${responseText}`;
+                        if (responseText) {
+                            statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${responseText}`;
+                            
+                            // ตรวจจับคำสั่งเสียงจากข้อความที่เจตอบหรือประมวลผล เพื่อสลับกล้องอัตโนมัติ
+                            const lowerText = responseText.toLowerCase();
+                            if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) && useFrontCamera) {
+                                useFrontCamera = false;
+                                initCamera();
+                            } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง")) && !useFrontCamera) {
+                                useFrontCamera = true;
+                                initCamera();
+                            }
+                        }
                     }
                 } catch (e) { console.error(e); }
             };
@@ -552,11 +596,9 @@
         }));
     }
 
-    // 🎙️ แก้ไขระบบไมค์ให้บังคับ Resume AudioContext บนแท็บเล็ต
     micBtn.addEventListener('click', async () => {
         if (!isListening) {
             try {
-                // บังคับปลุก AudioContext ให้พร้อมใช้งานทันทีที่กดไมค์
                 if (!audioContext) {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
                 }
@@ -627,6 +669,17 @@
 
     function sendTextDirectly(text) {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        
+        // ตรวจสอบคำสั่งสลับกล้องผ่าน Text Input ทันที
+        const lowerText = text.toLowerCase();
+        if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง")) {
+            useFrontCamera = false;
+            initCamera();
+        } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("ใช้กล้องหน้า")) {
+            useFrontCamera = true;
+            initCamera();
+        }
+
         ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
         statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความ:</strong> ${text}`;
     }
