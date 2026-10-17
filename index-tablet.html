@@ -6,20 +6,15 @@
     <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Personal Secure Device)</title>
     <style>
         :root {
-            --bg-color: #f2f2f7;
+            --bg-color: #f5f5f7;
             --card-bg: #ffffff;
-            --text-main: #1c1c1e;
-            --text-sub: #8e8e93;
-            --border-color: #e5e5ea;
+            --text-main: #0071e3;
+            --text-sub: #86868b;
+            --border-color: #d2d2d7;
             --accent-green: #34c759;
             --accent-blue: #0071e3;
             --accent-orange: #ff9500;
             --accent-red: #ff3b30;
-            
-            /* Z-Index Structure for Layered Architecture */
-            --z-video-base: 10;
-            --z-overlay-floating: 20;
-            --z-controls-top: 30;
         }
 
         body {
@@ -27,47 +22,43 @@
             background-color: var(--bg-color);
             color: var(--text-main);
             text-align: center;
-            padding: 12px;
+            padding: 10px;
             margin: 0;
             -webkit-font-smoothing: antialiased;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+            align-items: center;
             min-height: 100vh;
             box-sizing: border-box;
         }
 
         .container {
             width: 100%;
-            max-width: 960px;
+            max-width: 950px;
             background: var(--card-bg);
-            padding: 20px;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
-            border: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 25px 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.04);
             box-sizing: border-box;
-            margin: 0 auto;
         }
 
         .logo-box {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 30px;
+            font-size: 34px;
             font-weight: 700;
             color: var(--accent-blue);
-            margin-bottom: 4px;
+            margin-bottom: 6px;
         }
 
         .subtitle {
             font-size: 12px;
             color: var(--text-sub);
-            margin-bottom: 16px;
+            margin-bottom: 20px;
         }
 
-        /* ------------------------------------------------------------- */
-        /* STEP 1: AUTH SELECT VOICE & LOGIN                            */
-        /* ------------------------------------------------------------- */
         #step1 {
             display: flex;
             flex-direction: column;
@@ -75,7 +66,7 @@
             justify-content: center;
             width: 100%;
             max-width: 450px;
-            margin: 20px auto;
+            margin: 0 auto;
         }
 
         .input-group {
@@ -99,29 +90,25 @@
         }
 
         .circle-btn {
-            width: 110px;
-            height: 110px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             background: #ffffff;
             color: var(--accent-blue);
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
             border: 1px solid var(--border-color);
             cursor: pointer;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 6px;
+            gap: 4px;
             margin: 0 auto;
-            transition: transform 0.2s;
         }
-        .circle-btn:active { transform: scale(0.96); }
 
-        /* ------------------------------------------------------------- */
-        /* STEP 1.5: FACE AUTHENTICATION SCREEN                          */
-        /* ------------------------------------------------------------- */
+        /* 🔒 Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่องอัตโนมัติ */
         #stepAuth {
             display: none;
             flex-direction: column;
@@ -141,129 +128,42 @@
             margin-bottom: 15px;
         }
 
-        /* ------------------------------------------------------------- */
-        /* STEP 2: MAIN GUARDIAN DASHBOARD (LAYERED UI ARCHITECTURE)    */
-        /* ------------------------------------------------------------- */
         #step2 {
             display: none;
             text-align: left;
             width: 100%;
-            flex-direction: column;
-            gap: 16px;
         }
 
-        /* 🔒 FIXED VIDEO DISPLAY LAYER (ตรึงตำแหน่งวิดีโอให้อยู่กับที่) */
-        .video-viewport-container {
-            position: relative;
+        video {
             width: 100%;
-            aspect-ratio: 16 / 9;
-            max-height: 480px;
-            background-color: #000000;
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-            z-index: var(--z-video-base);
-        }
-
-        video#webcam {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        /* ☁️ FLOATING OVERLAY LAYER (เลเยอร์สถานะลอยตัวแบบ Glassmorphism) */
-        .floating-status-overlay {
-            position: absolute;
-            top: 14px;
-            left: 14px;
-            right: 14px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            pointer-events: none;
-            z-index: var(--z-overlay-floating);
-        }
-
-        .glass-badge {
-            pointer-events: auto;
-            background: rgba(255, 255, 255, 0.82);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
-            padding: 8px 14px;
-            border-radius: 30px;
-            font-size: 12px;
-            font-weight: 600;
-            color: #1d1d1f;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .status-dot {
-            height: 9px;
-            width: 9px;
-            background-color: var(--accent-green);
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.25);
-            animation: pulse 1.8s infinite ease-in-out;
-        }
-        @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.8; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.8; }
-        }
-
-        /* Floating AI Response Display (ซ้อนทับด้านล่างวิดีโอ) */
-        .floating-ai-response {
-            position: absolute;
-            bottom: 14px;
-            left: 14px;
-            right: 14px;
-            pointer-events: auto;
-            background: rgba(15, 23, 42, 0.78);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #ffffff;
-            padding: 12px 16px;
+            max-height: 480px; 
             border-radius: 16px;
-            font-size: 13.5px;
-            line-height: 1.4;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
-            max-height: 85px;
-            overflow-y: auto;
-            z-index: var(--z-overlay-floating);
-            word-break: break-word;
+            background: #000;
+            object-fit: cover;
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
         }
 
-        /* 🎛️ CONTROLS & CHAT SECTION */
         .dashboard-controls {
             display: flex;
             gap: 8px;
-            justify-content: flex-start;
+            justify-content: space-between;
             align-items: center;
+            margin-bottom: 12px;
             flex-wrap: wrap;
         }
 
         button.standard-btn {
-            padding: 11px 16px;
-            font-size: 13px;
+            padding: 12px 18px;
+            font-size: 14px;
             font-weight: 600;
             border-radius: 12px;
             cursor: pointer;
             border: none;
             color: #fff;
             background-color: var(--accent-blue);
-            box-shadow: 0 3px 10px rgba(0, 113, 227, 0.18);
-            transition: opacity 0.2s;
+            box-shadow: 0 3px 10px rgba(0, 113, 227, 0.2);
         }
-        button.standard-btn:active { opacity: 0.85; }
         button.stop-btn { background-color: var(--accent-red); }
         button.clear-btn { background-color: var(--accent-orange); }
         button.switch-cam-btn { background-color: #5856d6; }
@@ -274,8 +174,9 @@
             background: #fafafa;
             border: 1px solid var(--border-color);
             border-radius: 28px;
-            padding: 4px 8px 4px 16px;
+            padding: 6px 8px 6px 16px;
             gap: 8px;
+            margin-top: 10px;
             box-sizing: border-box;
         }
 
@@ -286,20 +187,20 @@
             font-size: 14px;
             outline: none;
             color: #1d1d1f;
-            padding: 8px 0;
+            padding: 6px 0;
         }
 
         .icon-action-btn {
             background: transparent;
             border: none;
-            width: 38px;
-            height: 38px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 17px;
+            font-size: 18px;
             transition: background 0.2s;
         }
 
@@ -315,15 +216,15 @@
 
         .med-section {
             background: #fbfbfd;
-            padding: 14px 16px;
-            border-radius: 16px;
+            padding: 12px 15px;
+            border-radius: 12px;
             border: 1px solid var(--border-color);
+            margin-bottom: 12px;
         }
         .med-section h3 { 
             margin-top: 0; 
-            margin-bottom: 10px;
             color: #1d1d1f; 
-            font-size: 14px; 
+            font-size: 13px; 
             font-weight: 600;
             display: flex; 
             justify-content: space-between; 
@@ -342,22 +243,51 @@
             border: 1px solid rgba(0,0,0,0.03);
         }
 
+        #output {
+            padding: 12px 15px;
+            background: #fbfbfd;
+            border-radius: 12px;
+            min-height: 60px;
+            font-size: 13px;
+            word-wrap: break-word;
+            line-height: 1.4;
+            border: 1px solid var(--border-color);
+            margin-top: 10px;
+            color: #1d1d1f;
+        }
+
+        .status-dot {
+            height: 9px;
+            width: 9px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.2);
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
         .debug-stats {
+            margin-top: 6px;
             font-size: 11px;
             color: var(--text-sub);
-            margin-top: 4px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <!-- STEP 1: หน้าเริ่มต้นเลือกเสียงผู้ช่วย -->
+    <!-- Step 1: หน้าเริ่มต้นเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">
-            Project-J <span style="font-size: 13px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta</span>
+            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta</span>
         </div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (Personal Secure Device)</div>
+        <div class="subtitle">ระบบผู้ช่วยส่วนตัว (Personal Secure Device)</div>
         
         <div class="input-group">
             <label style="font-size: 13px; color: var(--text-sub);">เลือกเสียงผู้ช่วยอัจฉริยะ:</label>
@@ -371,12 +301,12 @@
         </div>
 
         <button id="startAuthBtn" class="circle-btn">
-            <span style="font-size: 24px;">🔒👤</span>
-            <span>ยืนยันตัวตน</span>
+            <span style="font-size: 22px;">🔒👤</span>
+            <span>สแกนหน้าเจ้าของเครื่อง</span>
         </button>
     </div>
 
-    <!-- STEP 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่อง -->
+    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่อง -->
     <div id="stepAuth">
         <div class="logo-box" style="font-size: 22px;">
             🛡️ ตรวจสอบสิทธิ์เจ้าของเครื่อง
@@ -390,72 +320,48 @@
         </div>
     </div>
 
-    <!-- STEP 2: แดชบอร์ดหลัก (LAYERED DESIGN UI) -->
+    <!-- Step 2: แดชบอร์ดหลัก (เฉพาะเจ้าของเครื่อง) -->
     <div id="step2">
-        <!-- TOP TOOLBAR -->
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 16px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
                 Project-J (Beta) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก</span>)
             </div>
-            <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
+            <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออก</button>
         </div>
 
-        <!-- 🔒 LAYER 1 & 2: FIXED VIDEO VIEWPORT + FLOATING OVERLAY -->
-        <div class="video-viewport-container">
-            <!-- Frame Base: ตรึงวิดีโอจากกล้องให้อยู่กับที่ 100% -->
-            <video id="webcam" autoplay playsinline muted></video>
+        <video id="webcam" autoplay playsinline muted></video>
 
-            <!-- Floating Layer 1: สถานะระบบลอยด้านบน -->
-            <div class="floating-status-overlay">
-                <div class="glass-badge">
-                    <span class="status-dot"></span>
-                    <span id="visionStatusText">Auto-Vision Stream (10s)</span>
-                </div>
-                <div class="glass-badge">
-                    <span>🎙️ Gemini Live WebSocket</span>
-                </div>
-            </div>
-
-            <!-- Floating Layer 2: กล่องคำตอบ AI ลอยทับล่างวิดีโอ -->
-            <div id="statusText" class="floating-ai-response">
-                <strong>🤖 เจ:</strong> ยินดีต้อนรับครับเพื่อนเอก ระบบเฝ้าระวังพร้อมทำงานเรียบร้อยครับ
-            </div>
-        </div>
-
-        <!-- 🎛️ LAYER 3: CONTROLS & CHAT PANEL (แยกส่วนอิสระเพื่อไม่ให้ดันวิดีโอ) -->
         <div class="dashboard-controls">
             <button id="snapBtn" class="standard-btn">📸 ตรวจยา (Manual)</button>
             <button id="switchCamBtn" class="standard-btn switch-cam-btn">🔄 สลับกล้อง</button>
             <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
         </div>
 
-        <!-- ตารางยาถาวร -->
         <div class="med-section">
             <h3>💊 ตารางยาถาวร</h3>
             <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
-                <input type="time" id="medTime" value="08:00" style="flex: 1; padding: 10px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color);">
-                <input type="text" id="medName" placeholder="ชื่อยา" style="flex: 3; padding: 10px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color);">
-                <input type="text" id="medDose" placeholder="จำนวน" style="flex: 2; padding: 10px; font-size: 13px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <input type="time" id="medTime" value="08:00" style="flex: 1; padding: 10px; font-size: 13px;">
+                <input type="text" id="medName" placeholder="ชื่อยา" style="flex: 3; padding: 10px; font-size: 13px;">
+                <input type="text" id="medDose" placeholder="จำนวน" style="flex: 2; padding: 10px; font-size: 13px;">
                 <button id="addMedBtn" class="standard-btn" style="padding: 10px 14px;">➕ เพิ่ม</button>
             </div>
             <div id="medList"></div>
         </div>
 
-        <!-- แถบพิมพ์ข้อความและไมโครโฟน -->
         <div class="gemini-input-bar">
             <input type="text" id="textInput" placeholder="พิมพ์ข้อความ หรือกดไมค์เพื่อพูดคุยกับเจ...">
             <button id="micBtn" class="icon-action-btn" title="คลิกเพื่อพูดคุย">🎤</button>
             <button id="sendTextBtn" class="icon-action-btn" title="ส่งข้อความ" style="color: var(--accent-blue);">➤</button>
         </div>
 
-        <div id="audioStats" class="debug-stats">
-            🎙️ Gemini Audio Live Mode: โหมดส่วนตัวเจ้าของเครื่อง (Personal Secure Device)
+        <div id="output">
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมใช้งาน กดปุ่มไมค์เพื่อเริ่มพูด...</div>
+            <div id="audioStats" class="debug-stats">🎙️ Gemini Audio Live Mode: โหมดส่วนตัวเจ้าของเครื่อง (Personal Device)</div>
         </div>
     </div>
 </div>
 
 <script>
-    // Elements Reference
     const step1 = document.getElementById('step1');
     const stepAuth = document.getElementById('stepAuth');
     const step2 = document.getElementById('step2');
@@ -484,26 +390,21 @@
     const addMedBtn = document.getElementById('addMedBtn');
     const medListDiv = document.getElementById('medList');
 
-    // System States
     let ws = null;
     let audioContext = null;
     let mediaStream = null;
     let authStream = null;
-    let microphoneStream = null;
-    let audioInputProcessor = null;
     let nextAudioTime = 0;
     let autoVisionTimer = null;
     let isUserActiveSession = false;
     let isModelSpeaking = false;
     let isListening = false;
+    
     let useFrontCamera = true;
     
     const tabletOwner = { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Owner / Admin" };
     let authenticatedUser = tabletOwner.name;
 
-    // -------------------------------------------------------------
-    // MEDICATION MANAGEMENT (LocalStorage)
-    // -------------------------------------------------------------
     function getMedProfile() {
         return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
     }
@@ -517,7 +418,7 @@
         const list = getMedProfile();
         medListDiv.innerHTML = "";
         if (list.length === 0) {
-            medListDiv.innerHTML = `<div style="font-size:11px; color:var(--text-sub);">ยังไม่มีรายการยาในตาราง</div>`;
+            medListDiv.innerHTML = `<div style="font-size:11px; color:var(--text-sub);">ยังไม่มีรายการยา</div>`;
             return;
         }
         list.forEach((item, index) => {
@@ -557,9 +458,6 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
-    // -------------------------------------------------------------
-    // AUTHENTICATION & CAMERA SETUP
-    // -------------------------------------------------------------
     startAuthBtn.addEventListener('click', async () => {
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
@@ -571,12 +469,13 @@
             authVideo.srcObject = authStream;
             runOwnerVerification();
         } catch (err) {
+            console.warn("ไม่สามารถเปิดกล้องหน้าตามสเปกได้ กำลังลองเปิดกล้องทั่วไป...", err);
             try {
                 authStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 authVideo.srcObject = authStream;
                 runOwnerVerification();
             } catch (e) {
-                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึงกล้อง");
+                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้องในเบราว์เซอร์:\n" + e.message);
                 cancelAuthBtn.click();
             }
         }
@@ -591,21 +490,24 @@
             if (isOwnerVerified) {
                 authenticatedUser = tabletOwner.name;
                 userNameDisplay.innerText = authenticatedUser;
-                authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ (${authenticatedUser})!`;
+                authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
 
                 setTimeout(async () => {
                     if (authStream) authStream.getTracks().forEach(t => t.stop());
                     stepAuth.style.display = 'none';
-                    step2.style.display = 'flex';
+                    step2.style.display = 'block';
 
                     await initCamera();
                     startMainAppSession();
                 }, 800);
             } else {
-                authStatusText.innerHTML = `❌ ไม่พบสิทธิ์เจ้าของเครื่อง`;
-                setTimeout(() => { cancelAuthBtn.click(); }, 2000);
+                authStatusText.innerHTML = `❌ ตรวจไม่พบสิทธิ์เจ้าของเครื่อง: อุปกรณ์นี้จำกัดเฉพาะ ${tabletOwner.name} เท่านั้น`;
+                setTimeout(() => {
+                    cancelAuthBtn.click();
+                }, 2000);
             }
-        }, 1500);
+
+        }, 2000);
     }
 
     cancelAuthBtn.addEventListener('click', () => {
@@ -616,7 +518,9 @@
 
     async function initCamera() {
         try {
-            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
 
             const constraints = {
                 video: { 
@@ -630,11 +534,12 @@
             mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
+            console.warn("Camera error: " + err.message);
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 video.srcObject = mediaStream;
             } catch (e) {
-                alert("ไม่สามารถเปิดใช้งานกล้องได้");
+                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
             }
         }
     }
@@ -642,14 +547,11 @@
     async function switchCamera() {
         useFrontCamera = !useFrontCamera;
         await initCamera();
-        statusText.innerHTML = `<strong>🤖 เจ:</strong> เปลี่ยนเป็นใช้งาน${useFrontCamera ? "กล้องหน้า" : "กล้องหลัง"}เรียบร้อยครับ 📷`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เปลี่ยนเป็นใช้งาน${useFrontCamera ? "กล้องหน้า" : "กล้องหลัง"}เรียบร้อยครับ 📷`;
     }
 
     switchCamBtn.addEventListener('click', switchCamera);
 
-    // -------------------------------------------------------------
-    // GEMINI LIVE WEBSOCKET & CORE AI LOGIC
-    // -------------------------------------------------------------
     async function startMainAppSession() {
         isUserActiveSession = true;
 
@@ -666,21 +568,22 @@
 
             ws.onopen = () => {
                 let medProfile = getMedProfile();
-                let medProfileText = medProfile.length > 0 ? "ตารางยาถาวร:\n" + medProfile.map(m => `- ${m.time}: ${m.name} (${m.dose})`).join('\n') : "ไม่มีตารางยา";
+                let medProfileText = medProfile.length > 0 ? "ตารางยา:\n" + medProfile.map(m => `- ${m.time}: ${m.name} (${m.dose})`).join('\n') : "";
                 
-                statusText.innerHTML = `<strong>🤖 เจ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบ Project-J พร้อมดูแลแล้วครับ 🔒🎙️`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว Project-J พร้อมดูแลแล้วครับ 🔒🎙️`;
                 
-                const systemPrompt = `
-คุณคือ "เจ" ผู้ช่วยอัจฉริยะส่วนตัวเฝ้าระวังผู้สูงอายุ ดูแลเพื่อนเอก (เจ้าของเครื่อง)
-ผู้ใช้งานปัจจุบัน: ${authenticatedUser}
+                const dynamicToneInstructions = `
+คุณคือ "เจ" ผู้ช่วยอัจฉริยะส่วนตัว ดูแลเพื่อนเอก (เจ้าของเครื่อง) อย่างอบอุ่น
+ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}
 
 ${medProfileText}
 
-[RULES & TOKEN OPTIMIZATION]:
-1. ต้องตอบเป็นภาษาไทยเสมอ (Strict Language Lock: THAI ONLY)
-2. สรุปคำตอบสั้น กระชับ ตรงประเด็น ตัดคำสร้อยเยิ่นเย้อเพื่อประหยัด Token
-3. ห้ามทักทายขึ้นมาก่อนเองหากผู้ใช้ไม่ได้ถาม
-4. หากสั่งสลับกล้อง ให้ตอบสั้นๆ ว่า "สลับกล้องเรียบร้อยครับ"
+[กฎสำคัญในการปรับรูปประโยคและประหยัด Token]:
+1. ปรับระดับคำสร้อยตามบริบทคำถามอย่างเคร่งครัด:
+   - หากผู้ใช้ถามข้อมูลเชิงเทคนิค, สั่งงาน, ถามเรื่องยา หรือต้องการคำตอบด่วน (Functional Mode): ให้ตอบสั้น กระชับ ตรงประเด็น และ "ตัดคำสร้อยเยิ่นเย้อออกทั้งหมด"
+   - หากผู้ใช้ชวนคุยเล่น ทักทาย หรือผ่อนคลาย (Casual Mode): ให้ใช้โทนเสียงเป็นกันเอง อบอุ่น และใส่คำสร้อยได้ตามความเหมาะสม
+2. ห้ามทักทายหรือพูดเองขึ้นมาก่อนโดยไม่มีการถามจากผู้ใช้ (เพื่อประหยัด Token)
+3. หากผู้ใช้สั่งสลับกล้อง เช่น "เปลี่ยนเป็นกล้องหลัง" หรือ "สลับกล้อง" ให้ตอบรับสั้นๆ ว่า "สลับกล้องเรียบร้อยครับ"
 `;
 
                 ws.send(JSON.stringify({
@@ -691,7 +594,9 @@ ${medProfileText}
                             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
                         },
                         tools: [{ googleSearch: {} }],
-                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                        systemInstruction: {
+                            parts: [{ text: dynamicToneInstructions }]
+                        }
                     }
                 }));
 
@@ -708,7 +613,7 @@ ${medProfileText}
                             if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
                         }
                         if (responseText) {
-                            statusText.innerHTML = `<strong>🤖 เจ:</strong> ${responseText}`;
+                            statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${responseText}`;
                             
                             const lowerText = responseText.toLowerCase();
                             if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) && useFrontCamera) {
@@ -736,7 +641,7 @@ ${medProfileText}
         autoVisionTimer = setInterval(() => {
             if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking) return;
             captureAndSendFrame(false);
-        }, 10000); // 10 วินาทีตามสเปก
+        }, 10000);
     }
 
     function captureAndSendFrame(isManual = false) {
@@ -763,19 +668,20 @@ ${medProfileText}
         }));
     }
 
-    // -------------------------------------------------------------
-    // AUDIO STREAMING (PCM 16-BIT MIC INPUT & AUDIO PLAYBACK)
-    // -------------------------------------------------------------
     micBtn.addEventListener('click', async () => {
         if (!isListening) {
             try {
-                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-                if (audioContext.state === 'suspended') await audioContext.resume();
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                }
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
 
                 isListening = true;
                 micBtn.classList.add('listening');
                 micBtn.innerText = "🛑";
-                audioStats.innerText = `🎙️ ไมค์เปิดอยู่... พูดได้เลยครับ เจกำลังฟัง`;
+                audioStats.innerText = `🎙️ กำลังเปิดไมค์สด... (พูดได้เลย เจกำลังฟังอยู่)`;
 
                 microphoneStream = await navigator.mediaDevices.getUserMedia({ 
                     audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true } 
@@ -795,7 +701,12 @@ ${medProfileText}
 
                     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
                     ws.send(JSON.stringify({
-                        realtimeInput: { mediaChunks: [{ mimeType: "audio/pcm;rate=24000", data: base64Audio }] }
+                        realtimeInput: {
+                            mediaChunks: [{
+                                mimeType: "audio/pcm;rate=24000",
+                                data: base64Audio
+                            }]
+                        }
                     }));
                 };
 
@@ -803,7 +714,8 @@ ${medProfileText}
                 audioInputProcessor.connect(audioContext.destination);
 
             } catch (err) {
-                alert("ไม่สามารถเข้าถึงไมโครโฟนได้");
+                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์บนแท็บเล็ต");
+                console.error(err);
                 stopListeningState();
             }
         } else {
@@ -840,7 +752,7 @@ ${medProfileText}
         }
 
         ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
-        statusText.innerHTML = `<strong>🗣️ ส่งข้อความ:</strong> ${text}`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความ:</strong> ${text}`;
     }
 
     function playAudioChunk(base64Data) {
@@ -866,16 +778,19 @@ ${medProfileText}
         window.speakingTimeout = setTimeout(() => {
             isModelSpeaking = false;
             audioStats.innerText = `🎙️ เจพูดจบแล้ว กดปุ่มไมค์เพื่อพูดคุยต่อได้เลย`;
-        }, (nextAudioTime - audioContext.currentTime) * 1000 + 1200);
+        }, (nextAudioTime - audioContext.currentTime) * 1000 + 1500);
     }
 
-    // Event Listeners
     sendTextBtn.addEventListener('click', () => { 
         if(textInput.value.trim()) { 
-            sendTextDirectly(textInput.value.trim()); 
+            sendTextDirectLog(textInput.value.trim()); 
             textInput.value=""; 
         } 
     });
+
+    function sendTextDirectLog(text) {
+        sendTextDirectly(text);
+    }
 
     textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextBtn.click(); });
     snapBtn.addEventListener('click', () => captureAndSendFrame(true));
@@ -885,7 +800,6 @@ ${medProfileText}
         if (autoVisionTimer) clearInterval(autoVisionTimer);
         if (ws) ws.close();
         if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-        stopListeningState();
         step2.style.display = 'none';
         step1.style.display = 'flex';
     }
