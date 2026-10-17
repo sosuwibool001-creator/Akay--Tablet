@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Akay Tablet - Ak❤️+y Guardian Edition (Secure Proxy)</title>
+    <style>
+        :root {
+            --bg-color: #f5f5f7;
+            --card-bg: #ffffff;
+            --text-main: #0071e3;
+            --text-sub: #86868b;
+            --border-color: #d2d2d7;
+            --accent-green: #34c759;
+            --accent-blue: #0071e3;
+            --accent-orange: #ff9500;
+            --accent-red: #ff3b30;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            text-align: center;
+            padding: 10px;
+            margin: 0;
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 950px;
+            background: var(--card-bg);
+            padding: 25px 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(0, 0, 0, 0.04);
+            box-sizing: border-box;
+        }
+
+        .logo-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin-bottom: 6px;
+        }
+
+        .logo-heart-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 6px;
+            vertical-align: middle;
+        }
+
+        .logo-heart {
+            color: #ff3b30;
+            font-size: 30px;
+            animation: heartbeat 1.5s infinite ease-in-out;
+        }
+
+        .logo-plus {
+            position: absolute;
+            background: #ffffff;
+            color: #ff3b30;
+            font-size: 11px;
+            font-weight: 900;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+        }
+
+        .subtitle {
+            font-size: 12px;
+            color: var(--text-sub);
+            margin-bottom: 20px;
+        }
+
+        #step1 {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 450px;
+            margin: 0 auto;
+        }
+
+        .input-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        select {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 15px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            background: #fafafa;
+            color: #1d1d1f;
+            outline: none;
+            box-sizing: border-box;
+        }
+
+        .circle-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: #ffffff;
+            color: var(--accent-blue);
+            font-size: 14px;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin: 0 auto;
+        }
+
+        #step2 {
+            display: none;
+            text-align: left;
+            width: 100%;
+        }
+
+        video {
+            width: 100%;
+            max-height: 480px; 
+            border-radius: 16px;
+            background: #000;
+            object-fit: cover;
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
+        }
+
+        .dashboard-controls {
+            display: flex;
+            gap: 8px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        button.standard-btn {
+            padding: 12px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            border: none;
+            color: #fff;
+            background-color: var(--accent-blue);
+            box-shadow: 0 3px 10px rgba(0, 113, 227, 0.2);
+        }
+        button.stop-btn { background-color: var(--accent-red); }
+        button.clear-btn { background-color: var(--accent-orange); }
+
+        .gemini-input-bar {
+            display: flex;
+            align-items: center;
+            background: #fafafa;
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            padding: 6px 8px 6px 16px;
+            gap: 8px;
+            margin-top: 10px;
+            box-sizing: border-box;
+        }
+
+        .gemini-input-bar input[type="text"] {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            outline: none;
+            color: #1d1d1f;
+            padding: 6px 0;
+        }
+
+        .icon-action-btn {
+            background: transparent;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: background 0.2s;
+        }
+
+        #micBtn.listening {
+            background: rgba(255, 59, 48, 0.15);
+            animation: mic-pulse 1.2s infinite;
+        }
+        @keyframes mic-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(255, 59, 48, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+        }
+
+        .med-section {
+            background: #fbfbfd;
+            padding: 12px 15px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 12px;
+        }
+        .med-section h3 { 
+            margin-top: 0; 
+            color: #1d1d1f; 
+            font-size: 13px; 
+            font-weight: 600;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        .med-item {
+            background: #ffffff;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            border-left: 4px solid var(--accent-green);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        #output {
+            padding: 12px 15px;
+            background: #fbfbfd;
+            border-radius: 12px;
+            min-height: 60px;
+            font-size: 13px;
+            word-wrap: break-word;
+            line-height: 1.4;
+            border: 1px solid var(--border-color);
+            margin-top: 10px;
+            color: #1d1d1f;
+        }
+
+        .status-dot {
+            height: 9px;
+            width: 9px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.2);
+            animation: pulse 1.8s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .debug-stats {
+            margin-top: 6px;
+            font-size: 11px;
+            color: var(--text-sub);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="step1">
+        <div class="logo-box">
+            Ak<span class="logo-heart-container"><span class="logo-heart">❤️</span><span class="logo-plus">+</span></span>y Tablet
+        </div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวัง (Secure Proxy Edition)</div>
+        
+        <div class="input-group">
+            <label style="font-size: 13px; color: var(--text-sub);">เลือกเสียงผู้ช่วยอัจฉริยะ:</label>
+            <select id="voiceSelect">
+                <option value="Puck">♂️ Puck (เสียงนุ่มนวล)</option>
+                <option value="Charon">♂️ Charon (เสียงเข้ม)</option>
+                <option value="Fenrir">♂️ Fenrir (เสียงทุ้ม)</option>
+                <option value="Kore">♀️ Kore (เสียงสดใส)</option>
+                <option value="Aoede">♀️ Aoede (เสียงนุ่มนวล)</option>
+            </select>
+        </div>
+
+        <button id="startBtn" class="circle-btn">
+            <span style="font-size: 22px;">🔒🚀</span>
+            <span>เชื่อมต่อเจ</span>
+        </button>
+    </div>
+
+    <div id="step2">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
+                Ak<span style="position:relative; display:inline-flex; align-items:center; justify-content:center; margin:0 2px;"><span style="color:#ff3b30; font-size:15px;">❤️</span><span style="position:absolute; background:#fff; color:#ff3b30; font-size:8px; font-weight:900; width:10px; height:10px; border-radius:50%; display:flex; align-items:center; justify-content:center;">+</span></span>y Tablet Guardian
+            </div>
+            <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออก</button>
+        </div>
+
+        <video id="webcam" autoplay playsinline muted></video>
+
+        <div class="dashboard-controls">
+            <button id="snapBtn" class="standard-btn">📸 ตรวจยา (Manual)</button>
+            <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
+        </div>
+
+        <div class="med-section">
+            <h3>💊 ตารางยาถาวร</h3>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
+                <input type="time" id="medTime" value="08:00" style="flex: 1; padding: 10px; font-size: 13px;">
+                <input type="text" id="medName" placeholder="ชื่อยา" style="flex: 3; padding: 10px; font-size: 13px;">
+                <input type="text" id="medDose" placeholder="จำนวน" style="flex: 2; padding: 10px; font-size: 13px;">
+                <button id="addMedBtn" class="standard-btn" style="padding: 10px 14px;">➕ เพิ่ม</button>
+            </div>
+            <div id="medList"></div>
+        </div>
+
+        <div class="gemini-input-bar">
+            <input type="text" id="textInput" placeholder="พิมพ์ข้อความ หรือกดไมค์เพื่อพูดคุยกับเจ...">
+            <button id="micBtn" class="icon-action-btn" title="คลิกเพื่อพูดคุย">🎤</button>
+            <button id="sendTextBtn" class="icon-action-btn" title="ส่งข้อความ" style="color: var(--accent-blue);">➤</button>
+        </div>
+
+        <div id="output">
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมใช้งาน กดปุ่มไมค์เพื่อเริ่มพูด...</div>
+            <div id="audioStats" class="debug-stats">🔒 Secure Proxy Connected: เชื่อมต่อผ่านหลังบ้านปลอดภัย 100%</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const video = document.getElementById('webcam');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const snapBtn = document.getElementById('snapBtn');
+    const clearMemBtn = document.getElementById('clearMemBtn');
+    const sendTextBtn = document.getElementById('sendTextBtn');
+    const textInput = document.getElementById('textInput');
+    const micBtn = document.getElementById('micBtn');
+    const voiceSelect = document.getElementById('voiceSelect');
+    const statusText = document.getElementById('statusText');
+    const audioStats = document.getElementById('audioStats');
+
+    const medTimeInput = document.getElementById('medTime');
+    const medNameInput = document.getElementById('medName');
+    const medDoseInput = document.getElementById('medDose');
+    const addMedBtn = document.getElementById('addMedBtn');
+    const medListDiv = document.getElementById('medList');
+
+    let ws = null;
+    let audioContext = null;
+    let mediaStream = null;
+    let nextAudioTime = 0;
+    let autoVisionTimer = null;
+    let recognition = null;
+    let isUserActiveSession = false;
+    let isModelSpeaking = false;
+    let isListening = false;
+
+    function getMedProfile() {
+        return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
+    }
+
+    function saveMedProfile(list) {
+        localStorage.setItem('akay_medication_profile', JSON.stringify(list));
+        renderMedList();
+    }
+
+    function renderMedList() {
+        const list = getMedProfile();
+        medListDiv.innerHTML = "";
+        if (list.length === 0) {
+            medListDiv.innerHTML = `<div style="font-size:11px; color:var(--text-sub);">ยังไม่มีรายการยา</div>`;
+            return;
+        }
+        list.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.className = 'med-item';
+            div.innerHTML = `
+                <div><strong>⏰ ${item.time}</strong> - ${item.name} (${item.dose})</div>
+                <button onclick="deleteMed(${index})" style="background:var(--accent-red); color:#fff; padding:4px 8px; font-size:10px; border:none; border-radius:4px; cursor:pointer;">❌ ลบ</button>
+            `;
+            medListDiv.appendChild(div);
+        });
+    }
+
+    addMedBtn.addEventListener('click', () => {
+        const time = medTimeInput.value;
+        const name = medNameInput.value.trim();
+        const dose = medDoseInput.value.trim();
+        if (!name || !dose) return;
+        const list = getMedProfile();
+        list.push({ time, name, dose });
+        list.sort((a, b) => a.time.localeCompare(b.time));
+        saveMedProfile(list);
+        medNameInput.value = "";
+        medDoseInput.value = "";
+    });
+
+    window.deleteMed = function(index) {
+        const list = getMedProfile();
+        list.splice(index, 1);
+        saveMedProfile(list);
+    };
+
+    renderMedList();
+
+    clearMemBtn.addEventListener('click', () => {
+        localStorage.removeItem('akay_chat_history');
+        alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
+    });
+
+    async function initCamera() {
+        try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 1280, height: 720 }, 
+                audio: { echoCancellation: true, noiseSuppression: true } 
+            });
+            video.srcObject = mediaStream;
+        } catch (err) {
+            console.warn("Camera error: " + err.message);
+        }
+    }
+
+    startBtn.addEventListener('click', async () => {
+        isUserActiveSession = true;
+        step1.style.display = 'none';
+        step2.style.display = 'block';
+
+        await initCamera();
+
+        try {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            if (audioContext.state === 'suspended') await audioContext.resume();
+            nextAudioTime = audioContext.currentTime;
+
+            const selectedVoice = voiceSelect.value;
+            // ✨ ชี้ปลายทาง WebSocket ไปที่ Server หลังบ้านของเรา (ไม่ผ่าน API Key หน้าบ้าน)
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const url = `${wsProtocol}//${window.location.host}`;
+
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                let medProfile = getMedProfile();
+                let medProfileText = medProfile.length > 0 ? "ตารางยา:\n" + medProfile.map(m => `- ${m.time}: ${m.name} (${m.dose})`).join('\n') : "";
+                
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจเชื่อมต่อผ่าน Secure Proxy เรียบร้อย (กดปุ่มไมค์เพื่อพูด) 🔒🎙️`;
+                
+                ws.send(JSON.stringify({
+                    setup: {
+                        model: "models/gemini-3.8-live",
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
+                        },
+                        tools: [{ googleSearch: {} }],
+                        systemInstruction: {
+                            parts: [{ text: `คุณคือเจ ผู้ช่วยอัจฉริยะบนแท็บเล็ต ทำหน้าที่ดูแลผู้สูงอายุอย่างอบอุ่น\n\n${medProfileText}` }]
+                        }
+                    }
+                }));
+
+                startAutoVisionStream();
+            };
+
+            ws.onmessage = async (event) => {
+                let responseText = "";
+                try {
+                    let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
+                    if (data.serverContent && data.serverContent.modelTurn) {
+                        for (const part of data.serverContent.modelTurn.parts) {
+                            if (part.text) responseText += part.text;
+                            if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
+                        }
+                        if (responseText) statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${responseText}`;
+                    }
+                } catch (e) { console.error(e); }
+            };
+
+            ws.onclose = () => {
+                if (isUserActiveSession) setTimeout(() => { if (isUserActiveSession) startBtn.click(); }, 3000);
+            };
+        } catch (e) {
+            stopSession();
+        }
+    });
+
+    function startAutoVisionStream() {
+        if (autoVisionTimer) clearInterval(autoVisionTimer);
+        autoVisionTimer = setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking) return;
+            captureAndSendFrame(false);
+        }, 10000);
+    }
+
+    function captureAndSendFrame(isManual = false) {
+        if (!video || video.readyState !== 4) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, 640, 480);
+        const base64Image = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+        canvas.width = 0; canvas.height = 0;
+
+        ws.send(JSON.stringify({
+            clientContent: {
+                turns: [{
+                    role: "user",
+                    parts: [
+                        { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+                        { text: isManual ? "ช่วยตรวจแผงยาหน่อยครับ" : "[Auto-Vision Snapshot]" }
+                    ]
+                }],
+                turnComplete: true
+            }
+        }));
+    }
+
+    micBtn.addEventListener('click', () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("เบราว์เซอร์นี้ไม่รองรับระบบสั่งการด้วยเสียงครับ");
+            return;
+        }
+
+        if (!isListening) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'th-TH';
+            recognition.interimResults = true;
+            recognition.continuous = false;
+
+            recognition.onstart = () => {
+                isListening = true;
+                micBtn.classList.add('listening');
+                micBtn.innerText = "🛑";
+                audioStats.innerText = `🎙️ กำลังฟังเสียงพูด...`;
+            };
+
+            recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    transcript += event.results[i][0].transcript;
+                }
+                textInput.value = transcript;
+            };
+
+            recognition.onerror = () => { stopListeningState(); };
+
+            recognition.onend = () => {
+                stopListeningState();
+                if (textInput.value.trim()) {
+                    sendTextDirectly(textInput.value.trim());
+                    textInput.value = "";
+                }
+            };
+
+            try { recognition.start(); } catch (e) { stopListeningState(); }
+        } else {
+            if (recognition) recognition.stop();
+            stopListeningState();
+        }
+    });
+
+    function stopListeningState() {
+        isListening = false;
+        micBtn.classList.remove('listening');
+        micBtn.innerText = "🎤";
+        audioStats.innerText = `🔒 Secure Proxy Connected: พร้อมรับคำสั่งถัดไป`;
+    }
+
+    function sendTextDirectly(text) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความ:</strong> ${text}`;
+    }
+
+    function playAudioChunk(base64Data) {
+        if (!audioContext) return;
+        isModelSpeaking = true;
+        if (window.speakingTimeout) clearTimeout(window.speakingTimeout);
+        
+        if (isListening && recognition) {
+            recognition.stop();
+            stopListeningState();
+        }
+
+        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        const float32Data = new Float32Array(bytes.byteLength / 2);
+        const dataView = new DataView(bytes.buffer);
+        for (let i = 0; i < float32Data.length; i++) float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
+
+        const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
+        audioBuffer.getChannelData(0).set(float32Data);
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+
+        if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
+        source.start(nextAudioTime);
+        nextAudioTime += audioBuffer.duration;
+
+        window.speakingTimeout = setTimeout(() => {
+            isModelSpeaking = false;
+            audioStats.innerText = `🎙️ เจพูดจบแล้ว กดปุ่มไมค์เพื่อพูดต่อได้เลย`;
+        }, (nextAudioTime - audioContext.currentTime) * 1000 + 1500);
+    }
+
+    sendTextBtn.addEventListener('click', () => { 
+        if(textInput.value.trim()) { 
+            sendTextDirectly(textInput.value.trim()); 
+            textInput.value=""; 
+        } 
+    });
+    textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextBtn.click(); });
+    snapBtn.addEventListener('click', () => captureAndSendFrame(true));
+
+    function stopSession() {
+        isUserActiveSession = false;
+        if (autoVisionTimer) clearInterval(autoVisionTimer);
+        if (recognition) recognition.stop();
+        if (ws) ws.close();
+        if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+        step2.style.display = 'none';
+        step1.style.display = 'flex';
+    }
+    stopBtn.addEventListener('click', stopSession);
+</script>
+
+</body>
+</html>
