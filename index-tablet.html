@@ -90,12 +90,12 @@
         }
 
         .circle-btn {
-            width: 110px;
-            height: 110px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             background: #ffffff;
             color: var(--accent-blue);
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
             border: 1px solid var(--border-color);
             cursor: pointer;
@@ -108,7 +108,7 @@
             margin: 0 auto;
         }
 
-        /* Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่อง */
+        /* 🔒 Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่องอัตโนมัติ */
         #stepAuth {
             display: none;
             flex-direction: column;
@@ -134,7 +134,7 @@
             width: 100%;
         }
 
-        video#webcam {
+        video {
             width: 100%;
             max-height: 480px; 
             border-radius: 16px;
@@ -208,25 +208,10 @@
             background: rgba(255, 59, 48, 0.15);
             animation: mic-pulse 1.2s infinite;
         }
-        
-        #textMicBtn.recording {
-            background: rgba(52, 199, 89, 0.2);
-            animation: mic-pulse 1.2s infinite;
-        }
-
         @keyframes mic-pulse {
             0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
             70% { box-shadow: 0 0 0 8px rgba(255, 59, 48, 0); }
             100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
-        }
-
-        #audioVisualizer {
-            width: 100%;
-            height: 45px;
-            background: #1e1e24;
-            border-radius: 12px;
-            margin-top: 8px;
-            display: block;
         }
 
         .med-section {
@@ -235,7 +220,6 @@
             border-radius: 12px;
             border: 1px solid var(--border-color);
             margin-bottom: 12px;
-            margin-top: 10px;
         }
         .med-section h3 { 
             margin-top: 0; 
@@ -303,7 +287,7 @@
         <div class="logo-box">
             Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta</span>
         </div>
-        <div class="subtitle">ระบบผู้ช่วยส่วนตัว (Personal Secure Device)[cite: 3]</div>
+        <div class="subtitle">ระบบผู้ช่วยส่วนตัว (Personal Secure Device)</div>
         
         <div class="input-group">
             <label style="font-size: 13px; color: var(--text-sub);">เลือกเสียงผู้ช่วยอัจฉริยะ:</label>
@@ -327,7 +311,7 @@
         <div class="logo-box" style="font-size: 22px;">
             🛡️ ตรวจสอบสิทธิ์เจ้าของเครื่อง
         </div>
-        <div class="subtitle" id="authStatusText">กำลังตรวจสอบใบหน้าเฉพาะเจ้าของเครื่อง (Personal Device)...[cite: 3]</div>
+        <div class="subtitle" id="authStatusText">กำลังตรวจสอบใบหน้าเฉพาะเจ้าของเครื่อง (Personal Device)...</div>
         
         <video id="authVideo" autoplay playsinline muted></video>
 
@@ -340,7 +324,7 @@
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 16px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J (Beta) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก</span>)[cite: 3]
+                Project-J (Beta) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออก</button>
         </div>
@@ -365,17 +349,14 @@
         </div>
 
         <div class="gemini-input-bar">
-            <input type="text" id="textInput" placeholder="พิมพ์ข้อความ หรือกดไมค์เพื่อแปลงเสียงพูดใส่กล่อง...">
-            <button id="textMicBtn" class="icon-action-btn" title="พูดเพื่อแปลงเป็นข้อความ" style="color: var(--accent-green);">🗣️</button>
-            <button id="micBtn" class="icon-action-btn" title="คลิกเพื่อพูดคุยสดกับเจ">🎤</button>
+            <input type="text" id="textInput" placeholder="พิมพ์ข้อความ หรือกดไมค์เพื่อพูดคุยกับเจ...">
+            <button id="micBtn" class="icon-action-btn" title="คลิกเพื่อพูดคุย">🎤</button>
             <button id="sendTextBtn" class="icon-action-btn" title="ส่งข้อความ" style="color: var(--accent-blue);">➤</button>
         </div>
 
-        <canvas id="audioVisualizer"></canvas>
-
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมใช้งาน กดปุ่มไมค์เพื่อเริ่มพูด...</div>
-            <div id="audioStats" class="debug-stats">🎙️ Gemini Audio Live Mode & Real-time Waveform Active</div>
+            <div id="audioStats" class="debug-stats">🎙️ Gemini Audio Live Mode: โหมดส่วนตัวเจ้าของเครื่อง (Personal Device)</div>
         </div>
     </div>
 </div>
@@ -399,7 +380,6 @@
     const sendTextBtn = document.getElementById('sendTextBtn');
     const textInput = document.getElementById('textInput');
     const micBtn = document.getElementById('micBtn');
-    const textMicBtn = document.getElementById('textMicBtn');
     const voiceSelect = document.getElementById('voiceSelect');
     const statusText = document.getElementById('statusText');
     const audioStats = document.getElementById('audioStats');
@@ -409,17 +389,11 @@
     const medDoseInput = document.getElementById('medDose');
     const addMedBtn = document.getElementById('addMedBtn');
     const medListDiv = document.getElementById('medList');
-    
-    const canvas = document.getElementById('audioVisualizer');
-    const canvasCtx = canvas.getContext('2d');
 
     let ws = null;
     let audioContext = null;
     let mediaStream = null;
     let authStream = null;
-    let microphoneStream = null;
-    let audioInputProcessor = null;
-    let analyserNode = null;
     let nextAudioTime = 0;
     let autoVisionTimer = null;
     let isUserActiveSession = false;
@@ -428,7 +402,7 @@
     
     let useFrontCamera = true;
     
-    const tabletOwner = { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Owner / Admin" };[cite: 3]
+    const tabletOwner = { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Owner / Admin" };
     let authenticatedUser = tabletOwner.name;
 
     function getMedProfile() {
@@ -484,7 +458,6 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
-    // แก้ไข Event Listener ของปุ่มสแกนหน้าให้ผูกติดอย่างถูกต้องปลอดภัย
     startAuthBtn.addEventListener('click', async () => {
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
@@ -496,6 +469,7 @@
             authVideo.srcObject = authStream;
             runOwnerVerification();
         } catch (err) {
+            console.warn("ไม่สามารถเปิดกล้องหน้าตามสเปกได้ กำลังลองเปิดกล้องทั่วไป...", err);
             try {
                 authStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 authVideo.srcObject = authStream;
@@ -516,7 +490,7 @@
             if (isOwnerVerified) {
                 authenticatedUser = tabletOwner.name;
                 userNameDisplay.innerText = authenticatedUser;
-                authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})![cite: 3]`;
+                authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
 
                 setTimeout(async () => {
                     if (authStream) authStream.getTracks().forEach(t => t.stop());
@@ -527,12 +501,13 @@
                     startMainAppSession();
                 }, 800);
             } else {
-                authStatusText.innerHTML = `❌ ตรวจไม่พบสิทธิ์เจ้าของเครื่อง`;
+                authStatusText.innerHTML = `❌ ตรวจไม่พบสิทธิ์เจ้าของเครื่อง: อุปกรณ์นี้จำกัดเฉพาะ ${tabletOwner.name} เท่านั้น`;
                 setTimeout(() => {
                     cancelAuthBtn.click();
                 }, 2000);
             }
-        }, 1500);
+
+        }, 2000);
     }
 
     cancelAuthBtn.addEventListener('click', () => {
@@ -559,6 +534,7 @@
             mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
+            console.warn("Camera error: " + err.message);
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 video.srcObject = mediaStream;
@@ -575,96 +551,6 @@
     }
 
     switchCamBtn.addEventListener('click', switchCamera);
-
-    // Audio Waveform Visualizer
-    function setupAudioVisualizer(inputStreamOrNode) {
-        if (!audioContext) return;
-        try {
-            analyserNode = audioContext.createAnalyser();
-            analyserNode.fftSize = 64;
-
-            if (inputStreamOrNode instanceof MediaStream) {
-                const source = audioContext.createMediaStreamSource(inputStreamOrNode);
-                source.connect(analyserNode);
-            } else if (inputStreamOrNode instanceof AudioNode) {
-                inputStreamOrNode.connect(analyserNode);
-            }
-
-            drawWaveform();
-        } catch (e) {
-            console.error("Waveform setup error:", e);
-        }
-    }
-
-    function drawWaveform() {
-        if (!analyserNode) return;
-        
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-
-        const bufferLength = analyserNode.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
-        function renderFrame() {
-            if (!isUserActiveSession) return;
-            requestAnimationFrame(renderFrame);
-
-            analyserNode.getByteFrequencyData(dataArray);
-            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const barWidth = (canvas.width / bufferLength) * 1.8;
-            let x = 0;
-
-            for (let i = 0; i < bufferLength; i++) {
-                const barHeight = (dataArray[i] / 255) * canvas.height;
-
-                const gradient = canvasCtx.createLinearGradient(0, canvas.height, 0, 0);
-                gradient.addColorStop(0, '#34c759');
-                gradient.addColorStop(1, '#0071e3');
-
-                canvasCtx.fillStyle = gradient;
-                canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-
-                x += barWidth + 1;
-            }
-        }
-        renderFrame();
-    }
-
-    // Speech-to-Text สำหรับปุ่มไมค์ใน TextBox
-    textMicBtn.addEventListener('click', () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            alert("เบราว์เซอร์นี้ไม่รองรับระบบแปลงเสียงพูดเป็นข้อความ (Speech-to-Text)");
-            return;
-        }
-
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'th-TH';
-        recognition.interimResults = false;
-        recognition.maxAlternatives = 1;
-
-        textMicBtn.classList.add('recording');
-        audioStats.innerText = `🗣️ กำลังฟังเสียงพูดเพื่อแปลงเป็นข้อความ...`;
-
-        recognition.onresult = (event) => {
-            const transcript = event.results[0][0].transcript;
-            textInput.value = transcript;
-            audioStats.innerText = `✅ แปลงเสียงพูดสำเร็จ กดส่งข้อความ (➤) หาเจได้เลยครับ`;
-        };
-
-        recognition.onerror = (event) => {
-            console.error("Speech Recognition Error:", event.error);
-            audioStats.innerText = `❌ เกิดข้อผิดพลาดในการรับเสียงพูด`;
-            textMicBtn.classList.remove('recording');
-        };
-
-        recognition.onend = () => {
-            textMicBtn.classList.remove('recording');
-        };
-
-        recognition.start();
-    });
 
     async function startMainAppSession() {
         isUserActiveSession = true;
@@ -684,11 +570,11 @@
                 let medProfile = getMedProfile();
                 let medProfileText = medProfile.length > 0 ? "ตารางยา:\n" + medProfile.map(m => `- ${m.time}: ${m.name} (${m.dose})`).join('\n') : "";
                 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว Project-J พร้อมดูแลแล้วครับ[cite: 3] 🔒🎙️`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว Project-J พร้อมดูแลแล้วครับ 🔒🎙️`;
                 
                 const dynamicToneInstructions = `
-คุณคือ "เจ" ผู้ช่วยอัจฉริยะส่วนตัว ดูแลเพื่อนเอก (เจ้าของเครื่อง) อย่างอบอุ่น[cite: 3]
-ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}[cite: 3]
+คุณคือ "เจ" ผู้ช่วยอัจฉริยะส่วนตัว ดูแลเพื่อนเอก (เจ้าของเครื่อง) อย่างอบอุ่น
+ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}
 
 ${medProfileText}
 
@@ -760,13 +646,13 @@ ${medProfileText}
 
     function captureAndSendFrame(isManual = false) {
         if (!video || video.readyState !== 4) return;
-        const canvasSnap = document.createElement('canvas');
-        canvasSnap.width = 640;
-        canvasSnap.height = 480;
-        const ctx = canvasSnap.getContext('2d');
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, 640, 480);
-        const base64Image = canvasSnap.toDataURL('image/jpeg', 0.5).split(',')[1];
-        canvasSnap.width = 0; canvasSnap.height = 0;
+        const base64Image = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+        canvas.width = 0; canvas.height = 0;
 
         ws.send(JSON.stringify({
             clientContent: {
@@ -800,8 +686,6 @@ ${medProfileText}
                 microphoneStream = await navigator.mediaDevices.getUserMedia({ 
                     audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true } 
                 });
-
-                setupAudioVisualizer(microphoneStream);
 
                 const source = audioContext.createMediaStreamSource(microphoneStream);
                 audioInputProcessor = audioContext.createScriptProcessor(4096, 1, 1);
@@ -885,9 +769,6 @@ ${medProfileText}
         audioBuffer.getChannelData(0).set(float32Data);
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
-
-        setupAudioVisualizer(source);
-
         source.connect(audioContext.destination);
 
         if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
