@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Akay Tablet - Ak❤️+y Guardian Edition (Personal Secure Device)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Personal Secure Device)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -47,45 +47,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
+            font-size: 34px;
             font-weight: 700;
             color: var(--accent-blue);
             margin-bottom: 6px;
-        }
-
-        .logo-heart-container {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 6px;
-            vertical-align: middle;
-        }
-
-        .logo-heart {
-            color: #ff3b30;
-            font-size: 30px;
-            animation: heartbeat 1.5s infinite ease-in-out;
-        }
-
-        .logo-plus {
-            position: absolute;
-            background: #ffffff;
-            color: #ff3b30;
-            font-size: 11px;
-            font-weight: 900;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-        }
-
-        @keyframes heartbeat {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.12); }
         }
 
         .subtitle {
@@ -320,7 +285,7 @@
     <!-- Step 1: หน้าเริ่มต้นเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">
-            Ak<span class="logo-heart-container"><span class="logo-heart">❤️</span><span class="logo-plus">+</span></span>y Tablet
+            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta</span>
         </div>
         <div class="subtitle">ระบบผู้ช่วยส่วนตัว (Personal Secure Device)</div>
         
@@ -343,7 +308,7 @@
 
     <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่อง -->
     <div id="stepAuth">
-        <div class="logo-box" style="font-size: 24px;">
+        <div class="logo-box" style="font-size: 22px;">
             🛡️ ตรวจสอบสิทธิ์เจ้าของเครื่อง
         </div>
         <div class="subtitle" id="authStatusText">กำลังตรวจสอบใบหน้าเฉพาะเจ้าของเครื่อง (Personal Device)...</div>
@@ -358,8 +323,8 @@
     <!-- Step 2: แดชบอร์ดหลัก (เฉพาะเจ้าของเครื่อง) -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Ak<span style="position:relative; display:inline-flex; align-items:center; justify-content:center; margin:0 2px;"><span style="color:#ff3b30; font-size:15px;">❤️</span><span style="position:absolute; background:#fff; color:#ff3b30; font-size:8px; font-weight:900; width:10px; height:10px; border-radius:50%; display:flex; align-items:center; justify-content:center;">+</span></span>y Tablet Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก</span>)
+            <div style="font-size: 16px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
+                Project-J (Beta) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออก</button>
         </div>
@@ -437,7 +402,6 @@
     
     let useFrontCamera = true;
     
-    // 🔒 กำหนดให้แท็บเล็ตล็อกสิทธิ์เฉพาะเจ้าของเครื่องเท่านั้น (เพื่อนเอก)
     const tabletOwner = { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Owner / Admin" };
     let authenticatedUser = tabletOwner.name;
 
@@ -494,7 +458,6 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
-    // 🔒 เปิดกล้องสแกนหน้าตรวจสอบเจ้าของเครื่องอัตโนมัติ (Personal Device Policy)
     startAuthBtn.addEventListener('click', async () => {
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
@@ -504,10 +467,7 @@
                 audio: false 
             });
             authVideo.srcObject = authStream;
-
-            // 🚀 เริ่มตรวจสอบสิทธิ์เจ้าของเครื่องอัตโนมัติใน 2 วินาที
             runOwnerVerification();
-
         } catch (err) {
             console.warn("ไม่สามารถเปิดกล้องหน้าตามสเปกได้ กำลังลองเปิดกล้องทั่วไป...", err);
             try {
@@ -525,8 +485,7 @@
         authStatusText.innerHTML = "🔍 กำลังตรวจสอบใบหน้าเทียบกับสิทธิ์เจ้าของเครื่อง...";
         
         setTimeout(async () => {
-            // 🛡️ ตรวจสอบยืนยันว่าเป็นเจ้าของเครื่อง (Tablet Owner)
-            const isOwnerVerified = true; // จำลองผลการตรวจจับใบหน้าว่าเป็นเจ้าของเครื่องตัวจริง
+            const isOwnerVerified = true; 
 
             if (isOwnerVerified) {
                 authenticatedUser = tabletOwner.name;
@@ -611,7 +570,7 @@
                 let medProfile = getMedProfile();
                 let medProfileText = medProfile.length > 0 ? "ตารางยา:\n" + medProfile.map(m => `- ${m.time}: ${m.name} (${m.dose})`).join('\n') : "";
                 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว เจพร้อมดูแลแล้วครับ 🔒🎙️`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว Project-J พร้อมดูแลแล้วครับ 🔒🎙️`;
                 
                 const dynamicToneInstructions = `
 คุณคือ "เจ" ผู้ช่วยอัจฉริยะส่วนตัว ดูแลเพื่อนเอก (เจ้าของเครื่อง) อย่างอบอุ่น
@@ -824,10 +783,15 @@ ${medProfileText}
 
     sendTextBtn.addEventListener('click', () => { 
         if(textInput.value.trim()) { 
-            sendTextDirectly(textInput.value.trim()); 
+            sendTextDirectLog(textInput.value.trim()); 
             textInput.value=""; 
         } 
     });
+
+    function sendTextDirectLog(text) {
+        sendTextDirectly(text);
+    }
+
     textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextBtn.click(); });
     snapBtn.addEventListener('click', () => captureAndSendFrame(true));
 
