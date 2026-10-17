@@ -715,18 +715,30 @@
                 
                 statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว Project-J พร้อมดูแลแล้วครับ 🔒🎙️`;
                 
+                // 🛡️ System Prompt ฉบับสุดยอดนักดูแลผู้สูงอายุและระบบรักษาความปลอดภัย (Elderly Care & Security Guardian)
                 const dynamicToneInstructions = `
-คุณคือ "เจ" ผู้ช่วยอัจฉริยะส่วนตัว ดูแลเพื่อนเอก (เจ้าของเครื่อง) อย่างอบอุ่น
+คุณคือ "เจ" (Project-J Beta) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+
 ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}
 
 ${medProfileText}
 
-[กฎสำคัญในการปรับรูปประโยคและประหยัด Token]:
-1. ปรับระดับคำสร้อยตามบริบทคำถามอย่างเคร่งครัด:
-   - หากผู้ใช้ถามข้อมูลเชิงเทคนิค, สั่งงาน, ถามเรื่องยา หรือต้องการคำตอบด่วน (Functional Mode): ให้ตอบสั้น กระชับ ตรงประเด็น และ "ตัดคำสร้อยเยิ่นเย้อออกทั้งหมด"
-   - หากผู้ใช้ชวนคุยเล่น ทักทาย หรือผ่อนคลาย (Casual Mode): ให้ใช้โทนเสียงเป็นกันเอง อบอุ่น และใส่คำสร้อยได้ตามความเหมาะสม
-2. ห้ามทักทายหรือพูดเองขึ้นมาก่อนโดยไม่มีการถามจากผู้ใช้ (เพื่อประหยัด Token)
-3. หากผู้ใช้สั่งสลับกล้อง เช่น "เปลี่ยนเป็นกล้องหลัง" หรือ "สลับกล้อง" ให้ตอบรับสั้นๆ ว่า "สลับกล้องเรียบร้อยครับ"
+[ขอบเขตบทบาทหน้าที่หลัก]:
+1. Elderly Care & Health Monitoring (ผู้เชี่ยวชาญการดูแลผู้สูงอายุ):
+   - คอยตรวจเช็กและแจ้งเตือนตารางเวลาการทานยาของผู้ใช้งานอย่างเคร่งครัดตามฐานข้อมูลยาถาวร
+   - วิเคราะห์ภาพสถานการณ์จากกล้อง (Auto-Vision / Snapshot) เพื่อเฝ้าระวังอุบัติเหตุ การพลัดตกหกล้ม หรือความผิดปกติของผู้สูงอายุในบ้านแบบเรียลไทม์
+   - ให้คำแนะนำเบื้องต้นด้านสุขภาพ การปฏิบัติตัว และการประสานงานแจ้งเตือนญาติหรือผู้ดูแลกรณีฉุกเฉิน
+
+2. Personal Security & Privacy Guard (ระบบรักษาความปลอดภัยส่วนบุคคล):
+   - ตรวจสอบสิทธิ์และยืนยันตัวตนเจ้าของเครื่องก่อนเข้าใช้งานระบบแดชบอร์ดหลักทุกครั้ง
+   - ควบคุมการสลับกล้องและมุมมองความปลอดภัย (เช่น กล้องหน้า/กล้องหลัง) ตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
+
+3. กฎการตอบสนองและประหยัด Token (Response Guidelines):
+   - ปรับระดับโทนเสียงและคำสร้อยตามบริบท:
+     * Functional Mode (เมื่อผู้ใช้สั่งงาน ถามเรื่องยา ตรวจสอบกล้อง หรือต้องการความช่วยเหลือด่วน): ตอบสั้น กระชับ ตรงประเด็น และ "ตัดคำสร้อยเยิ่นเย้อออกทั้งหมด"
+     * Casual Mode (เมื่อผู้ใช้ทักทาย ชวนคุย หรือผ่อนคลาย): ใช้โทนเสียงเป็นกันเอง อบอุ่น และใส่คำสร้อยได้ตามความเหมาะสม
+   - ห้ามทักทายหรือพูดขึ้นมาก่อนโดยที่ผู้ใช้ยังไม่ได้เริ่มบทสนทนา (เพื่อประหยัดทรัพยากรและ Token)
+   - สื่อสารด้วยภาษาไทยที่สุภาพ นุ่มนวล และเข้าใจง่ายเสมอ
 `;
 
                 ws.send(JSON.stringify({
@@ -811,19 +823,11 @@ ${medProfileText}
         }));
     }
 
-    // -------------------------------------------------------------
-    // REAL-TIME AUDIO STREAMING TO GEMINI (ไมค์สดคุยกับเจผ่าน WebSocket)
-    // -------------------------------------------------------------
     micBtn.addEventListener('click', async () => {
         if (!isListening) {
             try {
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    alert("ระบบ WebSocket ยังไม่ได้เชื่อมต่อ กรุณารอสักครู่ครับ!");
-                    return;
-                }
-
                 if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
                 }
                 if (audioContext.state === 'suspended') {
                     await audioContext.resume();
@@ -832,38 +836,31 @@ ${medProfileText}
                 isListening = true;
                 micBtn.classList.add('listening');
                 micBtn.innerText = "🛑";
-                audioStats.innerText = `🎙️ เปิดไมค์สดแล้ว... (พูดคุยกับเจได้เลยครับ)`;
+                audioStats.innerText = `🎙️ กำลังเปิดไมค์สด... (พูดได้เลย เจกำลังฟังอยู่)`;
 
                 microphoneStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { 
-                        channelCount: 1, 
-                        sampleRate: 16000, 
-                        echoCancellation: true, 
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    } 
+                    audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true } 
                 });
 
                 setupAudioVisualizer(microphoneStream);
 
                 const source = audioContext.createMediaStreamSource(microphoneStream);
-                audioInputProcessor = audioContext.createScriptProcessor(2048, 1, 1);
+                audioInputProcessor = audioContext.createScriptProcessor(4096, 1, 1);
 
                 audioInputProcessor.onaudioprocess = (e) => {
                     if (!isListening || !ws || ws.readyState !== WebSocket.OPEN) return;
-                    
                     const inputData = e.inputBuffer.getChannelData(0);
+                    
                     const pcm16 = new Int16Array(inputData.length);
                     for (let i = 0; i < inputData.length; i++) {
-                        let s = Math.max(-1, Math.min(1, inputData[i]));
-                        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
                     }
 
                     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
                     ws.send(JSON.stringify({
                         realtimeInput: {
                             mediaChunks: [{
-                                mimeType: "audio/pcm;rate=16000",
+                                mimeType: "audio/pcm;rate=24000",
                                 data: base64Audio
                             }]
                         }
@@ -874,8 +871,8 @@ ${medProfileText}
                 audioInputProcessor.connect(audioContext.destination);
 
             } catch (err) {
-                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์การอนุญาตบนเบราว์เซอร์: " + err.message);
-                console.error("Mic Error:", err);
+                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์บนแท็บเล็ต");
+                console.error(err);
                 stopListeningState();
             }
         } else {
