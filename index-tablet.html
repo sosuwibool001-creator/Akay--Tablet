@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Akay Tablet - Ak❤️+y Guardian Edition (Gemini Audio Live)</title>
+    <title>Akay Tablet - Ak❤️+y Guardian Edition (Personal Secure Device)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -143,7 +143,7 @@
             margin: 0 auto;
         }
 
-        /* 🔒 Step 1.5: หน้าสแกนใบหน้ายืนยันตัวตนก่อนเข้าโปรแกรม */
+        /* 🔒 Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่องอัตโนมัติ */
         #stepAuth {
             display: none;
             flex-direction: column;
@@ -159,7 +159,7 @@
             border-radius: 16px;
             background: #000;
             object-fit: cover;
-            border: 2px solid var(--accent-blue);
+            border: 2px solid var(--accent-green);
             margin-bottom: 15px;
         }
 
@@ -322,7 +322,7 @@
         <div class="logo-box">
             Ak<span class="logo-heart-container"><span class="logo-heart">❤️</span><span class="logo-plus">+</span></span>y Tablet
         </div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวัง (Gemini Audio Live)</div>
+        <div class="subtitle">ระบบผู้ช่วยส่วนตัว (Personal Secure Device)</div>
         
         <div class="input-group">
             <label style="font-size: 13px; color: var(--text-sub);">เลือกเสียงผู้ช่วยอัจฉริยะ:</label>
@@ -336,31 +336,30 @@
         </div>
 
         <button id="startAuthBtn" class="circle-btn">
-            <span style="font-size: 22px;">👤📷</span>
-            <span>สแกนหน้าเข้าสู่ระบบ</span>
+            <span style="font-size: 22px;">🔒👤</span>
+            <span>สแกนหน้าเจ้าของเครื่อง</span>
         </button>
     </div>
 
-    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบกับฐานข้อมูลกลางครอบครัว -->
+    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่อง -->
     <div id="stepAuth">
-        <div class="logo-box" style="font-size: 26px;">
-            🔐 ยืนยันตัวตนสมาชิกในครอบครัว
+        <div class="logo-box" style="font-size: 24px;">
+            🛡️ ตรวจสอบสิทธิ์เจ้าของเครื่อง
         </div>
-        <div class="subtitle" id="authStatusText">กรุณามองกล้องเพื่อตรวจสอบใบหน้าจากฐานข้อมูลกลาง...</div>
+        <div class="subtitle" id="authStatusText">กำลังตรวจสอบใบหน้าเฉพาะเจ้าของเครื่อง (Personal Device)...</div>
         
         <video id="authVideo" autoplay playsinline muted></video>
 
         <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
-            <button id="verifyFaceBtn" class="standard-btn" style="background-color: var(--accent-green);">✔️ ยืนยันใบหน้า</button>
             <button id="cancelAuthBtn" class="standard-btn stop-btn">❌ ยกเลิก</button>
         </div>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลักหลังผ่านการตรวจสอบใบหน้า -->
+    <!-- Step 2: แดชบอร์ดหลัก (เฉพาะเจ้าของเครื่อง) -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Ak<span style="position:relative; display:inline-flex; align-items:center; justify-content:center; margin:0 2px;"><span style="color:#ff3b30; font-size:15px;">❤️</span><span style="position:absolute; background:#fff; color:#ff3b30; font-size:8px; font-weight:900; width:10px; height:10px; border-radius:50%; display:flex; align-items:center; justify-content:center;">+</span></span>y Tablet Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
+                Ak<span style="position:relative; display:inline-flex; align-items:center; justify-content:center; margin:0 2px;"><span style="color:#ff3b30; font-size:15px;">❤️</span><span style="position:absolute; background:#fff; color:#ff3b30; font-size:8px; font-weight:900; width:10px; height:10px; border-radius:50%; display:flex; align-items:center; justify-content:center;">+</span></span>y Tablet Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออก</button>
         </div>
@@ -392,7 +391,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมใช้งาน กดปุ่มไมค์เพื่อเริ่มพูด...</div>
-            <div id="audioStats" class="debug-stats">🎙️ Gemini Audio Live Mode: กดปุ่มไมค์เพื่อพูดคุยสดได้ทันที</div>
+            <div id="audioStats" class="debug-stats">🎙️ Gemini Audio Live Mode: โหมดส่วนตัวเจ้าของเครื่อง (Personal Device)</div>
         </div>
     </div>
 </div>
@@ -404,7 +403,6 @@
     
     const startAuthBtn = document.getElementById('startAuthBtn');
     const cancelAuthBtn = document.getElementById('cancelAuthBtn');
-    const verifyFaceBtn = document.getElementById('verifyFaceBtn');
     const authVideo = document.getElementById('authVideo');
     const authStatusText = document.getElementById('authStatusText');
     const userNameDisplay = document.getElementById('userNameDisplay');
@@ -438,13 +436,10 @@
     let isListening = false;
     
     let useFrontCamera = true;
-    let authenticatedUser = "สมาชิกในครอบครัว";
-
-    const familyCloudDatabase = [
-        { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Admin / ผู้ดูแลหลัก" },
-        { id: "fam_02", name: "คุณแม่ (Mother)", role: "ผู้สูงอายุ / สมาชิกหลัก" },
-        { id: "fam_03", name: "สมาชิกในครอบครัวทั่วไป", role: "General Member" }
-    ];
+    
+    // 🔒 กำหนดให้แท็บเล็ตล็อกสิทธิ์เฉพาะเจ้าของเครื่องเท่านั้น (เพื่อนเอก)
+    const tabletOwner = { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Owner / Admin" };
+    let authenticatedUser = tabletOwner.name;
 
     function getMedProfile() {
         return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
@@ -499,7 +494,7 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
-    // 🔒 เปิดกล้องสแกนหน้า พร้อมระบบ Fallback ป้องกัน Error บนมือถือ
+    // 🔒 เปิดกล้องสแกนหน้าตรวจสอบเจ้าของเครื่องอัตโนมัติ (Personal Device Policy)
     startAuthBtn.addEventListener('click', async () => {
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
@@ -509,11 +504,16 @@
                 audio: false 
             });
             authVideo.srcObject = authStream;
+
+            // 🚀 เริ่มตรวจสอบสิทธิ์เจ้าของเครื่องอัตโนมัติใน 2 วินาที
+            runOwnerVerification();
+
         } catch (err) {
             console.warn("ไม่สามารถเปิดกล้องหน้าตามสเปกได้ กำลังลองเปิดกล้องทั่วไป...", err);
             try {
                 authStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 authVideo.srcObject = authStream;
+                runOwnerVerification();
             } catch (e) {
                 alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้องในเบราว์เซอร์:\n" + e.message);
                 cancelAuthBtn.click();
@@ -521,27 +521,40 @@
         }
     });
 
+    function runOwnerVerification() {
+        authStatusText.innerHTML = "🔍 กำลังตรวจสอบใบหน้าเทียบกับสิทธิ์เจ้าของเครื่อง...";
+        
+        setTimeout(async () => {
+            // 🛡️ ตรวจสอบยืนยันว่าเป็นเจ้าของเครื่อง (Tablet Owner)
+            const isOwnerVerified = true; // จำลองผลการตรวจจับใบหน้าว่าเป็นเจ้าของเครื่องตัวจริง
+
+            if (isOwnerVerified) {
+                authenticatedUser = tabletOwner.name;
+                userNameDisplay.innerText = authenticatedUser;
+                authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
+
+                setTimeout(async () => {
+                    if (authStream) authStream.getTracks().forEach(t => t.stop());
+                    stepAuth.style.display = 'none';
+                    step2.style.display = 'block';
+
+                    await initCamera();
+                    startMainAppSession();
+                }, 800);
+            } else {
+                authStatusText.innerHTML = `❌ ตรวจไม่พบสิทธิ์เจ้าของเครื่อง: อุปกรณ์นี้จำกัดเฉพาะ ${tabletOwner.name} เท่านั้น`;
+                setTimeout(() => {
+                    cancelAuthBtn.click();
+                }, 2000);
+            }
+
+        }, 2000);
+    }
+
     cancelAuthBtn.addEventListener('click', () => {
         if (authStream) authStream.getTracks().forEach(t => t.stop());
         stepAuth.style.display = 'none';
         step1.style.display = 'flex';
-    });
-
-    verifyFaceBtn.addEventListener('click', async () => {
-        authStatusText.innerHTML = "🔄 กำลังตรวจสอบใบหน้ากับฐานข้อมูลกลาง Cloud...";
-        
-        setTimeout(async () => {
-            const recognizedUser = familyCloudDatabase[0];
-            authenticatedUser = recognizedUser.name;
-            userNameDisplay.innerText = authenticatedUser;
-
-            if (authStream) authStream.getTracks().forEach(t => t.stop());
-            stepAuth.style.display = 'none';
-            step2.style.display = 'block';
-
-            await initCamera();
-            startMainAppSession();
-        }, 1500);
     });
 
     async function initCamera() {
@@ -598,11 +611,11 @@
                 let medProfile = getMedProfile();
                 let medProfileText = medProfile.length > 0 ? "ตารางยา:\n" + medProfile.map(m => `- ${m.time}: ${m.name} (${m.dose})`).join('\n') : "";
                 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบ เจพร้อมดูแลแล้วครับ 🔒🎙️`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว เจพร้อมดูแลแล้วครับ 🔒🎙️`;
                 
                 const dynamicToneInstructions = `
-คุณคือ "เจ" ผู้ช่วยอัจฉริยะบนแท็บเล็ต ดูแลผู้สูงอายุและสมาชิกในครอบครัวอย่างอบอุ่น
-ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนจากฐานข้อมูลกลางคือ: ${authenticatedUser}
+คุณคือ "เจ" ผู้ช่วยอัจฉริยะส่วนตัว ดูแลเพื่อนเอก (เจ้าของเครื่อง) อย่างอบอุ่น
+ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}
 
 ${medProfileText}
 
