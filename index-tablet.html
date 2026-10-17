@@ -811,11 +811,19 @@ ${medProfileText}
         }));
     }
 
+    // -------------------------------------------------------------
+    // REAL-TIME AUDIO STREAMING TO GEMINI (ไมค์สดคุยกับเจผ่าน WebSocket)
+    // -------------------------------------------------------------
     micBtn.addEventListener('click', async () => {
         if (!isListening) {
             try {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    alert("ระบบ WebSocket ยังไม่ได้เชื่อมต่อ กรุณารอสักครู่ครับ!");
+                    return;
+                }
+
                 if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
                 }
                 if (audioContext.state === 'suspended') {
                     await audioContext.resume();
@@ -824,31 +832,38 @@ ${medProfileText}
                 isListening = true;
                 micBtn.classList.add('listening');
                 micBtn.innerText = "🛑";
-                audioStats.innerText = `🎙️ กำลังเปิดไมค์สด... (พูดได้เลย เจกำลังฟังอยู่)`;
+                audioStats.innerText = `🎙️ เปิดไมค์สดแล้ว... (พูดคุยกับเจได้เลยครับ)`;
 
                 microphoneStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true } 
+                    audio: { 
+                        channelCount: 1, 
+                        sampleRate: 16000, 
+                        echoCancellation: true, 
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
                 });
 
                 setupAudioVisualizer(microphoneStream);
 
                 const source = audioContext.createMediaStreamSource(microphoneStream);
-                audioInputProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+                audioInputProcessor = audioContext.createScriptProcessor(2048, 1, 1);
 
                 audioInputProcessor.onaudioprocess = (e) => {
                     if (!isListening || !ws || ws.readyState !== WebSocket.OPEN) return;
-                    const inputData = e.inputBuffer.getChannelData(0);
                     
+                    const inputData = e.inputBuffer.getChannelData(0);
                     const pcm16 = new Int16Array(inputData.length);
                     for (let i = 0; i < inputData.length; i++) {
-                        pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
+                        let s = Math.max(-1, Math.min(1, inputData[i]));
+                        pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
                     }
 
                     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
                     ws.send(JSON.stringify({
                         realtimeInput: {
                             mediaChunks: [{
-                                mimeType: "audio/pcm;rate=24000",
+                                mimeType: "audio/pcm;rate=16000",
                                 data: base64Audio
                             }]
                         }
@@ -859,8 +874,8 @@ ${medProfileText}
                 audioInputProcessor.connect(audioContext.destination);
 
             } catch (err) {
-                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์บนแท็บเล็ต");
-                console.error(err);
+                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์การอนุญาตบนเบราว์เซอร์: " + err.message);
+                console.error("Mic Error:", err);
                 stopListeningState();
             }
         } else {
