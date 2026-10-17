@@ -143,26 +143,6 @@
             margin: 0 auto;
         }
 
-        /* 🔒 Step 1.5: หน้าสแกนใบหน้ายืนยันตัวตนก่อนเข้าโปรแกรม */
-        #stepAuth {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            max-width: 480px;
-            margin: 0 auto;
-        }
-
-        #authVideo {
-            width: 100%;
-            max-height: 360px;
-            border-radius: 16px;
-            background: #000;
-            object-fit: cover;
-            border: 2px solid var(--accent-blue);
-            margin-bottom: 15px;
-        }
-
         #step2 {
             display: none;
             text-align: left;
@@ -317,7 +297,6 @@
 <body>
 
 <div class="container">
-    <!-- Step 1: หน้าเริ่มต้นเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">
             Ak<span class="logo-heart-container"><span class="logo-heart">❤️</span><span class="logo-plus">+</span></span>y Tablet
@@ -335,32 +314,16 @@
             </select>
         </div>
 
-        <button id="startAuthBtn" class="circle-btn">
-            <span style="font-size: 22px;">👤📷</span>
-            <span>สแกนหน้าเข้าสู่ระบบ</span>
+        <button id="startBtn" class="circle-btn">
+            <span style="font-size: 22px;">🔒🚀</span>
+            <span>เชื่อมต่อเจ</span>
         </button>
     </div>
 
-    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบกับฐานข้อมูลกลางครอบครัว -->
-    <div id="stepAuth">
-        <div class="logo-box" style="font-size: 26px;">
-            🔐 ยืนยันตัวตนสมาชิกในครอบครัว
-        </div>
-        <div class="subtitle" id="authStatusText">กรุณามองกล้องเพื่อตรวจสอบใบหน้าจากฐานข้อมูลกลาง...</div>
-        
-        <video id="authVideo" autoplay playsinline muted></video>
-
-        <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
-            <button id="verifyFaceBtn" class="standard-btn" style="background-color: var(--accent-green);">✔️ ยืนยันใบหน้า</button>
-            <button id="cancelAuthBtn" class="standard-btn stop-btn">❌ ยกเลิก</button>
-        </div>
-    </div>
-
-    <!-- Step 2: แดชบอร์ดหลักหลังผ่านการตรวจสอบใบหน้า -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Ak<span style="position:relative; display:inline-flex; align-items:center; justify-content:center; margin:0 2px;"><span style="color:#ff3b30; font-size:15px;">❤️</span><span style="position:absolute; background:#fff; color:#ff3b30; font-size:8px; font-weight:900; width:10px; height:10px; border-radius:50%; display:flex; align-items:center; justify-content:center;">+</span></span>y Tablet Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
+                Ak<span style="position:relative; display:inline-flex; align-items:center; justify-content:center; margin:0 2px;"><span style="color:#ff3b30; font-size:15px;">❤️</span><span style="position:absolute; background:#fff; color:#ff3b30; font-size:8px; font-weight:900; width:10px; height:10px; border-radius:50%; display:flex; align-items:center; justify-content:center;">+</span></span>y Tablet Guardian
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออก</button>
         </div>
@@ -399,17 +362,9 @@
 
 <script>
     const step1 = document.getElementById('step1');
-    const stepAuth = document.getElementById('stepAuth');
     const step2 = document.getElementById('step2');
-    
-    const startAuthBtn = document.getElementById('startAuthBtn');
-    const cancelAuthBtn = document.getElementById('cancelAuthBtn');
-    const verifyFaceBtn = document.getElementById('verifyFaceBtn');
-    const authVideo = document.getElementById('authVideo');
-    const authStatusText = document.getElementById('authStatusText');
-    const userNameDisplay = document.getElementById('userNameDisplay');
-
     const video = document.getElementById('webcam');
+    const startBtn = document.getElementById('startBtn');
     const stopBtn = document.getElementById('stopBtn');
     const snapBtn = document.getElementById('snapBtn');
     const switchCamBtn = document.getElementById('switchCamBtn');
@@ -430,22 +385,18 @@
     let ws = null;
     let audioContext = null;
     let mediaStream = null;
-    let authStream = null;
     let nextAudioTime = 0;
     let autoVisionTimer = null;
     let isUserActiveSession = false;
     let isModelSpeaking = false;
     let isListening = false;
     
+    // ตัวแปรควบคุมกล้อง
     let useFrontCamera = true;
-    let authenticatedUser = "สมาชิกในครอบครัว";
 
-    // จำลองฐานข้อมูลกลางของครอบครัว (Family Cloud Database สำหรับจดจำใบหน้า/โปรไฟล์)
-    const familyCloudDatabase = [
-        { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Admin / ผู้ดูแลหลัก" },
-        { id: "fam_02", name: "คุณแม่ (Mother)", role: "ผู้สูงอายุ / สมาชิกหลัก" },
-        { id: "fam_03", name: "สมาชิกในครอบครัวทั่วไป", role: "General Member" }
-    ];
+    // ตัวแปรสำหรับระบบสตรีมเสียงพูดสดผ่าน Web Audio API
+    let audioInputProcessor = null;
+    let microphoneStream = null;
 
     function getMedProfile() {
         return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
@@ -500,45 +451,6 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
-    // 🔒 เปิดกล้องเพื่อสแกนหน้ายืนยันตัวตนก่อนเข้าโปรแกรม
-    startAuthBtn.addEventListener('click', async () => {
-        step1.style.display = 'none';
-        stepAuth.style.display = 'flex';
-        try {
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
-            authVideo.srcObject = authStream;
-        } catch (err) {
-            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้: " + err.message);
-            cancelAuthBtn.click();
-        }
-    });
-
-    cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepAuth.style.display = 'none';
-        step1.style.display = 'flex';
-    });
-
-    // 🔍 จำลองระบบตรวจสอบใบหน้าเทียบกับฐานข้อมูลกลางครอบครัว
-    verifyFaceBtn.addEventListener('click', async () => {
-        authStatusText.innerHTML = "🔄 กำลังตรวจสอบใบหน้ากับฐานข้อมูลกลาง Cloud...";
-        
-        setTimeout(async () => {
-            // จำลองการจับคู่ใบหน้าสำเร็จจากฐานข้อมูลกลางครอบครัว (Family Cloud Database)
-            const recognizedUser = familyCloudDatabase[0]; // สมมติว่าตรวจพบว่าเป็นเพื่อนเอก / สมาชิกครอบครัว
-            authenticatedUser = recognizedUser.name;
-            userNameDisplay.innerText = authenticatedUser;
-
-            if (authStream) authStream.getTracks().forEach(t => t.stop());
-            stepAuth.style.display = 'none';
-            step2.style.display = 'block';
-
-            // เริ่มต้นระบบหลักและเชื่อมต่อเจ
-            await initCamera();
-            startMainAppSession();
-        }, 1500);
-    });
-
     async function initCamera() {
         try {
             if (mediaStream) {
@@ -575,8 +487,12 @@
 
     switchCamBtn.addEventListener('click', switchCamera);
 
-    async function startMainAppSession() {
+    startBtn.addEventListener('click', async () => {
         isUserActiveSession = true;
+        step1.style.display = 'none';
+        step2.style.display = 'block';
+
+        await initCamera();
 
         try {
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
@@ -593,20 +509,20 @@
                 let medProfile = getMedProfile();
                 let medProfileText = medProfile.length > 0 ? "ตารางยา:\n" + medProfile.map(m => `- ${m.time}: ${m.name} (${m.dose})`).join('\n') : "";
                 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบ เจพร้อมดูแลแล้วครับ 🔒🎙️`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจเชื่อมต่อผ่าน Secure Proxy เรียบร้อย (กดปุ่มไมค์เพื่อพูดคุยสด) 🔒🎙️`;
                 
+                // 🎯 เพิ่ม System Instruction เพื่อปรับการใช้คำสร้อยตามบริบทเพื่อประหยัด Token
                 const dynamicToneInstructions = `
-คุณคือ "เจ" ผู้ช่วยอัจฉริยะบนแท็บเล็ต ดูแลผู้สูงอายุและสมาชิกในครอบครัวอย่างอบอุ่น
-ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนจากฐานข้อมูลกลางคือ: ${authenticatedUser}
+คุณคือ "เจ" ผู้ช่วยอัจฉริยะบนแท็บเล็ต ดูแลผู้สูงอายุและเพื่อนเอกอย่างอบอุ่น
 
 ${medProfileText}
 
 [กฎสำคัญในการปรับรูปประโยคและประหยัด Token]:
 1. ปรับระดับคำสร้อยตามบริบทคำถามอย่างเคร่งครัด:
-   - หากผู้ใช้ถามข้อมูลเชิงเทคนิค, สั่งงาน, ถามเรื่องยา หรือต้องการคำตอบด่วน (Functional Mode): ให้ตอบสั้น กระชับ ตรงประเด็น และ "ตัดคำสร้อยเยิ่นเย้อออกทั้งหมด"
+   - หากผู้ใช้ถามข้อมูลเชิงเทคนิค, สั่งงาน, ถามเรื่องยา หรือต้องการคำตอบด่วน (Functional Mode): ให้ตอบสั้น กระชับ ตรงประเด็น และ "ตัดคำสร้อยเยิ่นเย้อออกทั้งหมด" (เช่น "ครับ", "นะคร้าบ", "ยินดีครับ" ให้ใช้เท่าที่จำเป็น ไม่พูดเกริ่นยาว)
    - หากผู้ใช้ชวนคุยเล่น ทักทาย หรือผ่อนคลาย (Casual Mode): ให้ใช้โทนเสียงเป็นกันเอง อบอุ่น และใส่คำสร้อยได้ตามความเหมาะสม
 2. ห้ามทักทายหรือพูดเองขึ้นมาก่อนโดยไม่มีการถามจากผู้ใช้ (เพื่อประหยัด Token)
-3. หากผู้ใช้สั่งสลับกล้อง เช่น "เปลี่ยนเป็นกล้องหลัง" หรือ "สลับกล้อง" ให้ตอบรับสั้นๆ ว่า "สลับกล้องเรียบร้อยครับ"
+3. หากผู้ใช้สั่งสลับกล้อง เช่น "เปลี่ยนเป็นกล้องหลัง", "ใช้กล้องหลัง", "สลับกล้อง" ให้ตอบรับสั้นๆ ว่า "สลับกล้องเรียบร้อยครับ"
 `;
 
                 ws.send(JSON.stringify({
@@ -652,12 +568,12 @@ ${medProfileText}
             };
 
             ws.onclose = () => {
-                if (isUserActiveSession) setTimeout(() => { if (isUserActiveSession) startMainAppSession(); }, 3000);
+                if (isUserActiveSession) setTimeout(() => { if (isUserActiveSession) startBtn.click(); }, 3000);
             };
         } catch (e) {
             stopSession();
         }
-    }
+    });
 
     function startAutoVisionStream() {
         if (autoVisionTimer) clearInterval(autoVisionTimer);
