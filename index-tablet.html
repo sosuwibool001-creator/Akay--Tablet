@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Akay Tablet - Ak❤️+y Guardian Edition (Gemini Mic Live)</title>
+    <title>Akay Tablet - Ak❤️+y Guardian Edition (Gemini Audio Live)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -387,8 +387,10 @@
     let isUserActiveSession = false;
     let isModelSpeaking = false;
     let isListening = false;
-    let mediaRecorder = null;
-    let audioChunks = [];
+    
+    // ตัวแปรสำหรับระบบสตรีมเสียงพูดสดผ่าน Web Audio API
+    let audioInputProcessor = null;
+    let microphoneStream = null;
 
     function getMedProfile() {
         return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
@@ -550,37 +552,55 @@
         }));
     }
 
-    // ✨ ระบบไมโครโฟนอัดเสียงพูดสดส่งหาเจโดยตรง (รองรับแท็บเล็ต 100%)
+    // 🎙️ ระบบสตรีมเสียงพูดสดผ่าน Web Audio API (รองรับแท็บเล็ตและส่งเสียงให้เจฟังได้ทันที)
     micBtn.addEventListener('click', async () => {
         if (!isListening) {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks = [];
-
-                mediaRecorder.ondataavailable = (event) => {
-                    if (event.data.size > 0) audioChunks.push(event.data);
-                };
-
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    sendAudioBlobToGemini(audioBlob);
-                    stream.getTracks().forEach(track => track.stop());
-                };
-
-                mediaRecorder.start();
                 isListening = true;
                 micBtn.classList.add('listening');
                 micBtn.innerText = "🛑";
-                audioStats.innerText = `🎙️ กำลังฟังเสียงพูด... (กดปุ่มเดิมอีกครั้งเพื่อส่งให้เจ)`;
+                audioStats.innerText = `🎙️ กำลังฟังเสียงพูดสด... (พูดได้เลย เจกำลังฟังอยู่)`;
+
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true } 
+                });
+
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                }
+
+                const source = audioContext.createMediaStreamSource(microphoneStream);
+                audioInputProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+                audioInputProcessor.onaudioprocess = (e) => {
+                    if (!isListening || !ws || ws.readyState !== WebSocket.OPEN) return;
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    const pcm16 = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
+                    }
+
+                    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
+                    ws.send(JSON.stringify({
+                        realtimeInput: {
+                            mediaChunks: [{
+                                mimeType: "audio/pcm;rate=24000",
+                                data: base64Audio
+                            }]
+                        }
+                    }));
+                };
+
+                source.connect(audioInputProcessor);
+                audioInputProcessor.connect(audioContext.destination);
+
             } catch (err) {
-                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์การอนุญาตไมค์บนเบราว์เซอร์");
+                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์บนแท็บเล็ต");
                 console.error(err);
+                stopListeningState();
             }
         } else {
-            if (mediaRecorder && mediaRecorder.state !== "inactive") {
-                mediaRecorder.stop();
-            }
             stopListeningState();
         }
     });
@@ -589,27 +609,16 @@
         isListening = false;
         micBtn.classList.remove('listening');
         micBtn.innerText = "🎤";
-        audioStats.innerText = `🎙️ ส่งเสียงพูดเรียบร้อย กำลังรอเจตอบ...`;
-    }
+        audioStats.innerText = `🎙️ ปิดไมค์แล้ว กำลังรอเจตอบ...`;
 
-    function sendAudioBlobToGemini(blob) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const base64Audio = reader.result.split(',')[1];
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    clientContent: {
-                        turns: [{
-                            role: "user",
-                            parts: [{ inlineData: { mimeType: "audio/webm", data: base64Audio } }]
-                        }],
-                        turnComplete: true
-                    }
-                }));
-                statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งเสียงพูดสดเรียบร้อย</strong>`;
-            }
-        };
-        reader.readAsDataURL(blob);
+        if (audioInputProcessor) {
+            audioInputProcessor.disconnect();
+            audioInputProcessor = null;
+        }
+        if (microphoneStream) {
+            microphoneStream.getTracks().forEach(track => track.stop());
+            microphoneStream = null;
+        }
     }
 
     function sendTextDirectly(text) {
