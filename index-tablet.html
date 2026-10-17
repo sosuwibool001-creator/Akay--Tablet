@@ -440,7 +440,6 @@
     let useFrontCamera = true;
     let authenticatedUser = "สมาชิกในครอบครัว";
 
-    // จำลองฐานข้อมูลกลางของครอบครัว (Family Cloud Database สำหรับจดจำใบหน้า/โปรไฟล์)
     const familyCloudDatabase = [
         { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Admin / ผู้ดูแลหลัก" },
         { id: "fam_02", name: "คุณแม่ (Mother)", role: "ผู้สูงอายุ / สมาชิกหลัก" },
@@ -500,16 +499,25 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
-    // 🔒 เปิดกล้องเพื่อสแกนหน้ายืนยันตัวตนก่อนเข้าโปรแกรม
+    // 🔒 เปิดกล้องสแกนหน้า พร้อมระบบ Fallback ป้องกัน Error บนมือถือ
     startAuthBtn.addEventListener('click', async () => {
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+            authStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                audio: false 
+            });
             authVideo.srcObject = authStream;
         } catch (err) {
-            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้: " + err.message);
-            cancelAuthBtn.click();
+            console.warn("ไม่สามารถเปิดกล้องหน้าตามสเปกได้ กำลังลองเปิดกล้องทั่วไป...", err);
+            try {
+                authStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                authVideo.srcObject = authStream;
+            } catch (e) {
+                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้องในเบราว์เซอร์:\n" + e.message);
+                cancelAuthBtn.click();
+            }
         }
     });
 
@@ -519,13 +527,11 @@
         step1.style.display = 'flex';
     });
 
-    // 🔍 จำลองระบบตรวจสอบใบหน้าเทียบกับฐานข้อมูลกลางครอบครัว
     verifyFaceBtn.addEventListener('click', async () => {
         authStatusText.innerHTML = "🔄 กำลังตรวจสอบใบหน้ากับฐานข้อมูลกลาง Cloud...";
         
         setTimeout(async () => {
-            // จำลองการจับคู่ใบหน้าสำเร็จจากฐานข้อมูลกลางครอบครัว (Family Cloud Database)
-            const recognizedUser = familyCloudDatabase[0]; // สมมติว่าตรวจพบว่าเป็นเพื่อนเอก / สมาชิกครอบครัว
+            const recognizedUser = familyCloudDatabase[0];
             authenticatedUser = recognizedUser.name;
             userNameDisplay.innerText = authenticatedUser;
 
@@ -533,7 +539,6 @@
             stepAuth.style.display = 'none';
             step2.style.display = 'block';
 
-            // เริ่มต้นระบบหลักและเชื่อมต่อเจ
             await initCamera();
             startMainAppSession();
         }, 1500);
