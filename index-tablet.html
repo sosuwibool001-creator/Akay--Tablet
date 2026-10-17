@@ -552,22 +552,26 @@
         }));
     }
 
-    // 🎙️ ระบบสตรีมเสียงพูดสดผ่าน Web Audio API (รองรับแท็บเล็ตและส่งเสียงให้เจฟังได้ทันที)
+    // 🎙️ แก้ไขระบบไมค์ให้บังคับ Resume AudioContext บนแท็บเล็ต
     micBtn.addEventListener('click', async () => {
         if (!isListening) {
             try {
-                isListening = true;
-                micBtn.classList.add('listening');
-                micBtn.innerText = "🛑";
-                audioStats.innerText = `🎙️ กำลังฟังเสียงพูดสด... (พูดได้เลย เจกำลังฟังอยู่)`;
-
-                microphoneStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true } 
-                });
-
+                // บังคับปลุก AudioContext ให้พร้อมใช้งานทันทีที่กดไมค์
                 if (!audioContext) {
                     audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
                 }
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+
+                isListening = true;
+                micBtn.classList.add('listening');
+                micBtn.innerText = "🛑";
+                audioStats.innerText = `🎙️ กำลังเปิดไมค์สด... (พูดได้เลย เจกำลังฟังอยู่)`;
+
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true } 
+                });
 
                 const source = audioContext.createMediaStreamSource(microphoneStream);
                 audioInputProcessor = audioContext.createScriptProcessor(4096, 1, 1);
