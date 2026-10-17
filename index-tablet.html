@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Akay Tablet - Ak❤️+y Guardian Edition (Secure Proxy)</title>
+    <title>Akay Tablet - Ak❤️+y Guardian Edition (Gemini Mic Live)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -300,7 +300,7 @@
         <div class="logo-box">
             Ak<span class="logo-heart-container"><span class="logo-heart">❤️</span><span class="logo-plus">+</span></span>y Tablet
         </div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวัง (Secure Proxy Edition)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวัง (Gemini Audio Live)</div>
         
         <div class="input-group">
             <label style="font-size: 13px; color: var(--text-sub);">เลือกเสียงผู้ช่วยอัจฉริยะ:</label>
@@ -353,7 +353,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมใช้งาน กดปุ่มไมค์เพื่อเริ่มพูด...</div>
-            <div id="audioStats" class="debug-stats">🔒 Secure Proxy Connected: เชื่อมต่อผ่านหลังบ้านปลอดภัย 100%</div>
+            <div id="audioStats" class="debug-stats">🎙️ Gemini Audio Live Mode: กดปุ่มไมค์เพื่อพูดคุยสดได้ทันที</div>
         </div>
     </div>
 </div>
@@ -384,10 +384,11 @@
     let mediaStream = null;
     let nextAudioTime = 0;
     let autoVisionTimer = null;
-    let recognition = null;
     let isUserActiveSession = false;
     let isModelSpeaking = false;
     let isListening = false;
+    let mediaRecorder = null;
+    let audioChunks = [];
 
     function getMedProfile() {
         return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
@@ -467,7 +468,6 @@
             nextAudioTime = audioContext.currentTime;
 
             const selectedVoice = voiceSelect.value;
-            // ✨ ชี้ปลายทาง WebSocket ไปที่ Server หลังบ้านของเรา (ไม่ผ่าน API Key หน้าบ้าน)
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const url = `${wsProtocol}//${window.location.host}`;
 
@@ -477,7 +477,7 @@
                 let medProfile = getMedProfile();
                 let medProfileText = medProfile.length > 0 ? "ตารางยา:\n" + medProfile.map(m => `- ${m.time}: ${m.name} (${m.dose})`).join('\n') : "";
                 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจเชื่อมต่อผ่าน Secure Proxy เรียบร้อย (กดปุ่มไมค์เพื่อพูด) 🔒🎙️`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจเชื่อมต่อผ่าน Secure Proxy เรียบร้อย (กดปุ่มไมค์เพื่อพูดคุยสด) 🔒🎙️`;
                 
                 ws.send(JSON.stringify({
                     setup: {
@@ -550,47 +550,37 @@
         }));
     }
 
-    micBtn.addEventListener('click', () => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            alert("เบราว์เซอร์นี้ไม่รองรับระบบสั่งการด้วยเสียงครับ");
-            return;
-        }
-
+    // ✨ ระบบไมโครโฟนอัดเสียงพูดสดส่งหาเจโดยตรง (รองรับแท็บเล็ต 100%)
+    micBtn.addEventListener('click', async () => {
         if (!isListening) {
-            recognition = new SpeechRecognition();
-            recognition.lang = 'th-TH';
-            recognition.interimResults = true;
-            recognition.continuous = false;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
 
-            recognition.onstart = () => {
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) audioChunks.push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    sendAudioBlobToGemini(audioBlob);
+                    stream.getTracks().forEach(track => track.stop());
+                };
+
+                mediaRecorder.start();
                 isListening = true;
                 micBtn.classList.add('listening');
                 micBtn.innerText = "🛑";
-                audioStats.innerText = `🎙️ กำลังฟังเสียงพูด...`;
-            };
-
-            recognition.onresult = (event) => {
-                let transcript = '';
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    transcript += event.results[i][0].transcript;
-                }
-                textInput.value = transcript;
-            };
-
-            recognition.onerror = () => { stopListeningState(); };
-
-            recognition.onend = () => {
-                stopListeningState();
-                if (textInput.value.trim()) {
-                    sendTextDirectly(textInput.value.trim());
-                    textInput.value = "";
-                }
-            };
-
-            try { recognition.start(); } catch (e) { stopListeningState(); }
+                audioStats.innerText = `🎙️ กำลังฟังเสียงพูด... (กดปุ่มเดิมอีกครั้งเพื่อส่งให้เจ)`;
+            } catch (err) {
+                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์การอนุญาตไมค์บนเบราว์เซอร์");
+                console.error(err);
+            }
         } else {
-            if (recognition) recognition.stop();
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
             stopListeningState();
         }
     });
@@ -599,7 +589,27 @@
         isListening = false;
         micBtn.classList.remove('listening');
         micBtn.innerText = "🎤";
-        audioStats.innerText = `🔒 Secure Proxy Connected: พร้อมรับคำสั่งถัดไป`;
+        audioStats.innerText = `🎙️ ส่งเสียงพูดเรียบร้อย กำลังรอเจตอบ...`;
+    }
+
+    function sendAudioBlobToGemini(blob) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64Audio = reader.result.split(',')[1];
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    clientContent: {
+                        turns: [{
+                            role: "user",
+                            parts: [{ inlineData: { mimeType: "audio/webm", data: base64Audio } }]
+                        }],
+                        turnComplete: true
+                    }
+                }));
+                statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งเสียงพูดสดเรียบร้อย</strong>`;
+            }
+        };
+        reader.readAsDataURL(blob);
     }
 
     function sendTextDirectly(text) {
@@ -612,11 +622,6 @@
         if (!audioContext) return;
         isModelSpeaking = true;
         if (window.speakingTimeout) clearTimeout(window.speakingTimeout);
-        
-        if (isListening && recognition) {
-            recognition.stop();
-            stopListeningState();
-        }
 
         const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
         const float32Data = new Float32Array(bytes.byteLength / 2);
@@ -635,7 +640,7 @@
 
         window.speakingTimeout = setTimeout(() => {
             isModelSpeaking = false;
-            audioStats.innerText = `🎙️ เจพูดจบแล้ว กดปุ่มไมค์เพื่อพูดต่อได้เลย`;
+            audioStats.innerText = `🎙️ เจพูดจบแล้ว กดปุ่มไมค์เพื่อพูดคุยต่อได้เลย`;
         }, (nextAudioTime - audioContext.currentTime) * 1000 + 1500);
     }
 
@@ -651,7 +656,6 @@
     function stopSession() {
         isUserActiveSession = false;
         if (autoVisionTimer) clearInterval(autoVisionTimer);
-        if (recognition) recognition.stop();
         if (ws) ws.close();
         if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
         step2.style.display = 'none';
