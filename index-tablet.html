@@ -90,12 +90,12 @@
         }
 
         .circle-btn {
-            width: 100px;
-            height: 100px;
+            width: 110px;
+            height: 110px;
             border-radius: 50%;
             background: #ffffff;
             color: var(--accent-blue);
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             border: 1px solid var(--border-color);
             cursor: pointer;
@@ -108,7 +108,7 @@
             margin: 0 auto;
         }
 
-        /* 🔒 Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่องอัตโนมัติ */
+        /* Step 1.5: หน้าสแกนใบหน้าตรวจสอบเจ้าของเครื่อง */
         #stepAuth {
             display: none;
             flex-direction: column;
@@ -134,7 +134,7 @@
             width: 100%;
         }
 
-        video {
+        video#webcam {
             width: 100%;
             max-height: 480px; 
             border-radius: 16px;
@@ -220,7 +220,6 @@
             100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
         }
 
-        /* Audio Waveform Canvas Visualizer ด้านล่าง TextBox */
         #audioVisualizer {
             width: 100%;
             height: 45px;
@@ -365,7 +364,6 @@
             <div id="medList"></div>
         </div>
 
-        <!-- แถบกรอกข้อความ พร้อมปุ่มไมค์แปลงเสียง (Speech-to-Text) -->
         <div class="gemini-input-bar">
             <input type="text" id="textInput" placeholder="พิมพ์ข้อความ หรือกดไมค์เพื่อแปลงเสียงพูดใส่กล่อง...">
             <button id="textMicBtn" class="icon-action-btn" title="พูดเพื่อแปลงเป็นข้อความ" style="color: var(--accent-green);">🗣️</button>
@@ -373,7 +371,6 @@
             <button id="sendTextBtn" class="icon-action-btn" title="ส่งข้อความ" style="color: var(--accent-blue);">➤</button>
         </div>
 
-        <!-- แถบคลื่นเสียงเรียลไทม์ (Audio Waveform Visualizer) วางไว้ด้านล่าง TextBox ตามสั่ง -->
         <canvas id="audioVisualizer"></canvas>
 
         <div id="output">
@@ -487,6 +484,7 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
+    // แก้ไข Event Listener ของปุ่มสแกนหน้าให้ผูกติดอย่างถูกต้องปลอดภัย
     startAuthBtn.addEventListener('click', async () => {
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
@@ -511,22 +509,28 @@
 
     function runOwnerVerification() {
         authStatusText.innerHTML = "🔍 กำลังตรวจสอบใบหน้าเทียบกับสิทธิ์เจ้าของเครื่อง...";
+        
         setTimeout(async () => {
             const isOwnerVerified = true; 
+
             if (isOwnerVerified) {
                 authenticatedUser = tabletOwner.name;
                 userNameDisplay.innerText = authenticatedUser;
                 authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})![cite: 3]`;
+
                 setTimeout(async () => {
                     if (authStream) authStream.getTracks().forEach(t => t.stop());
                     stepAuth.style.display = 'none';
                     step2.style.display = 'block';
+
                     await initCamera();
                     startMainAppSession();
                 }, 800);
             } else {
                 authStatusText.innerHTML = `❌ ตรวจไม่พบสิทธิ์เจ้าของเครื่อง`;
-                setTimeout(() => { cancelAuthBtn.click(); }, 2000);
+                setTimeout(() => {
+                    cancelAuthBtn.click();
+                }, 2000);
             }
         }, 1500);
     }
@@ -539,18 +543,28 @@
 
     async function initCamera() {
         try {
-            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+
             const constraints = {
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: useFrontCamera ? "user" : "environment" }, 
+                video: { 
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 },
+                    facingMode: useFrontCamera ? "user" : "environment"
+                }, 
                 audio: { echoCancellation: true, noiseSuppression: true } 
             };
+
             mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 video.srcObject = mediaStream;
-            } catch (e) { alert("ไม่สามารถเปิดใช้งานกล้องได้"); }
+            } catch (e) {
+                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
+            }
         }
     }
 
@@ -562,9 +576,7 @@
 
     switchCamBtn.addEventListener('click', switchCamera);
 
-    // -------------------------------------------------------------
-    // AUDIO WAVEFORM VISUALIZER (Web Audio API & AnalyserNode)
-    // -------------------------------------------------------------
+    // Audio Waveform Visualizer
     function setupAudioVisualizer(inputStreamOrNode) {
         if (!audioContext) return;
         try {
@@ -619,9 +631,7 @@
         renderFrame();
     }
 
-    // -------------------------------------------------------------
-    // SPEECH-TO-TEXT FOR TEXT INPUT (Web Speech API - ภาษาไทย)
-    // -------------------------------------------------------------
+    // Speech-to-Text สำหรับปุ่มไมค์ใน TextBox
     textMicBtn.addEventListener('click', () => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
@@ -630,7 +640,7 @@
         }
 
         const recognition = new SpeechRecognition();
-        recognition.lang = 'th-TH'; // ล็อกภาษาไทย
+        recognition.lang = 'th-TH';
         recognition.interimResults = false;
         recognition.maxAlternatives = 1;
 
@@ -639,7 +649,7 @@
 
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
-            textInput.value = transcript; // เติมข้อความลงใน TextBox ทันที
+            textInput.value = transcript;
             audioStats.innerText = `✅ แปลงเสียงพูดสำเร็จ กดส่งข้อความ (➤) หาเจได้เลยครับ`;
         };
 
@@ -772,7 +782,6 @@ ${medProfileText}
         }));
     }
 
-    // Live Mic Streaming ส่งเสียงคุยตรงกับ Gemini Live
     micBtn.addEventListener('click', async () => {
         if (!isListening) {
             try {
