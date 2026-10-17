@@ -391,7 +391,7 @@
     let isModelSpeaking = false;
     let isListening = false;
     
-    // ตัวแปรควบคุมกล้อง (เริ่มต้นใช้กล้องหน้า/หันเข้าหาผู้ใช้ หรือ environment)
+    // ตัวแปรควบคุมกล้อง
     let useFrontCamera = true;
 
     // ตัวแปรสำหรับระบบสตรีมเสียงพูดสดผ่าน Web Audio API
@@ -470,7 +470,6 @@
             video.srcObject = mediaStream;
         } catch (err) {
             console.warn("Camera error: " + err.message);
-            // Fallback หากกล้องระบุ facingMode ไม่สำเร็จ
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 video.srcObject = mediaStream;
@@ -480,7 +479,6 @@
         }
     }
 
-    // ฟังก์ชันสลับกล้องหน้า/หลัง
     async function switchCamera() {
         useFrontCamera = !useFrontCamera;
         await initCamera();
@@ -513,6 +511,20 @@
                 
                 statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจเชื่อมต่อผ่าน Secure Proxy เรียบร้อย (กดปุ่มไมค์เพื่อพูดคุยสด) 🔒🎙️`;
                 
+                // 🎯 เพิ่ม System Instruction เพื่อปรับการใช้คำสร้อยตามบริบทเพื่อประหยัด Token
+                const dynamicToneInstructions = `
+คุณคือ "เจ" ผู้ช่วยอัจฉริยะบนแท็บเล็ต ดูแลผู้สูงอายุและเพื่อนเอกอย่างอบอุ่น
+
+${medProfileText}
+
+[กฎสำคัญในการปรับรูปประโยคและประหยัด Token]:
+1. ปรับระดับคำสร้อยตามบริบทคำถามอย่างเคร่งครัด:
+   - หากผู้ใช้ถามข้อมูลเชิงเทคนิค, สั่งงาน, ถามเรื่องยา หรือต้องการคำตอบด่วน (Functional Mode): ให้ตอบสั้น กระชับ ตรงประเด็น และ "ตัดคำสร้อยเยิ่นเย้อออกทั้งหมด" (เช่น "ครับ", "นะคร้าบ", "ยินดีครับ" ให้ใช้เท่าที่จำเป็น ไม่พูดเกริ่นยาว)
+   - หากผู้ใช้ชวนคุยเล่น ทักทาย หรือผ่อนคลาย (Casual Mode): ให้ใช้โทนเสียงเป็นกันเอง อบอุ่น และใส่คำสร้อยได้ตามความเหมาะสม
+2. ห้ามทักทายหรือพูดเองขึ้นมาก่อนโดยไม่มีการถามจากผู้ใช้ (เพื่อประหยัด Token)
+3. หากผู้ใช้สั่งสลับกล้อง เช่น "เปลี่ยนเป็นกล้องหลัง", "ใช้กล้องหลัง", "สลับกล้อง" ให้ตอบรับสั้นๆ ว่า "สลับกล้องเรียบร้อยครับ"
+`;
+
                 ws.send(JSON.stringify({
                     setup: {
                         model: "models/gemini-3.8-live",
@@ -522,7 +534,7 @@
                         },
                         tools: [{ googleSearch: {} }],
                         systemInstruction: {
-                            parts: [{ text: `คุณคือเจ ผู้ช่วยอัจฉริยะบนแท็บเล็ต ทำหน้าที่ดูแลผู้สูงอายุอย่างอบอุ่น\n\n${medProfileText}\n\nคุณสามารถรับคำสั่งเสียงเพื่อสลับกล้องหน้า/หลังได้ หากผู้ใช้สั่งว่า "เปลี่ยนเป็นกล้องหลัง" หรือ "ใช้กล้องหลัง" หรือ "สลับกล้อง" ให้ตอบรับและระบบจะมีฟังก์ชันรองรับ` }]
+                            parts: [{ text: dynamicToneInstructions }]
                         }
                     }
                 }));
@@ -542,7 +554,6 @@
                         if (responseText) {
                             statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${responseText}`;
                             
-                            // ตรวจจับคำสั่งเสียงจากข้อความที่เจตอบหรือประมวลผล เพื่อสลับกล้องอัตโนมัติ
                             const lowerText = responseText.toLowerCase();
                             if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) && useFrontCamera) {
                                 useFrontCamera = false;
@@ -670,7 +681,6 @@
     function sendTextDirectly(text) {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         
-        // ตรวจสอบคำสั่งสลับกล้องผ่าน Text Input ทันที
         const lowerText = text.toLowerCase();
         if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง")) {
             useFrontCamera = false;
