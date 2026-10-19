@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Text & On-Demand Vision)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Fixed Config API)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -245,7 +245,7 @@
     <!-- Step 1: หน้าเริ่มต้นเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">
-            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">On-Demand Mode</span>
+            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Secure API Mode</span>
         </div>
         <div class="subtitle">ระบบผู้ช่วยส่วนตัว (Personal Secure Device)</div>
         
@@ -305,7 +305,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมรับข้อความพิมพ์คุยกับเจ...</div>
-            <div id="audioStats" class="debug-stats">🔒 On-Demand Vision Mode: ไม่มีการเก็บ/ส่งภาพอัตโนมัติ ส่งภาพเฉพาะเมื่อมีคำสั่งถามเท่านั้น</div>
+            <div id="audioStats" class="debug-stats">🔒 Secure Backend Config API Mode: โหลดคีย์ผ่านหลังบ้านปลอดภัย 100%</div>
         </div>
     </div>
 </div>
@@ -313,6 +313,7 @@
 <script>
     let BACKEND_API_KEY = ""; 
 
+    // 🟢 ฟังก์ชันดึง API Key จาก Backend แบบสมบูรณ์
     async function fetchServerConfig() {
         try {
             const res = await fetch('/api/config');
@@ -320,11 +321,15 @@
             if (data.apiKey) {
                 BACKEND_API_KEY = data.apiKey;
                 console.log("Loaded API Key from backend successfully");
+                return true;
             }
         } catch (err) {
             console.warn("ไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้:", err);
         }
+        return false;
     }
+
+    // เรียกดึงค่าทันทีที่เปิดหน้าเว็บ
     fetchServerConfig();
 
     const step1 = document.getElementById('step1');
@@ -364,15 +369,16 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
+    // 🟢 ระบบตรวจสอบและรอคีย์ให้พร้อมก่อนเริ่มสแกนหน้า
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY) {
-            startAuthBtn.innerText = "⏳ กำลังเชื่อมต่อ...";
+            startAuthBtn.innerText = "⏳ กำลังดึงคีย์...";
             await fetchServerConfig();
             startAuthBtn.innerHTML = '<span style="font-size: 22px;">🔒👤</span><span>สแกนหน้าเจ้าของเครื่อง</span>';
         }
 
         if (!BACKEND_API_KEY) {
-            alert("ยังไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการตั้งค่าบน Render หรือรีเฟรชหน้าเว็บใหม่ครับเพื่อนเอก!");
+            alert("⚠️ ยังไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้ กรุณาตรวจสอบว่า:\n1. รัน server.js อยู่หรือไม่\n2. ตั้งค่า BACKEND_API_KEY บน Render ครบถ้วนหรือยัง");
             return;
         }
 
@@ -443,6 +449,14 @@
     switchCamBtn.addEventListener('click', switchCamera);
 
     async function startMainAppSession() {
+        if (!BACKEND_API_KEY) {
+            await fetchServerConfig();
+            if (!BACKEND_API_KEY) {
+                alert("เชื่อมต่อล้มเหลว: ไม่พบ API Key จากเซิร์ฟเวอร์");
+                return;
+            }
+        }
+
         isUserActiveSession = true;
 
         try {
@@ -503,7 +517,6 @@
         }
     }
 
-    // ฟังก์ชันช่วยแคปภาพจากกล้อง ณ วินาทีนั้นส่ง API
     function getLiveFrameBase64() {
         if (!video || video.readyState !== 4) return null;
         const canvasSnap = document.createElement('canvas');
@@ -542,7 +555,6 @@
         }
 
         const lowerText = text.toLowerCase();
-        // ตรวจจับคีย์เวิร์ดที่เกี่ยวกับการสลับกล้อง
         if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง")) {
             useFrontCamera = false;
             initCamera();
@@ -551,7 +563,6 @@
             initCamera();
         }
 
-        // 🔍 ตรวจจับว่าผู้ใช้ต้องการถามเกี่ยวกับภาพ/กล้องหรือไม่
         const visionKeywords = ["ภาพ", "กล้อง", "เห็น", "ดู", "มอง", "รูป", "สถานการณ์", "แต่งตัว", "เสื้อ"];
         const needsVision = visionKeywords.some(kw => lowerText.includes(kw));
 
@@ -575,7 +586,6 @@
             }
         }
 
-        // หากไม่มีคำสั่งเกี่ยวกับภาพ ให้ส่งเฉพาะข้อความปกติ
         ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
         statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความ:</strong> ${text}`;
     }
