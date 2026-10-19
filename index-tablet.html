@@ -390,7 +390,7 @@
     let speechBuffer = "";
     let speechTimeout = null;
 
-    // 🛡️ Secure API Key Fetcher with Fault-Tolerant Fallback
+    // 🛡️ Secure API Key Fetcher with Graceful Fallback
     async function fetchApiKeyFromServer() {
         if (BACKEND_API_KEY && !BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
             return BACKEND_API_KEY;
@@ -409,28 +409,23 @@
                 BACKEND_API_KEY = data.apiKey;
             }
         } catch (e) {
-            console.warn("⚠️ ไม่สามารถดึง API Key จาก Server Render เบื้องหลังได้ ระบบจะใช้ค่าสำรอง (Fallback):", e);
-            // 💡 หากต้องการรันเทสเฉพาะกิจ สามารถใส่ API Key ตรงนี้เป็นตัวสำรองชั่วคราวได้ครับ
-            BACKEND_API_KEY = window.ENV_API_KEY || "YOUR_FALLBACK_API_KEY_IF_NEEDED"; 
+            console.warn("⚠️ ไม่สามารถดึง API Key จาก Server Render เบื้องหลังได้ ระบบใช้ค่าจาก Environment หรือค่าสำรอง:", e);
+            // หากดึงไม่สำเร็จ ให้ดึงจาก ENV หรือใช้ค่าทดสอบเพื่อไม่ให้แอปสะดุด
+            BACKEND_API_KEY = window.ENV_API_KEY || ""; 
         }
         return BACKEND_API_KEY;
     }
 
-    // 🚀 Event Listener หลักเมื่อกดปุ่มสแกนหน้า
+    // 🚀 Event Listener หลักเมื่อกดปุ่มสแกนหน้า (Smooth Transition & Non-blocking)
     startAuthBtn.addEventListener('click', async () => {
-        authStatusText.innerHTML = "🔄 กำลังเชื่อมต่อระบบความปลอดภัยเซิร์ฟเวอร์...";
-        
-        await fetchApiKeyFromServer();
-        
-        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_FALLBACK_API_KEY_IF_NEEDED")) {
-            alert("⚠️ คำเตือน: ยังไม่ได้ตั้งค่า API Key บน Server Render หรือไฟล์ Environment กรุณาตรวจสอบ Backend Endpoint อีกครั้งครับเพื่อนเอก!");
-            // แม้คีย์จะยังไม่พร้อม แต่เปิดทางให้ทดสอบหน้ากล้องได้หากต้องการดีบัก UI
-        }
-
-        // สลับหน้าจอจาก Step 1 ไป Step Auth ทันที
+        // สลับหน้าจอทันทีเพื่อความลื่นไหล ไม่รอ Response นานเกินไป
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
-        
+        authStatusText.innerHTML = "🔄 กำลังเชื่อมต่อระบบความปลอดภัยและเปิดกล้อง...";
+
+        // ดึง API Key เบื้องหลังแบบเงียบๆ
+        await fetchApiKeyFromServer();
+
         try {
             authStream = await navigator.mediaDevices.getUserMedia({ 
                 video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, 
@@ -439,8 +434,15 @@
             authVideo.srcObject = authStream;
             runAutoVerification();
         } catch (err) {
-            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้ กรุณาตรวจสอบสิทธิ์การใช้กล้อง:\n" + err.message);
-            cancelAuthBtn.click();
+            console.warn("ไม่สามารถเปิดกล้องหน้าได้ กำลังพยายามเปิดกล้องสำรอง...", err);
+            try {
+                authStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                authVideo.srcObject = authStream;
+                runAutoVerification();
+            } catch (e) {
+                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึงในเบราว์เซอร์:\n" + e.message);
+                cancelAuthBtn.click();
+            }
         }
     });
 
