@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (On-Demand Vision)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Fixed Auth API)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -313,6 +313,7 @@
 <script>
     let BACKEND_API_KEY = ""; 
 
+    // 🟢 ฟังก์ชันดึง API Key จาก Backend แบบสมบูรณ์
     async function fetchServerConfig() {
         try {
             const res = await fetch('/api/config');
@@ -328,6 +329,7 @@
         return false;
     }
 
+    // เรียกดึงค่าทันทีที่เปิดหน้าเว็บ
     fetchServerConfig();
 
     const step1 = document.getElementById('step1');
@@ -367,6 +369,7 @@
         alert("ล้างประวัติบทสนทนาเรียบร้อยแล้ว!");
     });
 
+    // 🟢 ปรับแก้ฟังก์ชันปุ่มสแกนหน้าให้ดึง API Key ให้ชัวร์ 100% ก่อนเปิดกล้อง
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY) {
             startAuthBtn.innerText = "⏳ กำลังดึงคีย์...";
@@ -566,7 +569,6 @@
             initCamera();
         }
 
-        // ตรวจสอบว่ามีคำสั่งหรือคำถามเกี่ยวกับภาพ/กล้องหรือไม่
         const visionKeywords = ["ภาพ", "กล้อง", "เห็น", "ดู", "มอง", "รูป", "สถานการณ์", "แต่งตัว", "เสื้อ", "หน้ากล้องมีอะไร"];
         const needsVision = visionKeywords.some(kw => lowerText.includes(kw));
 
@@ -590,7 +592,6 @@
             }
         }
 
-        // ส่งข้อความปกติโดยไม่แนบภาพ ถ้าไม่มีคำถามเกี่ยวกับภาพ
         ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
         statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความ:</strong> ${text}`;
     }
