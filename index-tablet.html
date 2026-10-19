@@ -304,13 +304,13 @@
         </div>
 
         <div class="gemini-input-bar">
-            <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ (หากถามเรื่องภาพ ระบบจะแคปภาพส่งทันที)...">
+            <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ (ระบบ Text-Only & On-Demand Vision)...">
             <button id="sendTextBtn" class="icon-action-btn" title="ส่งข้อความ" style="color: var(--accent-blue);">➤</button>
         </div>
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมรับข้อความพิมพ์คุยกับเจ...</div>
-            <div id="audioStats" class="debug-stats">🔒 On-Demand Vision Mode: ไม่มีการเก็บภาพใดๆ อัตโนมัติ 100% ส่งเฉพาะเมื่อมีคำสั่งหรือกดปุ่มเท่านั้น</div>
+            <div id="audioStats" class="debug-stats">🔒 Secure Mode: ปิดการส่งภาพอัตโนมัติ 100% / ปิดไมค์สตรีมสด (Text & Audio Output Only)</div>
         </div>
     </div>
 </div>
@@ -362,9 +362,11 @@
     let authStream = null;
     let nextAudioTime = 0;
     let isUserActiveSession = false;
-    
     let useFrontCamera = true;
     
+    // 🛡️ ตัวแปรควบคุมสถานะหลักตามรีเควส: ปิดการส่งภาพอัตโนมัติ 100% และบล็อกไมค์สตรีมสด
+    let isTextOnlyVisionMode = false;
+
     const tabletOwner = { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Owner / Admin" };
     let authenticatedUser = tabletOwner.name;
 
@@ -423,6 +425,9 @@
                     
                     await new Promise(resolve => setTimeout(resolve, 400));
 
+                    // 🔒 เปิดใช้งานตัวแปรสถานะความปลอดภัยทันทีเมื่อเข้าสู่หน้าหลัก
+                    isTextOnlyVisionMode = true;
+
                     stepAuth.style.display = 'none';
                     step2.style.display = 'block';
 
@@ -455,13 +460,16 @@
                 mediaStream = null;
             }
 
+            // 🛡️ ใช้ตัวแปรควบคุม: ขอสิทธิ์เฉพาะ Video เท่านั้น (audio: false) ป้องกันการขอสิทธิ์ไมค์ในระบบสตรีมสดตามเงื่อนไข
+            const requestAudioPermission = !isTextOnlyVisionMode;
+
             const constraints = {
                 video: { 
                     width: { ideal: 1280 }, 
                     height: { ideal: 720 },
                     facingMode: useFrontCamera ? "user" : "environment"
                 }, 
-                audio: false 
+                audio: requestAudioPermission 
             };
 
             mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -668,8 +676,9 @@
             initCamera();
         }
 
+        // 🛡️ ใช้ตัวแปร isTextOnlyVisionMode มาช่วยตรวจสอบเงื่อนไข On-Demand Vision
         const visionKeywords = ["ภาพ", "กล้อง", "เห็น", "ดู", "มอง", "รูป", "สถานการณ์", "แต่งตัว", "เสื้อ", "หน้ากล้องมีอะไร"];
-        const needsVision = visionKeywords.some(kw => lowerText.includes(kw));
+        const needsVision = isTextOnlyVisionMode && visionKeywords.some(kw => lowerText.includes(kw));
 
         if (needsVision) {
             const base64Image = getLiveFrameBase64();
@@ -740,6 +749,7 @@
 
     function stopSession() {
         isUserActiveSession = false;
+        isTextOnlyVisionMode = false;
         if (ws) ws.close();
         if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
         step2.style.display = 'none';
