@@ -333,8 +333,11 @@
     </div>
 </div>
 
+<!-- โหลดไฟล์ config.js ที่เก็บ API Key เป็นความลับเอาไว้ -->
+<script src="config.js"></script>
 <script>
-    const BACKEND_API_KEY = "CONFIG.API_KEY"; 
+    // ดึงค่ามาจาก config.js เพื่อความปลอดภัยไม่ให้หลุดขึ้น GitHub
+    const BACKEND_API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.API_KEY : ""; 
     const SERVER_URL = "http://localhost:3000";
 
     const step1 = document.getElementById('step1');
@@ -458,13 +461,17 @@
 
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
-            alert("กรุณาตั้งค่า BACKEND_API_KEY ในโค้ดให้เรียบร้อยก่อนครับเพื่อนเอก!");
+            alert("กรุณาตรวจสอบการตั้งค่า API Key ในไฟล์ config.js ให้เรียบร้อยก่อนครับเพื่อนเอก!");
             return;
         }
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+            // ขอสิทธิ์กล้องและระงับการแย่งไมค์ชั่วคราว
+            authStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: 1280, height: 720 }, 
+                audio: false 
+            });
             authVideo.srcObject = authStream;
 
             runAutoVerification();
@@ -490,8 +497,12 @@
                 stepAuth.style.display = 'none';
                 step2.style.display = 'block';
 
-                await initCamera();
-                startMainAppSession();
+                // เพิ่มดีเลย์เล็กน้อย (300ms) ก่อนเปิดกล้องและไมค์หลัก เพื่อป้องกันฮาร์ดแวร์ชนกัน
+                setTimeout(async () => {
+                    await initCamera();
+                    startMainAppSession();
+                }, 300);
+
             }, 800);
 
         }, 2000);
@@ -639,7 +650,11 @@ ${historySummaryText}
                 };
                 ws.send(JSON.stringify(setupMessage));
 
-                startSpeechRecognition();
+                // หน่วงเวลาเปิด SpeechRecognition 1 วินาที ให้ระบบ AudioContext และ WebSocket นิ่งสนิทก่อน
+                setTimeout(() => {
+                    startSpeechRecognition();
+                }, 1000);
+
                 startAutoMedAlertChecker();
                 startAutoVisionStream();
                 startKeepAlivePing();
@@ -742,7 +757,6 @@ ${historySummaryText}
 
         try {
             isUploadingSnapshot = true;
-            // 🟢 ส่งค่า device: 'tablet' เพื่อให้หลังบ้านบันทึกลงโฟลเดอร์ของแท็บเล็ต
             const res = await fetch(`${SERVER_URL}/api/snapshot/upload`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -844,7 +858,7 @@ ${historySummaryText}
 
         recognition.onerror = (event) => {
             if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
-                setTimeout(startSpeechRecognition, 500);
+                setTimeout(startSpeechRecognition, 800);
             }
         };
 
@@ -852,7 +866,7 @@ ${historySummaryText}
             if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
                 setTimeout(() => {
                     try { recognition.start(); } catch(e){}
-                }, 300);
+                }, 500);
             }
         };
 
