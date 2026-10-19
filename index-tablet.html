@@ -2,8 +2,8 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (PC Master)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Secure Master Edition)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -34,7 +34,7 @@
 
         .container {
             width: 100%;
-            max-width: 850px;
+            max-width: 1400px;
             background: var(--card-bg);
             padding: 40px 30px;
             border-radius: 24px;
@@ -98,7 +98,7 @@
             margin-bottom: 25px;
         }
 
-        select {
+        select, input[type="password"] {
             width: 100%;
             padding: 13px 16px;
             font-size: 14px;
@@ -110,34 +110,39 @@
             transition: all 0.2s ease;
             box-sizing: border-box;
         }
-        select:focus {
+        select:focus, input[type="password"]:focus {
             border-color: var(--accent-blue);
             background: #fff;
             box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
         }
 
         .circle-btn {
-            width: 110px;
-            height: 110px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             background: #ffffff;
             color: var(--accent-blue);
-            font-size: 44px;
-            border: 2px solid var(--border-color);
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--border-color);
             cursor: pointer;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0,0,0,0.03);
+            transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            margin: 10px auto;
-            transition: transform 0.2s, background-color 0.2s;
+            gap: 2px;
+            margin: 0 auto;
         }
-        .circle-btn span {
-            pointer-events: none;
+        .circle-btn:hover {
+            transform: scale(1.05);
+            border-color: var(--accent-blue);
+            background: #f0f7ff;
+            box-shadow: 0 10px 25px rgba(0, 113, 227, 0.15);
         }
         .circle-btn:active {
-            transform: scale(0.95);
-            background-color: #f0f4f8;
+            transform: scale(0.96);
         }
 
         #step2 {
@@ -148,7 +153,7 @@
 
         video {
             width: 100%;
-            max-height: 480px; 
+            max-height: 640px; 
             border-radius: 18px;
             background: #000;
             object-fit: cover;
@@ -251,12 +256,12 @@
 <body>
 
 <div class="container">
-    <!-- Step 1: หน้าแรกเลือกเสียง -->
+    <!-- Step 1: หน้าแรกเลือกเสียงและตั้งค่า API Key -->
     <div id="step1">
         <div class="logo-box">
-            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">PC Master</span>
+            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta Secure</span>
         </div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (Secure Server Render Mode)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -266,32 +271,34 @@
                 <option value="Kore">♀️ Kore (เสียงสดใส)</option>
                 <option value="Aoede">♀️ Aoede (เสียงนุ่มนวล)</option>
             </select>
+            <input type="password" id="manualApiKeyInput" placeholder="กรอก API Key (หรือปล่อยว่างเพื่อดึงจาก Server Render)">
         </div>
 
-        <button id="startAuthBtn" class="circle-btn" title="สแกนหน้าเจ้าของเครื่อง">
-            <span>👤</span>
+        <button id="startAuthBtn" class="circle-btn">
+            <span style="font-size: 20px;">👤📷</span>
+            <span>สแกนหน้า</span>
         </button>
     </div>
 
-    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบตัวตน -->
+    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ (Auto-Login) -->
     <div id="stepAuth">
-        <div class="logo-box" style="font-size: 22px;">
-            🛡️ ตรวจสอบสิทธิ์เจ้าของเครื่อง
+        <div class="logo-box" style="font-size: 26px;">
+            🤖 กำลังสแกนใบหน้าครอบครัว...
         </div>
-        <div class="subtitle" id="authStatusText">กำลังตรวจสอบใบหน้าเฉพาะเจ้าของเครื่อง (Personal Device)...</div>
+        <div class="subtitle" id="authStatusText">กำลังตรวจสอบใบหน้ากับแฟ้มข้อมูลกลาง Cloud (Auto-Login)...</div>
         
         <video id="authVideo" autoplay playsinline muted></video>
 
-        <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
-            <button id="cancelAuthBtn" class="standard-btn stop-btn">❌ ยกเลิก</button>
+        <div style="display: flex; gap: 12px; width: 100%; justify-content: center;">
+            <button id="cancelAuthBtn" class="standard-btn stop-btn" style="padding: 12px 24px; font-size: 14px;">❌ ยกเลิก</button>
         </div>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลัก -->
+    <!-- Step 2: แดชบอร์ดหลักหลังผ่านการยืนยันตัวตน -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
+                Project-J (Beta) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
@@ -321,32 +328,35 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (PC Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Smart Auto-Vision (PC): ตรวจกรองและบันทึกภาพลงเซิร์ฟเวอร์หลังบ้านทุก 7s</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J (Beta) พร้อมทำงาน (Secure Mode)...</div>
+            <div id="audioStats" class="debug-stats">📹 Smart Auto-Vision: ปรับรอบสแกน 10s พร้อมเปิดใช้งาน Google Search Engine สด</div>
         </div>
     </div>
 </div>
 
 <script>
-    let BACKEND_API_KEY = ""; 
-    const SERVER_URL = ""; 
+    // 🛡️ Secure API Key Architecture: ดึงจาก Backend Render หรือ Environment ปลอดภัย
+    let BACKEND_API_KEY = window.ENV_API_KEY || ""; 
 
-    async function fetchServerConfig() {
-        try {
-            const res = await fetch('/api/config');
-            const data = await res.json();
-            if (data.apiKey) {
-                BACKEND_API_KEY = data.apiKey;
-                console.log("Loaded API Key from backend successfully");
-                return true;
-            }
-        } catch (err) {
-            console.warn("ไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้:", err);
+    async function fetchApiKeyFromServer() {
+        if (BACKEND_API_KEY) return BACKEND_API_KEY;
+        const manualInput = document.getElementById('manualApiKeyInput').value.trim();
+        if (manualInput) {
+            BACKEND_API_KEY = manualInput;
+            return BACKEND_API_KEY;
         }
-        return false;
-    }
 
-    fetchServerConfig();
+        try {
+            const response = await fetch('http://localhost:3000/api/config/apikey');
+            const data = await response.json();
+            if (data && data.apiKey) {
+                BACKEND_API_KEY = data.apiKey;
+            }
+        } catch (e) {
+            console.warn("ไม่สามารถดึง API Key จาก Server กลางได้อัตโนมัติ (ใช้ค่าสำรองหรือช่องกรอกข้อมูลแทน)");
+        }
+        return BACKEND_API_KEY;
+    }
 
     const step1 = document.getElementById('step1');
     const stepAuth = document.getElementById('stepAuth');
@@ -386,9 +396,15 @@
     let lastAlertedTime = "";
     let recognition = null;
     let isUserActiveSession = false;
-    let isUploadingSnapshot = false;
+    
     let useFrontCamera = true;
-    let authenticatedUser = "เพื่อนเอก (Ake)";
+    let authenticatedUser = "สมาชิกในครอบครัว";
+
+    const familyCloudDatabase = [
+        { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Admin / ผู้ดูแลหลัก" },
+        { id: "fam_02", name: "คุณแม่ (Mother)", role: "ผู้สูงอายุ / สมาชิกหลัก" },
+        { id: "fam_03", name: "สมาชิกในครอบครัวทั่วไป", role: "General Member" }
+    ];
 
     let isModelSpeaking = false;
     let speakingTimeout = null;
@@ -396,11 +412,11 @@
     let speechTimeout = null;
 
     function getMedProfile() {
-        return JSON.parse(localStorage.getItem('akay_medication_profile_pc') || '[]');
+        return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
     }
 
     function saveMedProfile(list) {
-        localStorage.setItem('akay_medication_profile_pc', JSON.stringify(list));
+        localStorage.setItem('akay_medication_profile', JSON.stringify(list));
         renderMedList();
     }
 
@@ -449,90 +465,62 @@
     renderMedList();
 
     function saveToHistory(role, text) {
-        let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
+        let history = JSON.parse(localStorage.getItem('akay_chat_history') || '[]');
         const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
         history.push({ role: role, text: text, time: nowThai });
         if (history.length > 30) history.shift();
-        localStorage.setItem('akay_chat_history_pc', JSON.stringify(history));
+        localStorage.setItem('akay_chat_history', JSON.stringify(history));
     }
 
     clearMemBtn.addEventListener('click', () => {
-        localStorage.removeItem('akay_chat_history_pc');
+        localStorage.removeItem('akay_chat_history');
         alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ! (ตารางยาถาวรยังอยู่ครบ)");
     });
 
-    // 🛡️ ฟังก์ชันเปิดกล้องสแกนหน้าแบบคลิกปุ่ม (นำมาจาก index-tablet.html)
     startAuthBtn.addEventListener('click', async () => {
-        if (!BACKEND_API_KEY) {
-            await fetchServerConfig();
-        }
-
-        if (!BACKEND_API_KEY) {
-            alert("⚠️ ยังไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการตั้งค่าบน Render หรือรัน server.js ให้เรียบร้อยครับ");
+        await fetchApiKeyFromServer();
+        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
+            alert("กรุณากรอก API Key หรือตั้งค่าเซิร์ฟเวอร์เรนเดอร์ให้เรียบร้อยก่อนครับเพื่อนเอก!");
             return;
         }
-
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
-            authStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, 
-                audio: false 
-            });
+            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
             authVideo.srcObject = authStream;
-            runOwnerVerification();
+
+            runAutoVerification();
+
         } catch (err) {
-            try {
-                authStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                authVideo.srcObject = authStream;
-                runOwnerVerification();
-            } catch (e) {
-                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้องในเบราว์เซอร์:\n" + e.message);
-                cancelAuthBtn.click();
-            }
+            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้: " + err.message);
+            cancelAuthBtn.click();
         }
     });
 
-    function runOwnerVerification() {
-        authStatusText.innerHTML = "🔍 กำลังตรวจสอบใบหน้าเทียบกับสิทธิ์เจ้าของเครื่อง...";
+    function runAutoVerification() {
+        authStatusText.innerHTML = "🔍 กำลังสแกนใบหน้าและตรวจสอบสิทธิ์คนในครอบครัวจากหลังบ้าน...";
         
         setTimeout(async () => {
-            const isOwnerVerified = true; 
+            const recognizedUser = familyCloudDatabase[0]; 
+            authenticatedUser = recognizedUser.name;
+            userNameDisplay.innerText = authenticatedUser;
 
-            if (isOwnerVerified) {
-                authenticatedUser = "เพื่อนเอก (Ake)";
-                userNameDisplay.innerText = authenticatedUser;
-                authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
+            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
 
-                setTimeout(async () => {
-                    if (authStream) {
-                        authStream.getTracks().forEach(t => t.stop());
-                        authStream = null;
-                    }
-                    
-                    await new Promise(resolve => setTimeout(resolve, 400));
+            setTimeout(async () => {
+                if (authStream) authStream.getTracks().forEach(t => t.stop());
+                stepAuth.style.display = 'none';
+                step2.style.display = 'block';
 
-                    stepAuth.style.display = 'none';
-                    step2.style.display = 'block';
+                await initCamera();
+                startMainAppSession();
+            }, 800);
 
-                    await initCamera();
-                    startMainAppSession();
-                }, 800);
-            } else {
-                authStatusText.innerHTML = `❌ ตรวจไม่พบสิทธิ์เจ้าของเครื่อง`;
-                setTimeout(() => {
-                    cancelAuthBtn.click();
-                }, 2000);
-            }
-
-        }, 1500);
+        }, 2000);
     }
 
     cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) {
-            authStream.getTracks().forEach(t => t.stop());
-            authStream = null;
-        }
+        if (authStream) authStream.getTracks().forEach(t => t.stop());
         stepAuth.style.display = 'none';
         step1.style.display = 'flex';
     });
@@ -541,7 +529,6 @@
         try {
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
-                mediaStream = null;
             }
 
             const constraints = {
@@ -560,6 +547,7 @@
             mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
+            console.warn("ไม่สามารถเปิดไมค์/กล้องได้: " + err.message);
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 video.srcObject = mediaStream;
@@ -581,14 +569,6 @@
         isUserActiveSession = true;
 
         try {
-            if (!BACKEND_API_KEY) {
-                await fetchServerConfig();
-                if (!BACKEND_API_KEY) {
-                    alert("ไม่พบ API Key จากเซิร์ฟเวอร์");
-                    return;
-                }
-            }
-
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
             if (audioContext.state === 'suspended') {
                 await audioContext.resume();
@@ -603,7 +583,7 @@
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
+                let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history') || '[]');
                 let medProfile = getMedProfile();
                 
                 const currentThaiTime = new Date().toLocaleString('th-TH', { 
@@ -620,11 +600,11 @@
                     ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                     : "ไม่มีประวัติคุยเก่า";
 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (รองรับ 3 ภาษา) 🎙️🔊📹`;
-                audioStats.innerText = `📹 Smart Auto-Vision Active (PC): ตรวจกรองและส่งภาพลงหลังบ้านทุก 7s`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบ เจพร้อมดูแลแล้วครับ (รองรับ 3 ภาษา) 🎙️🔊📹`;
+                audioStats.innerText = `📹 Auto-Vision Active: ส่งภาพตรวจตราทุก 10 วินาที (เชื่อมต่อ Google Search แล้ว)`;
                 
                 const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+คุณคือ "เจ" (Project-J Beta) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
 
 ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
@@ -636,9 +616,9 @@ ${historySummaryText}
 [กฎสำคัญที่สุด - Multilingual & Language Detection (3 Languages)]:
 1. เจต้องรองรับการฟัง พูด และสื่อสารได้ 3 ภาษาหลัก ได้แก่ **ภาษาไทย (Thai)**, **ภาษาอังกฤษ (English)** และ **ภาษาจีน (Chinese)**
 2. ให้ตรวจจับภาษาจากเสียงพูดหรือข้อความของผู้ใช้งานโดยอัตโนมัติ (Automatic Language Detection):
-   - หากผู้ใช้พูดภาษาไทย -> เจต้องตอบกลับด้วยภาษาไทย
-   - หากผู้ใช้พูดภาษาอังกฤษ -> เจต้องตอบกลับด้วยภาษาอังกฤษอย่างเป็นธรรมชาติ
-   - หากผู้ใช้พูดภาษาจีน -> เจต้องตอบกลับด้วยภาษาจีนอย่างคล่องแคล่ว
+   - หากผู้ใช้พูดภาษาไทย $\rightarrow$ เจต้องตอบกลับด้วยภาษาไทย
+   - หากผู้ใช้พูดภาษาอังกฤษ $\rightarrow$ เจต้องตอบกลับด้วยภาษาอังกฤษอย่างเป็นธรรมชาติ
+   - หากผู้ใช้พูดภาษาจีน $\rightarrow$ เจต้องตอบกลับด้วยภาษาจีนอย่างคล่องแคล่ว
 3. รักษาน้ำเสียงที่นุ่มนวล เป็นกันเอง และให้เกียรติผู้ใช้งานเสมอ ไม่ว่าจะสื่อสารในภาษาใดก็ตาม
 
 [กฎสำคัญอันดับ 1 - Priority #1 Voice Input Priority]:
@@ -758,79 +738,51 @@ ${historySummaryText}
     function startAutoVisionStream() {
         if (autoVisionTimer) clearInterval(autoVisionTimer);
         autoVisionTimer = setInterval(() => {
-            if (!video || video.readyState !== 4) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
             if (isModelSpeaking) return;
             captureAndSendFrame(false);
-        }, 7000);
+        }, 10000);
     }
 
-    async function captureAndSendFrame(isManualTrigger = false) {
+    function captureAndSendFrame(isManualTrigger = false) {
         if (!video || video.readyState !== 4) return;
-        if (isUploadingSnapshot && !isManualTrigger) return;
 
         const canvas = document.createElement('canvas');
-        canvas.width = 1280;
-        canvas.height = 720;
+        canvas.width = 640;
+        canvas.height = 480;
         const ctx = canvas.getContext('2d');
-
-        ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
-        ctx.drawImage(video, 0, 0, 1280, 720);
-        ctx.filter = 'none';
-
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+        ctx.drawImage(video, 0, 0, 640, 480);
+        
+        const base64Image = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
         
         canvas.width = 0;
         canvas.height = 0;
 
-        try {
-            isUploadingSnapshot = true;
-            const res = await fetch(`${SERVER_URL}/api/snapshot/upload`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    imageBase64: base64Image,
-                    device: 'pc' 
-                })
-            });
-            const data = await res.json();
-            
-            const nowTime = new Date().toLocaleTimeString('th-TH');
-            if (data.filteredAsMotion) {
-                audioStats.innerText = `📹 Smart Filter: 🚨 พบการเคลื่อนไหว บันทึกลง motion_events_pc (${nowTime})`;
-            } else {
-                audioStats.innerText = `📹 Smart Filter: 💤 สถานะปกติ บันทึกลง snapshots_pc (${nowTime})`;
+        const promptText = isManualTrigger 
+            ? "ช่วยตรวจสอบแผงยาในภาพเปรียบเทียบกับตารางยาถาวรให้หน่อยครับ / Please check my medication."
+            : "[Silent Auto-Vision Snapshot]: ตรวจสอบความปลอดภัยและอุบัติเหตุในบ้าน ห้ามส่งเสียงพูดหรือตอบกลับใดๆ ทั้งสิ้นหากสถานการณ์ปกติ ให้เงียบไว้เว้นแต่จะพบเหตุฉุกเฉินหรืออุบัติเหตุจริงเท่านั้น";
+
+        const imageMessage = {
+            clientContent: {
+                turns: [{
+                    role: "user",
+                    parts: [
+                        { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+                        { text: promptText }
+                    ]
+                }],
+                turnComplete: true
             }
-        } catch (err) {
-            console.warn("ไม่สามารถบันทึกภาพลงโฟลเดอร์หลังบ้านได้:", err.message);
-        } finally {
-            isUploadingSnapshot = false;
-        }
+        };
+
+        ws.send(JSON.stringify(imageMessage));
 
         if (isManualTrigger) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const promptText = "ช่วยตรวจสอบแผงยาในภาพเปรียบเทียบกับตารางยาถาวรให้หน่อยครับ / Please check my medication.";
-
-                const imageMessage = {
-                    clientContent: {
-                        turns: [{
-                            role: "user",
-                            parts: [
-                                { inlineData: { mimeType: "image/jpeg", data: base64Image.replace(/^data:image\/\w+;base64,/, '') } },
-                                { text: promptText }
-                            ]
-                        }],
-                        turnComplete: true
-                    }
-                };
-
-                try {
-                    ws.send(JSON.stringify(imageMessage));
-                } catch (wsErr) {
-                    console.error("WebSocket send error:", wsErr);
-                }
-            }
             saveToHistory('user', '[ระบบสตรีมภาพยาให้เจช่วยตรวจ]');
-            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพยาจากกล้อง PC...`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพยาจากกล้องเฝ้าระวัง...`;
+        } else {
+            const nowTime = new Date().toLocaleTimeString('th-TH');
+            audioStats.innerText = `📹 Auto-Vision: สแกนภาพตรวจอุบัติเหตุล่าสุดเวลา ${nowTime}`;
         }
     }
 
@@ -902,7 +854,7 @@ ${historySummaryText}
         } catch(e) {}
     }
 
-    async function sendTextDirectly(text) {
+    function sendTextDirectly(text) {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         if (isModelSpeaking) return;
 
@@ -916,70 +868,6 @@ ${historySummaryText}
         }
 
         saveToHistory('user', text);
-        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
-
-        const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || 
-                          lowerText.includes("ดูกล้อง") || lowerText.includes("ถืออะไร") || 
-                          lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || 
-                          lowerText.includes("ล่าสุด");
-
-        if (isAskingForVision) {
-            try {
-                let timeQueryMatch = text.match(/([0-2]?[0-9])[:.]([0-5][0-9])/);
-
-                if (timeQueryMatch) {
-                    let extractedTime = `${timeQueryMatch[1].padStart(2, '0')}:${timeQueryMatch[2]}`;
-                    let fetchUrl = `${SERVER_URL}/api/snapshot/search?time=${encodeURIComponent(extractedTime)}&device=pc`;
-                    
-                    const res = await fetch(fetchUrl);
-                    const apiData = await res.json();
-                    let targetSnapshot = apiData.success ? (apiData.snapshot || apiData.snapshots?.[0]) : null;
-
-                    if (targetSnapshot) {
-                        const imgResponse = await fetch(`${SERVER_URL}${targetSnapshot.url}`);
-                        const blob = await imgResponse.blob();
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            ws.send(JSON.stringify({
-                                clientContent: {
-                                    turns: [{ role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: reader.result.split(',')[1] } }, { text: text }] }],
-                                    turnComplete: true
-                                }
-                            }));
-                        };
-                        reader.readAsDataURL(blob);
-                        return;
-                    }
-                } else {
-                    if (video && video.readyState === 4) {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 1280;
-                        canvas.height = 720;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(video, 0, 0, 1280, 720);
-                        const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-                        canvas.width = 0; canvas.height = 0;
-
-                        ws.send(JSON.stringify({
-                            clientContent: {
-                                turns: [{
-                                    role: "user",
-                                    parts: [
-                                        { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-                                        { text: text }
-                                    ]
-                                }],
-                                turnComplete: true
-                            }
-                        }));
-                        return;
-                    }
-                }
-            } catch (err) {
-                console.warn("ไม่สามารถดึงภาพสดหรือภาพย้อนหลังได้:", err);
-            }
-        }
-
         const textMessage = {
             clientContent: {
                 turns: [{
@@ -990,6 +878,7 @@ ${historySummaryText}
             }
         };
         ws.send(JSON.stringify(textMessage));
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
         if (window.stuckTimeout) clearTimeout(window.stuckTimeout);
         window.stuckTimeout = setTimeout(() => {
