@@ -471,12 +471,19 @@
         alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ! (ตารางยาถาวรยังอยู่ครบ)");
     });
 
+    // ปรับแก้ปุ่มสแกนหน้าให้ทำการรอโหลด API Key จากหลังบ้านให้อัตโนมัติทันที
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY) {
-            alert("กำลังโหลดค่า API Key จากเซิร์ฟเวอร์ กรุณารอสักครู่แล้วลองใหม่อีกครั้งครับเพื่อนเอก!");
+            startAuthBtn.innerText = "⏳ กำลังเชื่อมต่อ...";
             await fetchServerConfig();
+            startAuthBtn.innerHTML = '<span style="font-size: 20px;">👤📷</span><span>สแกนหน้า</span>';
+        }
+
+        if (!BACKEND_API_KEY) {
+            alert("ยังไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการตั้งค่า Environment Variable บน Render หรือรีเฟรชหน้าเว็บใหม่อีกครั้งครับเพื่อนเอก!");
             return;
         }
+
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
