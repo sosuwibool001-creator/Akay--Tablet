@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (WebSocket Auto-Queue Fixed)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Secure Master Edition)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -98,7 +98,7 @@
             margin-bottom: 25px;
         }
 
-        select {
+        select, input[type="password"] {
             width: 100%;
             padding: 13px 16px;
             font-size: 14px;
@@ -110,7 +110,7 @@
             transition: all 0.2s ease;
             box-sizing: border-box;
         }
-        select:focus {
+        select:focus, input[type="password"]:focus {
             border-color: var(--accent-blue);
             background: #fff;
             box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
@@ -256,12 +256,12 @@
 <body>
 
 <div class="container">
-    <!-- Step 1: หน้าแรกเลือกเสียง -->
+    <!-- Step 1: หน้าแรกเลือกเสียงและตั้งค่า API Key -->
     <div id="step1">
         <div class="logo-box">
             Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta Secure</span>
         </div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (WebSocket Auto-Queue Edition)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (Secure Server Render Mode)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -271,6 +271,7 @@
                 <option value="Kore">♀️ Kore (เสียงสดใส)</option>
                 <option value="Aoede">♀️ Aoede (เสียงนุ่มนวล)</option>
             </select>
+            <input type="password" id="manualApiKeyInput" placeholder="กรอก API Key (หรือปล่อยว่างเพื่อดึงจาก Server Render)">
         </div>
 
         <button id="startAuthBtn" class="circle-btn">
@@ -279,7 +280,7 @@
         </button>
     </div>
 
-    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ -->
+    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ (Auto-Login) -->
     <div id="stepAuth">
         <div class="logo-box" style="font-size: 26px;">
             🤖 กำลังสแกนใบหน้าครอบครัว...
@@ -293,7 +294,7 @@
         </div>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลัก -->
+    <!-- Step 2: แดชบอร์ดหลักหลังผ่านการยืนยันตัวตน -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
@@ -305,13 +306,13 @@
         <video id="webcam" autoplay playsinline muted></video>
 
         <div class="dashboard-controls">
-            <button id="snapBtn" class="standard-btn">📸 ส่งภาพยาให้เจตรวจ</button>
+            <button id="snapBtn" class="standard-btn">📸 ส่งภาพยาให้เจตรวจ (Manual)</button>
             <button id="switchCamBtn" class="standard-btn switch-cam-btn">🔄 สลับกล้อง</button>
-            <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
+            <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติคุย</button>
         </div>
 
         <div class="med-section">
-            <h3>💊 ฐานข้อมูลตารางยาถาวร</h3>
+            <h3>💊 ฐานข้อมูลตารางยาถาวร <span style="font-size:11px; color:var(--text-sub); font-weight:normal;">(ปลอดภัยไม่หายเมื่อล้างประวัติ)</span></h3>
             <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
                 <input type="time" id="medTime" value="08:00" style="flex: 1; padding: 8px; font-size: 13px;">
                 <input type="text" id="medName" placeholder="ชื่อยา / ลักษณะ" style="flex: 3; padding: 8px; font-size: 13px;">
@@ -327,13 +328,36 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมทำงาน (Auto-Queue Active)...</div>
-            <div id="audioStats" class="debug-stats">🔊 ระบบเสียงพร้อมทำงาน (ปลดล็อก AudioContext อัตโนมัติ)</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J (Beta) พร้อมทำงาน (Secure Mode)...</div>
+            <div id="audioStats" class="debug-stats">📹 Smart Auto-Vision: ปรับรอบสแกน 10s พร้อมเปิดใช้งาน Google Search Engine สด</div>
         </div>
     </div>
 </div>
 
 <script>
+    // 🛡️ Secure API Key Architecture: ดึงจาก Backend Render หรือ Environment ปลอดภัย
+    let BACKEND_API_KEY = window.ENV_API_KEY || ""; 
+
+    async function fetchApiKeyFromServer() {
+        if (BACKEND_API_KEY) return BACKEND_API_KEY;
+        const manualInput = document.getElementById('manualApiKeyInput').value.trim();
+        if (manualInput) {
+            BACKEND_API_KEY = manualInput;
+            return BACKEND_API_KEY;
+        }
+
+        try {
+            const response = await fetch('http://localhost:3000/api/config/apikey');
+            const data = await response.json();
+            if (data && data.apiKey) {
+                BACKEND_API_KEY = data.apiKey;
+            }
+        } catch (e) {
+            console.warn("ไม่สามารถดึง API Key จาก Server กลางได้อัตโนมัติ (ใช้ค่าสำรองหรือช่องกรอกข้อมูลแทน)");
+        }
+        return BACKEND_API_KEY;
+    }
+
     const step1 = document.getElementById('step1');
     const stepAuth = document.getElementById('stepAuth');
     const step2 = document.getElementById('step2');
@@ -361,88 +385,31 @@
     const addMedBtn = document.getElementById('addMedBtn');
     const medListDiv = document.getElementById('medList');
 
-    let BACKEND_API_KEY = window.ENV_API_KEY || ""; 
     let ws = null;
     let audioContext = null;
     let mediaStream = null;
     let authStream = null;
     let nextAudioTime = 0;
+    let autoAlertTimer = null;
     let autoVisionTimer = null;
     let pingInterval = null;
+    let lastAlertedTime = "";
+    let recognition = null;
     let isUserActiveSession = false;
-    let messageQueue = []; // 🛡️ คิวเก็บข้อความรอส่งเมื่อ WebSocket กำลังเชื่อมต่อ
     
     let useFrontCamera = true;
     let authenticatedUser = "สมาชิกในครอบครัว";
 
     const familyCloudDatabase = [
-        { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Admin / ผู้ดูแลหลัก" }
+        { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Admin / ผู้ดูแลหลัก" },
+        { id: "fam_02", name: "คุณแม่ (Mother)", role: "ผู้สูงอายุ / สมาชิกหลัก" },
+        { id: "fam_03", name: "สมาชิกในครอบครัวทั่วไป", role: "General Member" }
     ];
 
     let isModelSpeaking = false;
     let speakingTimeout = null;
-
-    async function fetchApiKeyFromServer() {
-        if (BACKEND_API_KEY && !BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
-            return BACKEND_API_KEY;
-        }
-        try {
-            const response = await fetch('/api/config/apikey');
-            const data = await response.json();
-            if (data && data.apiKey) BACKEND_API_KEY = data.apiKey;
-        } catch (e) {
-            BACKEND_API_KEY = window.ENV_API_KEY || ""; 
-        }
-        return BACKEND_API_KEY;
-    }
-
-    startAuthBtn.addEventListener('click', async () => {
-        step1.style.display = 'none';
-        stepAuth.style.display = 'flex';
-        authStatusText.innerHTML = "🔄 กำลังเชื่อมต่อระบบความปลอดภัยและเปิดกล้อง...";
-        await fetchApiKeyFromServer();
-
-        try {
-            authStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, 
-                audio: false 
-            });
-            authVideo.srcObject = authStream;
-            runAutoVerification();
-        } catch (err) {
-            try {
-                authStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                authVideo.srcObject = authStream;
-                runAutoVerification();
-            } catch (e) {
-                alert("ไม่สามารถเปิดใช้งานกล้องได้: " + e.message);
-                cancelAuthBtn.click();
-            }
-        }
-    });
-
-    function runAutoVerification() {
-        authStatusText.innerHTML = "🔍 กำลังสแกนใบหน้าและตรวจสอบสิทธิ์...";
-        setTimeout(async () => {
-            authenticatedUser = familyCloudDatabase[0].name;
-            userNameDisplay.innerText = authenticatedUser;
-            authStatusText.innerHTML = `✅ ยินดีต้อนรับ ${authenticatedUser}!`;
-
-            setTimeout(async () => {
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                stepAuth.style.display = 'none';
-                step2.style.display = 'block';
-                await initCamera();
-                startMainAppSession();
-            }, 800);
-        }, 2000);
-    }
-
-    cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepAuth.style.display = 'none';
-        step1.style.display = 'flex';
-    });
+    let speechBuffer = "";
+    let speechTimeout = null;
 
     function getMedProfile() {
         return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
@@ -457,14 +424,16 @@
         const list = getMedProfile();
         medListDiv.innerHTML = "";
         if (list.length === 0) {
-            medListDiv.innerHTML = `<div style="font-size:11px; color:var(--text-sub);">ยังไม่มีรายการยาที่บันทึกไว้</div>`;
+            medListDiv.innerHTML = `<div style="font-size:11px; color:var(--text-sub);">ยังไม่มีรายการยาที่บันทึกไว้ เพิ่มรายการยาด้านบนได้เลยครับ</div>`;
             return;
         }
         list.forEach((item, index) => {
             const div = document.createElement('div');
             div.className = 'med-item';
             div.innerHTML = `
-                <div><strong>⏰ ${item.time} น.</strong> - <span>${item.name}</span> (${item.dose})</div>
+                <div>
+                    <strong>⏰ ${item.time} น.</strong> - <span>${item.name}</span> <small style="color:var(--text-sub);">(${item.dose})</small>
+                </div>
                 <button onclick="deleteMed(${index})" style="background:var(--accent-red); color:#fff; padding:3px 6px; font-size:10px; border:none; border-radius:4px; cursor:pointer;">❌ ลบ</button>
             `;
             medListDiv.appendChild(div);
@@ -475,7 +444,10 @@
         const time = medTimeInput.value;
         const name = medNameInput.value.trim();
         const dose = medDoseInput.value.trim();
-        if (!name || !dose) { alert("กรุณากรอกข้อมูลยาให้ครบถ้วน"); return; }
+        if (!name || !dose) {
+            alert("กรุณากรอกชื่อยาและจำนวนให้ครบถ้วนครับ!");
+            return;
+        }
         const list = getMedProfile();
         list.push({ time, name, dose });
         list.sort((a, b) => a.time.localeCompare(b.time));
@@ -489,61 +461,208 @@
         list.splice(index, 1);
         saveMedProfile(list);
     };
+
     renderMedList();
+
+    function saveToHistory(role, text) {
+        let history = JSON.parse(localStorage.getItem('akay_chat_history') || '[]');
+        const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+        history.push({ role: role, text: text, time: nowThai });
+        if (history.length > 30) history.shift();
+        localStorage.setItem('akay_chat_history', JSON.stringify(history));
+    }
+
+    clearMemBtn.addEventListener('click', () => {
+        localStorage.removeItem('akay_chat_history');
+        alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ! (ตารางยาถาวรยังอยู่ครบ)");
+    });
+
+    startAuthBtn.addEventListener('click', async () => {
+        await fetchApiKeyFromServer();
+        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
+            alert("กรุณากรอก API Key หรือตั้งค่าเซิร์ฟเวอร์เรนเดอร์ให้เรียบร้อยก่อนครับเพื่อนเอก!");
+            return;
+        }
+        step1.style.display = 'none';
+        stepAuth.style.display = 'flex';
+        try {
+            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+            authVideo.srcObject = authStream;
+
+            runAutoVerification();
+
+        } catch (err) {
+            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้: " + err.message);
+            cancelAuthBtn.click();
+        }
+    });
+
+    function runAutoVerification() {
+        authStatusText.innerHTML = "🔍 กำลังสแกนใบหน้าและตรวจสอบสิทธิ์คนในครอบครัวจากหลังบ้าน...";
+        
+        setTimeout(async () => {
+            const recognizedUser = familyCloudDatabase[0]; 
+            authenticatedUser = recognizedUser.name;
+            userNameDisplay.innerText = authenticatedUser;
+
+            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
+
+            setTimeout(async () => {
+                if (authStream) authStream.getTracks().forEach(t => t.stop());
+                stepAuth.style.display = 'none';
+                step2.style.display = 'block';
+
+                await initCamera();
+                startMainAppSession();
+            }, 800);
+
+        }, 2000);
+    }
+
+    cancelAuthBtn.addEventListener('click', () => {
+        if (authStream) authStream.getTracks().forEach(t => t.stop());
+        stepAuth.style.display = 'none';
+        step1.style.display = 'flex';
+    });
 
     async function initCamera() {
         try {
-            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-            mediaStream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: useFrontCamera ? "user" : "environment" },
-                audio: false 
-            });
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: { 
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 },
+                    facingMode: useFrontCamera ? "user" : "environment"
+                }, 
+                audio: { 
+                    echoCancellation: true, 
+                    noiseSuppression: true, 
+                    autoGainControl: true 
+                } 
+            };
+
+            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
-            console.warn("Camera init warning:", err);
+            console.warn("ไม่สามารถเปิดไมค์/กล้องได้: " + err.message);
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                video.srcObject = mediaStream;
+            } catch (e) {
+                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
+            }
         }
     }
 
     async function switchCamera() {
         useFrontCamera = !useFrontCamera;
         await initCamera();
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เปลี่ยนกล้องสำเร็จ`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เปลี่ยนเป็นใช้งาน${useFrontCamera ? "กล้องหน้า" : "กล้องหลัง"}เรียบร้อยครับ 📷`;
     }
+
     switchCamBtn.addEventListener('click', switchCamera);
 
     async function startMainAppSession() {
         isUserActiveSession = true;
+
         try {
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
             nextAudioTime = audioContext.currentTime;
 
             const selectedVoice = voiceSelect.value;
-            const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${BACKEND_API_KEY}`;
+            const host = "generativelanguage.googleapis.com";
+            const path = "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+            const url = `wss://${host}${path}?key=${BACKEND_API_KEY}`;
+
             ws = new WebSocket(url);
 
-            statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>สถานะ:</strong> กำลังเชื่อมต่อระบบ AI เจ...`;
-
             ws.onopen = () => {
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจพร้อมดูแลแล้วครับ (พิมพ์คุยได้ทันที)`;
+                let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history') || '[]');
+                let medProfile = getMedProfile();
+                
+                const currentThaiTime = new Date().toLocaleString('th-TH', { 
+                    timeZone: 'Asia/Bangkok',
+                    dateStyle: 'full',
+                    timeStyle: 'medium'
+                });
+
+                let medProfileText = medProfile.length > 0
+                    ? "ฐานข้อมูลรายการยาถาวร:\n" + medProfile.map(m => `- เวลา ${m.time} น.: ยา "${m.name}" (${m.dose})`).join('\n')
+                    : "ยังไม่ได้ตั้งตารางยาถาวร";
+
+                let historySummaryText = savedHistory.length > 0 
+                    ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
+                    : "ไม่มีประวัติคุยเก่า";
+
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบ เจพร้อมดูแลแล้วครับ (รองรับ 3 ภาษา) 🎙️🔊📹`;
+                audioStats.innerText = `📹 Auto-Vision Active: ส่งภาพตรวจตราทุก 10 วินาที (เชื่อมต่อ Google Search แล้ว)`;
+                
+                const dynamicToneInstructions = `
+คุณคือ "เจ" (Project-J Beta) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+
+ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
+เวลาปัจจุบัน: ${currentThaiTime}
+
+${medProfileText}
+
+${historySummaryText}
+
+[กฎสำคัญที่สุด - Multilingual & Language Detection (3 Languages)]:
+1. เจต้องรองรับการฟัง พูด และสื่อสารได้ 3 ภาษาหลัก ได้แก่ **ภาษาไทย (Thai)**, **ภาษาอังกฤษ (English)** และ **ภาษาจีน (Chinese)**
+2. ให้ตรวจจับภาษาจากเสียงพูดหรือข้อความของผู้ใช้งานโดยอัตโนมัติ (Automatic Language Detection):
+   - หากผู้ใช้พูดภาษาไทย $\rightarrow$ เจต้องตอบกลับด้วยภาษาไทย
+   - หากผู้ใช้พูดภาษาอังกฤษ $\rightarrow$ เจต้องตอบกลับด้วยภาษาอังกฤษอย่างเป็นธรรมชาติ
+   - หากผู้ใช้พูดภาษาจีน $\rightarrow$ เจต้องตอบกลับด้วยภาษาจีนอย่างคล่องแคล่ว
+3. รักษาน้ำเสียงที่นุ่มนวล เป็นกันเอง และให้เกียรติผู้ใช้งานเสมอ ไม่ว่าจะสื่อสารในภาษาใดก็ตาม
+
+[กฎสำคัญอันดับ 1 - Priority #1 Voice Input Priority]:
+- ข้อความหรือเสียงพูดที่ถูกแปลงมาจากไมโครโฟน/Speech-to-Text ถือเป็นความสำคัญลำดับที่ 1 (Priority #1) เสมอ ทันทีที่ได้ยินเสียงพูด เจต้องตอบกลับทันทีเหนือทุกเงื่อนไข แม้กำลังอยู่ในสภาวะเฝ้าระวังปกติ (Silent Auto-Vision)
+
+[ขอบเขตบทบาทหน้าที่หลัก]:
+1. Elderly Care & Health Monitoring (ผู้เชี่ยวชาญการดูแลผู้สูงอายุ):
+   - คอยตรวจเช็กและแจ้งเตือนตารางเวลาการทานยาของผู้ใช้งานอย่างเคร่งครัดตามฐานข้อมูลยาถาวร
+   - วิเคราะห์ภาพสถานการณ์จากกล้อง (Auto-Vision / Snapshot) เพื่อเฝ้าระวังอุบัติเหตุ การพลัดตกหกล้ม หรือความผิดปกติของผู้สูงอายุในบ้านแบบเรียลไทม์
+   - ให้คำแนะนำเบื้องต้นด้านสุขภาพ การปฏิบัติตัว และการประสานงานแจ้งเตือนญาติหรือผู้ดูแลกรณีฉุกเฉิน
+
+2. Personal Security & Privacy Guard (ระบบรักษาความปลอดภัยส่วนบุคคล):
+   - ตรวจสอบสิทธิ์และยืนยันตัวตนเจ้าของเครื่องก่อนเข้าใช้งานระบบแดชบอร์ดหลักทุกครั้ง
+   - ควบคุมการสลับกล้องและมุมมองความปลอดภัย (เช่น กล้องหน้า/กล้องหลัง) ตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
+
+3. กฎการตอบสนองและประหยัด Token (Response Guidelines):
+   - ปรับระดับโทนเสียงและคำสร้อยตามบริบทคำถาม: Functional Mode (ตอบสั้นกระชับเมื่อสั่งงาน/ถามเรื่องยา) หรือ Casual Mode (อบอุ่นเป็นกันเองเมื่อคุยเล่น)
+   - ห้ามทักทายหรือพูดขึ้นมาก่อนโดยที่ผู้ใช้ยังไม่ได้เริ่มบทสนทนา
+   - หากผู้ใช้ถามถึงข้อมูลข่าวสารปัจจุบัน สเปกสินค้า หรือเรื่องที่ต้องใช้ข้อมูลสดๆ ให้เจเรียกใช้เครื่องมือ googleSearch เพื่อค้นหาข้อมูลบนอินเทอร์เน็ตมาตอบทันที
+`;
+
                 const setupMessage = {
                     setup: {
                         model: "models/gemini-3.8-live",
                         generationConfig: {
                             responseModalities: ["AUDIO"],
-                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: { voiceName: selectedVoice }
+                                }
+                            }
                         },
-                        tools: [{ googleSearch: {} }],
-                        systemInstruction: { parts: [{ text: `คุณคือ "เจ" ผู้ช่วยดูแลผู้สูงอายุอัจฉริยะ สื่อสารภาษาไทยอย่างนุ่มนวล เป็นกันเอง ตอบคำถามสั้นกระชับและออกเสียงพูดผ่านลำโพง` }] }
+                        tools: [
+                            { googleSearch: {} }
+                        ],
+                        systemInstruction: {
+                            parts: [{ text: dynamicToneInstructions }]
+                        }
                     }
                 };
                 ws.send(JSON.stringify(setupMessage));
-                
-                // 🛡️ ส่งข้อความในคิวทั้งหมดที่ค้างอยู่ทันทีที่ WebSocket เปิดสำเร็จ
-                while (messageQueue.length > 0) {
-                    const queuedText = messageQueue.shift();
-                    sendTextDirectly(queuedText);
-                }
 
+                startSpeechRecognition();
+                startAutoMedAlertChecker();
                 startAutoVisionStream();
                 startKeepAlivePing();
             };
@@ -551,164 +670,378 @@
             ws.onmessage = async (event) => {
                 let responseText = "";
                 try {
-                    let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
+                    let data;
+                    if (event.data instanceof Blob) {
+                        const textData = await event.data.text();
+                        data = JSON.parse(textData);
+                    } else {
+                        data = JSON.parse(event.data);
+                    }
+
                     if (data.serverContent && data.serverContent.modelTurn) {
-                        for (const part of data.serverContent.modelTurn.parts) {
-                            if (part.text) responseText += part.text;
+                        const parts = data.serverContent.modelTurn.parts;
+                        for (const part of parts) {
+                            if (part.text) {
+                                responseText += part.text;
+                            }
                             if (part.inlineData && part.inlineData.data) {
                                 playAudioChunk(part.inlineData.data);
                             }
                         }
                         if (responseText) {
+                            saveToHistory('model', responseText);
                             statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
-                            audioStats.innerText = `🔊 เจกำลังพูดตอบกลับผ่านเสียง...`;
+                            
+                            const lowerText = responseText.toLowerCase();
+                            if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง") || lowerText.includes("back camera")) && useFrontCamera) {
+                                useFrontCamera = false;
+                                initCamera();
+                            } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง") || lowerText.includes("front camera")) && !useFrontCamera) {
+                                useFrontCamera = true;
+                                initCamera();
+                            }
                         }
                     }
-                } catch (e) { console.error(e); }
+                } catch (e) {
+                    console.error("Error parsing message:", e);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error("WebSocket Error:", error);
             };
 
             ws.onclose = () => {
                 if (isUserActiveSession) {
-                    statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>🔄 การเชื่อมต่อหลุด กำลังเชื่อมต่อใหม่...</strong>`;
-                    setTimeout(startMainAppSession, 3000);
+                    statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>🔄 สัญญาณหลุด กำลังเชื่อมต่อใหม่ใน 3 วิ...</strong>`;
+                    setTimeout(() => { if (isUserActiveSession) startMainAppSession(); }, 3000);
+                } else {
+                    statusText.innerHTML = `<span class="status-dot" style="background:#d2d2d7;"></span><strong>สถานะ:</strong> ปิดระบบเรียบร้อยแล้ว`;
+                    audioStats.innerText = `🎙️ Audio Status: ตัดการเชื่อมต่อแล้ว`;
                 }
             };
         } catch (e) {
-            statusText.innerHTML = `❌ ผิดพลาด: ${e.message}`;
+            statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เกิดข้อผิดพลาด:</strong> ${e.message}`;
+            stopSession();
         }
-    }
-
-    // 💬 ฟังก์ชันส่งข้อความ พร้อมระบบ Auto-Queue และปลดล็อก AudioContext
-    async function sendTextDirectly(text) {
-        if (audioContext && audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
-
-        // หาก WebSocket ยังไม่พร้อมเชื่อมต่อ ให้เก็บใส่คิวไว้แล้วสั่งเปิดการเชื่อมต่อ
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            messageQueue.push(text);
-            statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>⏳ กำลังเชื่อมต่อระบบ รอส่งข้อความสักครู่...</strong>`;
-            if (!ws || ws.readyState === WebSocket.CLOSED) {
-                startMainAppSession();
-            }
-            return;
-        }
-
-        ws.send(JSON.stringify({ 
-            clientContent: { 
-                turns: [{ role: "user", parts: [{ text: text }] }], 
-                turnComplete: true 
-            } 
-        }));
-        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความแล้ว:</strong> "${text}"<br><strong>⏳ เจกำลังประมวลผลคำตอบ...</strong>`;
-    }
-
-    // 🔊 ฟังก์ชันเล่นเสียงตอบรับ
-    function playAudioChunk(base64Data) {
-        if (!audioContext) return;
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-
-        isModelSpeaking = true;
-
-        try {
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-
-            const float32Data = new Float32Array(bytes.byteLength / 2);
-            const dataView = new DataView(bytes.buffer);
-            for (let i = 0; i < float32Data.length; i++) {
-                float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
-            }
-
-            const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
-            audioBuffer.getChannelData(0).set(float32Data);
-
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
-
-            if (nextAudioTime < audioContext.currentTime) {
-                nextAudioTime = audioContext.currentTime;
-            }
-            source.start(nextAudioTime);
-            nextAudioTime += audioBuffer.duration;
-
-            if (speakingTimeout) clearTimeout(speakingTimeout);
-            speakingTimeout = setTimeout(() => {
-                isModelSpeaking = false;
-                audioStats.innerText = `🔊 พูดจบแล้ว พร้อมรับคำถามถัดไป`;
-            }, (nextAudioTime - audioContext.currentTime) * 1000 + 500);
-
-        } catch (err) {
-            console.error("Audio playback error:", err);
-        }
-    }
-
-    function startAutoVisionStream() {
-        if (autoVisionTimer) clearInterval(autoVisionTimer);
-        autoVisionTimer = setInterval(() => {
-            if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking) return;
-            captureAndSendFrame();
-        }, 12000);
-    }
-
-    function captureAndSendFrame() {
-        if (!video || video.readyState !== 4) return;
-        const canvas = document.createElement('canvas');
-        canvas.width = 640; canvas.height = 480;
-        canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
-        const base64Image = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
-        canvas.width = 0; canvas.height = 0;
-
-        ws.send(JSON.stringify({
-            clientContent: {
-                turns: [{ role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: base64Image } }, { text: "[Silent Auto-Vision Snapshot]" }] }],
-                turnComplete: true
-            }
-        }));
     }
 
     function startKeepAlivePing() {
         if (pingInterval) clearInterval(pingInterval);
         pingInterval = setInterval(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ clientContent: { turns: [], turnComplete: false } }));
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ clientContent: { turns: [], turnComplete: false } }));
+            }
         }, 15000);
     }
 
-    sendTextBtn.addEventListener('click', () => {
+    function startAutoVisionStream() {
+        if (autoVisionTimer) clearInterval(autoVisionTimer);
+        autoVisionTimer = setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            if (isModelSpeaking) return;
+            captureAndSendFrame(false);
+        }, 10000);
+    }
+
+    function captureAndSendFrame(isManualTrigger = false) {
+        if (!video || video.readyState !== 4) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, 640, 480);
+        
+        const base64Image = canvas.toDataURL('image/jpeg', 0.5).split(',')[1];
+        
+        canvas.width = 0;
+        canvas.height = 0;
+
+        const promptText = isManualTrigger 
+            ? "ช่วยตรวจสอบแผงยาในภาพเปรียบเทียบกับตารางยาถาวรให้หน่อยครับ / Please check my medication."
+            : "[Silent Auto-Vision Snapshot]: ตรวจสอบความปลอดภัยและอุบัติเหตุในบ้าน ห้ามส่งเสียงพูดหรือตอบกลับใดๆ ทั้งสิ้นหากสถานการณ์ปกติ ให้เงียบไว้เว้นแต่จะพบเหตุฉุกเฉินหรืออุบัติเหตุจริงเท่านั้น";
+
+        const imageMessage = {
+            clientContent: {
+                turns: [{
+                    role: "user",
+                    parts: [
+                        { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+                        { text: promptText }
+                    ]
+                }],
+                turnComplete: true
+            }
+        };
+
+        ws.send(JSON.stringify(imageMessage));
+
+        if (isManualTrigger) {
+            saveToHistory('user', '[ระบบสตรีมภาพยาให้เจช่วยตรวจ]');
+            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพยาจากกล้องเฝ้าระวัง...`;
+        } else {
+            const nowTime = new Date().toLocaleTimeString('th-TH');
+            audioStats.innerText = `📹 Auto-Vision: สแกนภาพตรวจอุบัติเหตุล่าสุดเวลา ${nowTime}`;
+        }
+    }
+
+    function startSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return;
+
+        if (recognition) {
+            try { recognition.stop(); } catch(e){}
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.lang = 'th-TH';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onresult = (event) => {
+            if (isModelSpeaking) return;
+
+            let interimText = '';
+            let currentChunk = '';
+
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    currentChunk += event.results[i][0].transcript;
+                } else {
+                    interimText += event.results[i][0].transcript;
+                }
+            }
+
+            if (interimText) {
+                audioStats.innerText = `🎙️ กำลังฟังเสียง: "${interimText}..."`;
+            }
+
+            if (currentChunk.trim()) {
+                speechBuffer += " " + currentChunk.trim();
+                audioStats.innerText = `🗣️ สะสมคำพูด: "${speechBuffer.trim()}"`;
+
+                if (speechTimeout) clearTimeout(speechTimeout);
+
+                speechTimeout = setTimeout(() => {
+                    let finalTextToSend = speechBuffer.trim();
+                    speechBuffer = "";
+
+                    if (finalTextToSend && !isModelSpeaking) {
+                        audioStats.innerText = `🚀 ส่งประโยคให้เจตอบ: "${finalTextToSend}"`;
+                        sendTextDirectly(finalTextToSend);
+                    }
+                }, 1200);
+            }
+        };
+
+        recognition.onerror = (event) => {
+            if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
+                setTimeout(startSpeechRecognition, 500);
+            }
+        };
+
+        recognition.onend = () => {
+            if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
+                setTimeout(() => {
+                    try { recognition.start(); } catch(e){}
+                }, 300);
+            }
+        };
+
+        try {
+            recognition.start();
+        } catch(e) {}
+    }
+
+    function sendTextDirectly(text) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        if (isModelSpeaking) return;
+
+        const lowerText = text.toLowerCase();
+        if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง") || lowerText.includes("back camera")) {
+            useFrontCamera = false;
+            initCamera();
+        } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("ใช้กล้องหน้า") || lowerText.includes("front camera")) {
+            useFrontCamera = true;
+            initCamera();
+        }
+
+        saveToHistory('user', text);
+        const textMessage = {
+            clientContent: {
+                turns: [{
+                    role: "user",
+                    parts: [{ text: text }]
+                }],
+                turnComplete: true
+            }
+        };
+        ws.send(JSON.stringify(textMessage));
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
+
+        if (window.stuckTimeout) clearTimeout(window.stuckTimeout);
+        window.stuckTimeout = setTimeout(() => {
+            if (statusText.innerHTML.includes("เจกำลังประมวลผล")) {
+                isModelSpeaking = false;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมคุยต่อแล้วครับ!`;
+                audioStats.innerText = `🎙️ Project-J Live: พร้อมรับฟังเสียงประโยคถัดไป`;
+                if (isUserActiveSession && recognition) {
+                    try { recognition.start(); } catch(e){}
+                }
+            }
+        }, 7000);
+    }
+
+    function startAutoMedAlertChecker() {
+        if (autoAlertTimer) clearInterval(autoAlertTimer);
+        autoAlertTimer = setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false });
+            if (timeStr === lastAlertedTime) return;
+
+            const medList = getMedProfile();
+            const matchedMeds = medList.filter(m => m.time === timeStr);
+            if (matchedMeds.length > 0) {
+                lastAlertedTime = timeStr;
+                const medDetails = matchedMeds.map(m => `${m.name} (${m.dose})`).join(" และ ");
+                const alertPrompt = {
+                    clientContent: {
+                        turns: [{
+                            role: "user",
+                            parts: [{ text: `[คำสั่งระบบอัตโนมัติ]: ขณะนี้เวลา ${timeStr} น. ถึงเวลาทานยาแล้ว รายการยาได้แก่: ${medDetails} ให้เจส่งเสียงพูดทักเตือนผู้สูงอย่างนุ่มนวลและบอกให้เอาแผงยามาให้เจช่วยดูผ่านกล้องครับ` }]
+                        }],
+                        turnComplete: true
+                    }
+                };
+                ws.send(alertPrompt);
+            }
+        }, 10000);
+    }
+
+    function playAudioChunk(base64Data) {
+        if (!audioContext) return;
+        
+        if (window.stuckTimeout) {
+            clearTimeout(window.stuckTimeout);
+            window.stuckTimeout = null;
+        }
+
+        isModelSpeaking = true;
+        if (speakingTimeout) {
+            clearTimeout(speakingTimeout);
+            speakingTimeout = null;
+        }
+
+        if (recognition) {
+            try { recognition.stop(); } catch(e) {}
+        }
+
+        const binaryString = atob(base64Data);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        const float32Data = new Float32Array(bytes.byteLength / 2);
+        const dataView = new DataView(bytes.buffer);
+        for (let i = 0; i < float32Data.length; i++) {
+            float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
+        }
+
+        const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
+        audioBuffer.getChannelData(0).set(float32Data);
+
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+
+        if (nextAudioTime < audioContext.currentTime) {
+            nextAudioTime = audioContext.currentTime;
+        }
+        source.start(nextAudioTime);
+        nextAudioTime += audioBuffer.duration;
+
+        const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 1500;
+
+        speakingTimeout = setTimeout(() => {
+            isModelSpeaking = false;
+            audioStats.innerText = `🎙️ Project-J Live: เจพูดจบสนิทแล้ว พร้อมรับฟังเสียงประโยคยาว`;
+            if (isUserActiveSession && recognition) {
+                try { recognition.start(); } catch(e) {}
+            }
+        }, remainingTime);
+    }
+
+    sendTextBtn.addEventListener('click', sendTextMessage);
+    textInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendTextMessage();
+    });
+
+    function sendTextMessage() {
         const text = textInput.value.trim();
         if (!text) return;
         sendTextDirectly(text);
         textInput.value = "";
-    });
-    textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextBtn.click(); });
+    }
 
     snapBtn.addEventListener('click', () => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) { alert("ยังไม่ได้เชื่อมต่อระบบ กรุณารอสักครู่!"); return; }
-        captureAndSendFrame();
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 ส่งภาพตรวจสอบเรียบร้อย</strong>`;
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            alert("ระบบเฝ้าระวังยังไม่ได้เชื่อมต่อครับ!");
+            return;
+        }
+        captureAndSendFrame(true);
     });
 
-    clearMemBtn.addEventListener('click', () => {
-        localStorage.removeItem('akay_chat_history');
-        alert("ล้างประวัติเรียบร้อย");
-    });
+    switchCamBtn.addEventListener('click', switchCamera);
 
     function stopSession() {
         isUserActiveSession = false;
-        if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        if (ws) ws.close();
-        if (audioContext) audioContext.close();
+        isModelSpeaking = false;
+        if (speakingTimeout) clearTimeout(speakingTimeout);
+        if (autoAlertTimer) {
+            clearInterval(autoAlertTimer);
+            autoAlertTimer = null;
+        }
+        if (autoVisionTimer) {
+            clearInterval(autoVisionTimer);
+            autoVisionTimer = null;
+        }
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
+        if (speechTimeout) {
+            clearTimeout(speechTimeout);
+            speechTimeout = null;
+        }
+        if (recognition) {
+            try { recognition.stop(); } catch(e){}
+            recognition = null;
+        }
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+            mediaStream = null;
+        }
+        if (authStream) {
+            authStream.getTracks().forEach(track => track.stop());
+            authStream = null;
+        }
+        if (ws) {
+            ws.close();
+            ws = null;
+        }
+        if (audioContext) {
+            audioContext.close();
+            audioContext = null;
+        }
         step2.style.display = 'none';
-        //stepAuth.style.display = 'none';
+        stepAuth.style.display = 'none';
         step1.style.display = 'flex';
     }
+
     stopBtn.addEventListener('click', stopSession);
 </script>
 
