@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Secure Production)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Microphone Optimized)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -410,20 +410,17 @@
             }
         } catch (e) {
             console.warn("⚠️ ไม่สามารถดึง API Key จาก Server Render เบื้องหลังได้ ระบบใช้ค่าจาก Environment หรือค่าสำรอง:", e);
-            // หากดึงไม่สำเร็จ ให้ดึงจาก ENV หรือใช้ค่าทดสอบเพื่อไม่ให้แอปสะดุด
             BACKEND_API_KEY = window.ENV_API_KEY || ""; 
         }
         return BACKEND_API_KEY;
     }
 
-    // 🚀 Event Listener หลักเมื่อกดปุ่มสแกนหน้า (Smooth Transition & Non-blocking)
+    // 🚀 Event Listener หลักเมื่อกดปุ่มสแกนหน้า
     startAuthBtn.addEventListener('click', async () => {
-        // สลับหน้าจอทันทีเพื่อความลื่นไหล ไม่รอ Response นานเกินไป
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         authStatusText.innerHTML = "🔄 กำลังเชื่อมต่อระบบความปลอดภัยและเปิดกล้อง...";
 
-        // ดึง API Key เบื้องหลังแบบเงียบๆ
         await fetchApiKeyFromServer();
 
         try {
@@ -677,7 +674,10 @@ ${historySummaryText}
                 };
                 ws.send(JSON.stringify(setupMessage));
 
-                startSpeechRecognition();
+                // 🛑 ปิดไมค์ Speech Recognition ตอนเริ่มเข้าระบบ รอให้ AI พูดหรือผู้ใช้เริ่มก่อน
+                // startSpeechRecognition(); 
+                audioStats.innerText = `🎙️ Audio Mode: ปิดไมค์อัตโนมัติเพื่อป้องกันการแย่งสิทธิ์ (ระบบพร้อมรับฟังเมื่อเจพูดจบ)`;
+
                 startAutoMedAlertChecker();
                 startAutoVisionStream();
                 startKeepAlivePing();
@@ -802,7 +802,10 @@ ${historySummaryText}
         }
     }
 
+    // 🎙️ ระบบจัดการไมโครโฟนอัจฉริยะ (ปิดตอน AI พูด เปิดเฉพาะตอน AI พูดจบ)
     function startSpeechRecognition() {
+        if (isModelSpeaking) return; // หาก AI กำลังพูด ห้ามเปิดไมค์เด็ดขาด
+
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) return;
 
@@ -845,6 +848,8 @@ ${historySummaryText}
 
                     if (finalTextToSend && !isModelSpeaking) {
                         audioStats.innerText = `🚀 ส่งประโยคให้เจตอบ: "${finalTextToSend}"`;
+                        // ปิดไมค์ชั่วคราวก่อนส่งข้อความให้ AI ประมวลผล
+                        if (recognition) { try { recognition.stop(); } catch(e){} }
                         sendTextDirectly(finalTextToSend);
                     }
                 }, 1200);
@@ -852,16 +857,17 @@ ${historySummaryText}
         };
 
         recognition.onerror = (event) => {
-            if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
+            if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
                 setTimeout(startSpeechRecognition, 500);
             }
         };
 
         recognition.onend = () => {
+            // จะเปิดไมค์ต่อเมื่อ AI ไม่ได้พูดอยู่เท่านั้น
             if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
                 setTimeout(() => {
                     try { recognition.start(); } catch(e){}
-                }, 300);
+                }, 500);
             }
         };
 
@@ -936,6 +942,7 @@ ${historySummaryText}
         }, 10000);
     }
 
+    // 🔊 เล่นเสียงตอบรับจาก AI พร้อมล็อกไมค์ไม่ให้แย่งสิทธิ์ขณะ AI พูด
     function playAudioChunk(base64Data) {
         if (!audioContext) return;
         
@@ -944,14 +951,15 @@ ${historySummaryText}
             window.stuckTimeout = null;
         }
 
+        // 🛑 ล็อกสถานะ: AI กำลังพูด ให้ปิดไมค์ Speech Recognition ทันที
         isModelSpeaking = true;
+        if (recognition) {
+            try { recognition.stop(); } catch(e) {}
+        }
+
         if (speakingTimeout) {
             clearTimeout(speakingTimeout);
             speakingTimeout = null;
-        }
-
-        if (recognition) {
-            try { recognition.stop(); } catch(e) {}
         }
 
         const binaryString = atob(base64Data);
@@ -980,13 +988,15 @@ ${historySummaryText}
         source.start(nextAudioTime);
         nextAudioTime += audioBuffer.duration;
 
-        const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 1500;
+        const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 1000;
 
         speakingTimeout = setTimeout(() => {
-            isModelSpeaking = false;
-            audioStats.innerText = `🎙️ Project-J Live: เจพูดจบสนิทแล้ว พร้อมรับฟังเสียงประโยคยาว`;
-            if (isUserActiveSession && recognition) {
-                try { recognition.start(); } catch(e) {}
+            isModelSpeaking = false; // ปลดล็อกสถานะ
+            audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว เปิดไมค์พร้อมรับฟังเสียงคุณแล้วครับ`;
+            
+            // ✅ เปิดไมค์รับฟังต่อเมื่อ AI พูดจบสนิทเท่านั้น
+            if (isUserActiveSession) {
+                startSpeechRecognition();
             }
         }, remainingTime);
     }
