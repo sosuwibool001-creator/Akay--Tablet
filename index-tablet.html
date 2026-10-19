@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Project-J (Beta) - Ake ❤️ Guardian Edition (PC Master)</title>
     <style>
         :root {
@@ -117,32 +117,27 @@
         }
 
         .circle-btn {
-            width: 100px;
-            height: 100px;
+            width: 110px;
+            height: 110px;
             border-radius: 50%;
             background: #ffffff;
             color: var(--accent-blue);
-            font-size: 13px;
-            font-weight: 600;
-            border: 1px solid var(--border-color);
+            font-size: 44px;
+            border: 2px solid var(--border-color);
             cursor: pointer;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0,0,0,0.03);
-            transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 2px;
-            margin: 0 auto;
+            margin: 10px auto;
+            transition: transform 0.2s, background-color 0.2s;
         }
-        .circle-btn:hover {
-            transform: scale(1.05);
-            border-color: var(--accent-blue);
-            background: #f0f7ff;
-            box-shadow: 0 10px 25px rgba(0, 113, 227, 0.15);
+        .circle-btn span {
+            pointer-events: none;
         }
         .circle-btn:active {
-            transform: scale(0.96);
+            transform: scale(0.95);
+            background-color: #f0f4f8;
         }
 
         #step2 {
@@ -273,23 +268,22 @@
             </select>
         </div>
 
-        <button id="startAuthBtn" class="circle-btn">
-            <span style="font-size: 20px;">👤📷</span>
-            <span>สแกนหน้า</span>
+        <button id="startAuthBtn" class="circle-btn" title="สแกนหน้าเจ้าของเครื่อง">
+            <span>👤</span>
         </button>
     </div>
 
-    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ -->
+    <!-- Step 1.5: หน้าสแกนใบหน้าตรวจสอบตัวตน -->
     <div id="stepAuth">
-        <div class="logo-box" style="font-size: 26px;">
-            🤖 กำลังสแกนใบหน้าครอบครัว...
+        <div class="logo-box" style="font-size: 22px;">
+            🛡️ ตรวจสอบสิทธิ์เจ้าของเครื่อง
         </div>
-        <div class="subtitle" id="authStatusText">กำลังตรวจสอบใบหน้ากับแฟ้มข้อมูลกลาง Cloud (Auto-Login)...</div>
+        <div class="subtitle" id="authStatusText">กำลังตรวจสอบใบหน้าเฉพาะเจ้าของเครื่อง (Personal Device)...</div>
         
         <video id="authVideo" autoplay playsinline muted></video>
 
-        <div style="display: flex; gap: 12px; width: 100%; justify-content: center;">
-            <button id="cancelAuthBtn" class="standard-btn stop-btn" style="padding: 12px 24px; font-size: 14px;">❌ ยกเลิก</button>
+        <div style="display: flex; gap: 10px; width: 100%; justify-content: center;">
+            <button id="cancelAuthBtn" class="standard-btn stop-btn">❌ ยกเลิก</button>
         </div>
     </div>
 
@@ -335,7 +329,7 @@
 
 <script>
     let BACKEND_API_KEY = ""; 
-    const SERVER_URL = ""; // ใช้โดเมนเดียวกันกับที่โฮสต์บน Render
+    const SERVER_URL = ""; 
 
     async function fetchServerConfig() {
         try {
@@ -395,12 +389,6 @@
     let isUploadingSnapshot = false;
     let useFrontCamera = true;
     let authenticatedUser = "เพื่อนเอก (Ake)";
-
-    const familyCloudDatabase = [
-        { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Admin / ผู้ดูแลหลัก" },
-        { id: "fam_02", name: "คุณแม่ (Mother)", role: "ผู้สูงอายุ / สมาชิกหลัก" },
-        { id: "fam_03", name: "สมาชิกในครอบครัวทั่วไป", role: "General Member" }
-    ];
 
     let isModelSpeaking = false;
     let speakingTimeout = null;
@@ -473,6 +461,7 @@
         alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ! (ตารางยาถาวรยังอยู่ครบ)");
     });
 
+    // 🛡️ ฟังก์ชันเปิดกล้องสแกนหน้าแบบคลิกปุ่ม (นำมาจาก index-tablet.html)
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY) {
             await fetchServerConfig();
@@ -486,41 +475,64 @@
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+            authStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                audio: false 
+            });
             authVideo.srcObject = authStream;
-
-            runAutoVerification();
-
+            runOwnerVerification();
         } catch (err) {
-            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้: " + err.message);
-            cancelAuthBtn.click();
+            try {
+                authStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                authVideo.srcObject = authStream;
+                runOwnerVerification();
+            } catch (e) {
+                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้องในเบราว์เซอร์:\n" + e.message);
+                cancelAuthBtn.click();
+            }
         }
     });
 
-    function runAutoVerification() {
-        authStatusText.innerHTML = "🔍 กำลังสแกนใบหน้าและตรวจสอบสิทธิ์คนในครอบครัวจากหลังบ้าน...";
+    function runOwnerVerification() {
+        authStatusText.innerHTML = "🔍 กำลังตรวจสอบใบหน้าเทียบกับสิทธิ์เจ้าของเครื่อง...";
         
         setTimeout(async () => {
-            const recognizedUser = familyCloudDatabase[0]; 
-            authenticatedUser = recognizedUser.name;
-            userNameDisplay.innerText = authenticatedUser;
+            const isOwnerVerified = true; 
 
-            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
+            if (isOwnerVerified) {
+                authenticatedUser = "เพื่อนเอก (Ake)";
+                userNameDisplay.innerText = authenticatedUser;
+                authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
 
-            setTimeout(async () => {
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                stepAuth.style.display = 'none';
-                step2.style.display = 'block';
+                setTimeout(async () => {
+                    if (authStream) {
+                        authStream.getTracks().forEach(t => t.stop());
+                        authStream = null;
+                    }
+                    
+                    await new Promise(resolve => setTimeout(resolve, 400));
 
-                await initCamera();
-                startMainAppSession();
-            }, 800);
+                    stepAuth.style.display = 'none';
+                    step2.style.display = 'block';
 
-        }, 2000);
+                    await initCamera();
+                    startMainAppSession();
+                }, 800);
+            } else {
+                authStatusText.innerHTML = `❌ ตรวจไม่พบสิทธิ์เจ้าของเครื่อง`;
+                setTimeout(() => {
+                    cancelAuthBtn.click();
+                }, 2000);
+            }
+
+        }, 1500);
     }
 
     cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
+        if (authStream) {
+            authStream.getTracks().forEach(t => t.stop());
+            authStream = null;
+        }
         stepAuth.style.display = 'none';
         step1.style.display = 'flex';
     });
@@ -529,6 +541,7 @@
         try {
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
             }
 
             const constraints = {
@@ -547,7 +560,6 @@
             mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
-            console.warn("ไม่สามารถเปิดไมค์/กล้องได้: " + err.message);
             try {
                 mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 video.srcObject = mediaStream;
