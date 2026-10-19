@@ -256,7 +256,7 @@
 <body>
 
 <div class="container">
-    <!-- Step 1: หน้าแรกเลือกเสียง (สะอาด ปลอดภัย ไม่มีช่องกรอก API Key) -->
+    <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">
             Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta Secure</span>
@@ -334,62 +334,7 @@
 </div>
 
 <script>
-    // 🛡️ Secure Backend API Key Resolution (ดึงจากเบื้องหลัง Server Render เท่านั้น)
-    let BACKEND_API_KEY = window.ENV_API_KEY || ""; 
-
-    async function fetchApiKeyFromServer() {
-        if (BACKEND_API_KEY && !BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
-            return BACKEND_API_KEY;
-        }
-
-        try {
-            // ปรับ URL ให้ตรงกับพอร์ตและเส้นทาง Backend บน Render ของเพื่อนเอก (เช่น ถ้ารันโดเมนเดียวกันให้ใช้relative path)
-            const response = await fetch('/api/config/apikey', {
-                method: 'GET',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            
-            if (!response.ok) throw new Error('Network response was not ok');
-            
-            const data = await response.json();
-            if (data && data.apiKey) {
-                BACKEND_API_KEY = data.apiKey;
-            }
-        } catch (e) {
-            console.error("⚠️ ไม่สามารถดึง API Key จาก Server Render เบื้องหลังได้:", e);
-            // กรณีฉุกเฉิน สามารถกำหนดค่าสำรองระดับ Hardcode ป้องกันระบบล่มหน้างานได้ที่นี่
-            BACKEND_API_KEY = window.ENV_API_KEY || ""; 
-        }
-        return BACKEND_API_KEY;
-    }
-
-    // ผูกเข้ากับปุ่มเริ่มใช้งานอย่างปลอดภัย
-    const startAuthBtn = document.getElementById('startAuthBtn');
-    startAuthBtn.addEventListener('click', async () => {
-        // แสดงสถานะกำลังโหลดคีย์เบื้องหลัง
-        authStatusText.innerHTML = "🔄 กำลังเชื่อมต่อระบบความปลอดภัยเซิร์ฟเวอร์...";
-        
-        await fetchApiKeyFromServer();
-        
-        if (!BACKEND_API_KEY) {
-            alert("ไม่สามารถเชื่อมต่อระบบคีย์ความปลอดภัยจาก Server Render ได้ กรุณาตรวจสอบการตั้งค่า Backend API ครับเพื่อนเอก!");
-            return;
-        }
-
-        step1.style.display = 'none';
-        stepAuth.style.display = 'flex';
-        try {
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
-            authVideo.srcObject = authStream;
-
-            runAutoVerification();
-
-        } catch (err) {
-            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้: " + err.message);
-            cancelAuthBtn.click();
-        }
-    });
-
+    // 🛡️ DOM Elements Mapping
     const step1 = document.getElementById('step1');
     const stepAuth = document.getElementById('stepAuth');
     const step2 = document.getElementById('step2');
@@ -417,6 +362,8 @@
     const addMedBtn = document.getElementById('addMedBtn');
     const medListDiv = document.getElementById('medList');
 
+    // State Variables
+    let BACKEND_API_KEY = window.ENV_API_KEY || ""; 
     let ws = null;
     let audioContext = null;
     let mediaStream = null;
@@ -443,6 +390,89 @@
     let speechBuffer = "";
     let speechTimeout = null;
 
+    // 🛡️ Secure API Key Fetcher with Fault-Tolerant Fallback
+    async function fetchApiKeyFromServer() {
+        if (BACKEND_API_KEY && !BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
+            return BACKEND_API_KEY;
+        }
+
+        try {
+            const response = await fetch('/api/config/apikey', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) throw new Error('Network response status: ' + response.status);
+            
+            const data = await response.json();
+            if (data && data.apiKey) {
+                BACKEND_API_KEY = data.apiKey;
+            }
+        } catch (e) {
+            console.warn("⚠️ ไม่สามารถดึง API Key จาก Server Render เบื้องหลังได้ ระบบจะใช้ค่าสำรอง (Fallback):", e);
+            // 💡 หากต้องการรันเทสเฉพาะกิจ สามารถใส่ API Key ตรงนี้เป็นตัวสำรองชั่วคราวได้ครับ
+            BACKEND_API_KEY = window.ENV_API_KEY || "YOUR_FALLBACK_API_KEY_IF_NEEDED"; 
+        }
+        return BACKEND_API_KEY;
+    }
+
+    // 🚀 Event Listener หลักเมื่อกดปุ่มสแกนหน้า
+    startAuthBtn.addEventListener('click', async () => {
+        authStatusText.innerHTML = "🔄 กำลังเชื่อมต่อระบบความปลอดภัยเซิร์ฟเวอร์...";
+        
+        await fetchApiKeyFromServer();
+        
+        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_FALLBACK_API_KEY_IF_NEEDED")) {
+            alert("⚠️ คำเตือน: ยังไม่ได้ตั้งค่า API Key บน Server Render หรือไฟล์ Environment กรุณาตรวจสอบ Backend Endpoint อีกครั้งครับเพื่อนเอก!");
+            // แม้คีย์จะยังไม่พร้อม แต่เปิดทางให้ทดสอบหน้ากล้องได้หากต้องการดีบัก UI
+        }
+
+        // สลับหน้าจอจาก Step 1 ไป Step Auth ทันที
+        step1.style.display = 'none';
+        stepAuth.style.display = 'flex';
+        
+        try {
+            authStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }, 
+                audio: false 
+            });
+            authVideo.srcObject = authStream;
+            runAutoVerification();
+        } catch (err) {
+            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้ กรุณาตรวจสอบสิทธิ์การใช้กล้อง:\n" + err.message);
+            cancelAuthBtn.click();
+        }
+    });
+
+    function runAutoVerification() {
+        authStatusText.innerHTML = "🔍 กำลังสแกนใบหน้าและตรวจสอบสิทธิ์คนในครอบครัวจากหลังบ้าน...";
+        
+        setTimeout(async () => {
+            const recognizedUser = familyCloudDatabase[0]; 
+            authenticatedUser = recognizedUser.name;
+            userNameDisplay.innerText = authenticatedUser;
+
+            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
+
+            setTimeout(async () => {
+                if (authStream) authStream.getTracks().forEach(t => t.stop());
+                stepAuth.style.display = 'none';
+                step2.style.display = 'block';
+
+                await initCamera();
+                startMainAppSession();
+            }, 800);
+
+        }, 2000);
+    }
+
+    cancelAuthBtn.addEventListener('click', () => {
+        if (authStream) authStream.getTracks().forEach(t => t.stop());
+        stepAuth.style.display = 'none';
+        step1.style.display = 'flex';
+    });
+
+    // --- Medication Profile & Utility Functions ---
     function getMedProfile() {
         return JSON.parse(localStorage.getItem('akay_medication_profile') || '[]');
     }
@@ -507,57 +537,6 @@
     clearMemBtn.addEventListener('click', () => {
         localStorage.removeItem('akay_chat_history');
         alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ! (ตารางยาถาวรยังอยู่ครบ)");
-    });
-
-    startAuthBtn.addEventListener('click', async () => {
-        // ดึง API Key จาก Server Render เบื้องหลังทันทีที่กดปุ่มสแกนหน้า
-        await fetchApiKeyFromServer();
-        
-        if (!BACKEND_API_KEY) {
-            alert("ไม่สามารถดึง API Key จาก Server Render ได้ กรุณาตรวจสอบการเชื่อมต่อหลังบ้านครับเพื่อนเอก!");
-            return;
-        }
-
-        step1.style.display = 'none';
-        stepAuth.style.display = 'flex';
-        try {
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
-            authVideo.srcObject = authStream;
-
-            runAutoVerification();
-
-        } catch (err) {
-            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้: " + err.message);
-            cancelAuthBtn.click();
-        }
-    });
-
-    function runAutoVerification() {
-        authStatusText.innerHTML = "🔍 กำลังสแกนใบหน้าและตรวจสอบสิทธิ์คนในครอบครัวจากหลังบ้าน...";
-        
-        setTimeout(async () => {
-            const recognizedUser = familyCloudDatabase[0]; 
-            authenticatedUser = recognizedUser.name;
-            userNameDisplay.innerText = authenticatedUser;
-
-            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
-
-            setTimeout(async () => {
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                stepAuth.style.display = 'none';
-                step2.style.display = 'block';
-
-                await initCamera();
-                startMainAppSession();
-            }, 800);
-
-        }, 2000);
-    }
-
-    cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepAuth.style.display = 'none';
-        step1.style.display = 'flex';
     });
 
     async function initCamera() {
