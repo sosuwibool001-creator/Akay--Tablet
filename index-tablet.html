@@ -95,7 +95,7 @@
             border-radius: 50%;
             background: #ffffff;
             color: var(--accent-blue);
-            font-size: 44px; /* ขยายขนาดไอคอนให้โดดเด่นเต็มปุ่ม */
+            font-size: 44px;
             border: 2px solid var(--border-color);
             cursor: pointer;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
@@ -263,7 +263,6 @@
             </select>
         </div>
 
-        <!-- ปุ่มสแกนหน้าแบบมีแต่รูปหน้าคน (เอาฟอนต์ออกแล้ว) -->
         <button id="startAuthBtn" class="circle-btn" title="สแกนหน้าเจ้าของเครื่อง">
             <span>👤</span>
         </button>
@@ -300,7 +299,6 @@
             <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
         </div>
 
-        <!-- แถบกรอกข้อความ (มีเฉพาะช่องพิมพ์และปุ่มส่ง) -->
         <div class="gemini-input-bar">
             <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ (หากถามเรื่องภาพ ระบบจะแคปภาพส่งทันที)...">
             <button id="sendTextBtn" class="icon-action-btn" title="ส่งข้อความ" style="color: var(--accent-blue);">➤</button>
@@ -308,7 +306,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมรับข้อความพิมพ์คุยกับเจ...</div>
-            <div id="audioStats" class="debug-stats">🔒 Text & On-Demand Vision Mode: ไม่มีระบบไมค์ ไม่เก็บภาพอัตโนมัติ ส่งภาพเฉพาะเมื่อมีคำสั่งถามเท่านั้น</div>
+            <div id="audioStats" class="debug-stats">🔊 Text & Audio Response Mode: เปิดใช้งานระบบเสียงตอบกลับอัตโนมัติ</div>
         </div>
     </div>
 </div>
@@ -374,7 +372,7 @@
                 authVideo.srcObject = authStream;
                 runOwnerVerification();
             } catch (e) {
-                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้องในเบราว์เซอร์:\n" + e.message);
+                alert("ไม่สามารถเปิดกล้องได้: " + e.message);
                 cancelAuthBtn.click();
             }
         }
@@ -454,8 +452,11 @@
         isUserActiveSession = true;
 
         try {
+            // สร้าง AudioContext และบังคับเปิดใช้งานทันที
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-            if (audioContext.state === 'suspended') await audioContext.resume();
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
             nextAudioTime = audioContext.currentTime;
 
             const selectedVoice = voiceSelect.value;
@@ -466,26 +467,12 @@
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว Project-J พร้อมดูแลแล้วครับ 🔒`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เชื่อมต่อสำเร็จ พร้อมรับฟังเสียงตอบกลับครับ 🔊`;
                 
                 const dynamicToneInstructions = `
-คุณคือ "เจ" (Project-J Beta) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
-
+คุณคือ "เจ" (Project-J Beta) ผู้ช่วยอัจฉริยะส่วนตัว ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device)
 ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}
-
-[ขอบเขตบทบาทหน้าที่หลัก]:
-1. Elderly Care & Health Monitoring (ผู้เชี่ยวชาญการดูแลผู้สูงอายุ):
-   - วิเคราะห์ภาพสถานการณ์จากกล้องเฉพาะเมื่อมีการเรียกดู (On-Demand Vision) เพื่อเฝ้าระวังอุบัติเหตุ การพลัดตกหกล้ม หรือความผิดปกติของผู้สูงอายุในบ้าน
-   - ให้คำแนะนำเบื้องต้นด้านสุขภาพ การปฏิบัติตัว และการประสานงานแจ้งเตือนญาติหรือผู้ดูแลกรณีฉุกเฉิน
-
-2. Personal Security & Privacy Guard (ระบบรักษาความปลอดภัยส่วนบุคคล):
-   - ตรวจสอบสิทธิ์และยืนยันตัวตนเจ้าของเครื่องก่อนเข้าใช้งานระบบแดชบอร์ดหลักทุกครั้ง
-   - ควบคุมการสลับกล้องและมุมมองความปลอดภัยตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
-
-3. กฎการตอบสนองและประหยัด Token (Response Guidelines):
-   - ปรับระดับโทนเสียงตามบริบทคำถาม: Functional Mode (ตอบสั้นกระชับเมื่อสั่งงาน/ตรวจสอบกล้อง) หรือ Casual Mode (อบอุ่นเป็นกันเองเมื่อคุยเล่น)
-   - ห้ามทักทายหรือพูดขึ้นมาก่อนโดยที่ผู้ใช้ยังไม่ได้เริ่มบทสนทนา
-   - หากผู้ใช้ถามถึงข้อมูลข่าวสารปัจจุบัน ให้เจเรียกใช้เครื่องมือ googleSearch เพื่อค้นหาข้อมูลบนอินเทอร์เน็ตมาตอบทันที
+ต้องใช้คำลงท้ายว่า **"ครับ"** ทุกครั้ง ห้ามใช้คำว่า "ค่ะ" เด็ดขาด
 `;
 
                 const setupMessage = {
@@ -511,10 +498,12 @@
                     if (data.serverContent && data.serverContent.modelTurn) {
                         for (const part of data.serverContent.modelTurn.parts) {
                             if (part.text) responseText += part.text;
-                            if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
+                            if (part.inlineData && part.inlineData.data) {
+                                playAudioChunk(part.inlineData.data);
+                            }
                         }
                         if (responseText) {
-                            statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${responseText}`;
+                            statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
                             
                             const lowerText = responseText.toLowerCase();
                             if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) && useFrontCamera) {
@@ -550,6 +539,11 @@
     }
 
     function captureAndSendFrameManual() {
+        // ปลดล็อก AudioContext ทันทีที่กดปุ่ม
+        if (audioContext && audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
         const base64Image = getLiveFrameBase64();
         if (!base64Image) {
             alert("กล้องยังไม่พร้อมใช้งานครับ");
@@ -571,7 +565,17 @@
         statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังวิเคราะห์ภาพถ่ายเรียลไทม์...`;
     }
 
-    function sendTextDirectly(text) {
+    async function sendTextDirectly(text) {
+        // 🔊 บังคับเปิดใช้งาน AudioContext ทุกครั้งที่กดส่งข้อความ เพื่อให้เบราว์เซอร์เล่นเสียงออกลำโพงได้
+        if (audioContext) {
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+        } else {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            await audioContext.resume();
+        }
+
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             alert("ยังไม่ได้เชื่อมต่อ WebSocket กับเจครับ!");
             return;
@@ -615,20 +619,35 @@
 
     function playAudioChunk(base64Data) {
         if (!audioContext) return;
-        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-        const float32Data = new Float32Array(bytes.byteLength / 2);
-        const dataView = new DataView(bytes.buffer);
-        for (let i = 0; i < float32Data.length; i++) float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
+        try {
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
 
-        const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
-        audioBuffer.getChannelData(0).set(float32Data);
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
+            const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            const float32Data = new Float32Array(bytes.byteLength / 2);
+            const dataView = new DataView(bytes.buffer);
+            for (let i = 0; i < float32Data.length; i++) {
+                float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
+            }
 
-        if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
-        source.start(nextAudioTime);
-        nextAudioTime += audioBuffer.duration;
+            const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
+            audioBuffer.getChannelData(0).set(float32Data);
+            
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
+
+            if (nextAudioTime < audioContext.currentTime) {
+                nextAudioTime = audioContext.currentTime;
+            }
+            source.start(nextAudioTime);
+            nextAudioTime += audioBuffer.duration;
+            
+            audioStats.innerText = `🔊 กำลังเล่นเสียงตอบกลับจากเจ...`;
+        } catch (err) {
+            console.error("Audio playback error:", err);
+        }
     }
 
     sendTextBtn.addEventListener('click', () => { 
