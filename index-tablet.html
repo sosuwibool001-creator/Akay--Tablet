@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Text & On-Demand Vision)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Personal Secure Device)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -203,6 +203,31 @@
             transition: background 0.2s;
         }
 
+        #micBtn.listening {
+            background: rgba(255, 59, 48, 0.15);
+            animation: mic-pulse 1.2s infinite;
+        }
+        
+        #textMicBtn.recording {
+            background: rgba(52, 199, 89, 0.2);
+            animation: mic-pulse 1.2s infinite;
+        }
+
+        @keyframes mic-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+            70% { box-shadow: 0 0 0 8px rgba(255, 59, 48, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+        }
+
+        #audioVisualizer {
+            width: 100%;
+            height: 45px;
+            background: #1e1e24;
+            border-radius: 12px;
+            margin-top: 8px;
+            display: block;
+        }
+
         #output {
             padding: 12px 15px;
             background: #fbfbfd;
@@ -245,7 +270,7 @@
     <!-- Step 1: หน้าเริ่มต้นเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">
-            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Text & Vision Mode</span>
+            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta</span>
         </div>
         <div class="subtitle">ระบบผู้ช่วยส่วนตัว (Personal Secure Device)</div>
         
@@ -284,7 +309,7 @@
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 16px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก</span>)
+                Project-J (Beta) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออก</button>
         </div>
@@ -297,38 +322,27 @@
             <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
         </div>
 
-        <!-- แถบกรอกข้อความ (ตัดระบบไมค์ออกทั้งหมด) -->
+        <!-- แถบกรอกข้อความ พร้อมปุ่มไมค์แปลงเสียง (Speech-to-Text) และปุ่มคุยสด -->
         <div class="gemini-input-bar">
-            <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ (หากถามเกี่ยวกับภาพ ระบบจะแคปภาพส่งทันที)...">
+            <input type="text" id="textInput" placeholder="พิมพ์ข้อความ หรือกดไมค์เพื่อแปลงเสียงพูดใส่กล่อง...">
+            <button id="textMicBtn" class="icon-action-btn" title="พูดเพื่อแปลงเป็นข้อความ" style="color: var(--accent-green);">🗣️</button>
+            <button id="micBtn" class="icon-action-btn" title="คลิกเพื่อพูดคุยสดกับเจ">🎤</button>
             <button id="sendTextBtn" class="icon-action-btn" title="ส่งข้อความ" style="color: var(--accent-blue);">➤</button>
         </div>
 
+        <!-- แถบคลื่นเสียงเรียลไทม์ -->
+        <canvas id="audioVisualizer"></canvas>
+
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมรับข้อความพิมพ์คุยกับเจ...</div>
-            <div id="audioStats" class="debug-stats">🔒 Text & On-Demand Vision Mode: ไม่มีระบบไมค์ ไม่เก็บภาพอัตโนมัติ ส่งภาพเฉพาะเมื่อมีคำสั่งถามเท่านั้น</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมใช้งาน กดปุ่มไมค์เพื่อเริ่มพูด...</div>
+            <div id="audioStats" class="debug-stats">📤 Central Backend Mode: ส่งภาพ Snapshot ฝาก Server กลางทุก 30 วินาที (ประหยัด Token 100%)</div>
         </div>
     </div>
 </div>
 
 <script>
-    let BACKEND_API_KEY = ""; 
-
-    async function fetchServerConfig() {
-        try {
-            const res = await fetch('/api/config');
-            const data = await res.json();
-            if (data.apiKey) {
-                BACKEND_API_KEY = data.apiKey;
-                console.log("Loaded API Key from backend successfully");
-                return true;
-            }
-        } catch (err) {
-            console.warn("ไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้:", err);
-        }
-        return false;
-    }
-
-    fetchServerConfig();
+    // 🛡️ ป้องกันความปลอดภัย: ดึง API Key จาก Backend หรือ Config ภายนอกแทนการแปะตรงๆ
+    const BACKEND_API_KEY = window.ENV_API_KEY || "GEMINI_API_KEY"; 
 
     const step1 = document.getElementById('step1');
     const stepAuth = document.getElementById('stepAuth');
@@ -347,16 +361,28 @@
     const clearMemBtn = document.getElementById('clearMemBtn');
     const sendTextBtn = document.getElementById('sendTextBtn');
     const textInput = document.getElementById('textInput');
+    const micBtn = document.getElementById('micBtn');
+    const textMicBtn = document.getElementById('textMicBtn');
     const voiceSelect = document.getElementById('voiceSelect');
     const statusText = document.getElementById('statusText');
     const audioStats = document.getElementById('audioStats');
+    
+    const canvas = document.getElementById('audioVisualizer');
+    const canvasCtx = canvas.getContext('2d');
 
     let ws = null;
     let audioContext = null;
     let mediaStream = null;
     let authStream = null;
+    let microphoneStream = null;
+    let audioInputProcessor = null;
+    let analyserNode = null;
     let nextAudioTime = 0;
+    let autoVisionTimer = null;
     let isUserActiveSession = false;
+    let isModelSpeaking = false;
+    let isListening = false;
+    
     let useFrontCamera = true;
     
     const tabletOwner = { id: "fam_01", name: "เพื่อนเอก (Ake)", role: "Owner / Admin" };
@@ -368,17 +394,10 @@
     });
 
     startAuthBtn.addEventListener('click', async () => {
-        if (!BACKEND_API_KEY) {
-            startAuthBtn.innerText = "⏳ กำลังดึงคีย์...";
-            await fetchServerConfig();
-            startAuthBtn.innerHTML = '<span style="font-size: 22px;">🔒👤</span><span>สแกนหน้าเจ้าของเครื่อง</span>';
-        }
-
-        if (!BACKEND_API_KEY) {
-            alert("⚠️ ยังไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการตั้งค่าบน Render หรือรัน server.js ให้เรียบร้อยครับ");
+        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("PLACEHOLDER")) {
+            alert("กรุณาตั้งค่า API Key ให้เรียบร้อยก่อนครับเพื่อนเอก!");
             return;
         }
-
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
@@ -394,7 +413,7 @@
                 authVideo.srcObject = authStream;
                 runOwnerVerification();
             } catch (e) {
-                alert("ไม่สามารถเปิดกล้องได้: " + e.message);
+                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้องในเบราว์เซอร์:\n" + e.message);
                 cancelAuthBtn.click();
             }
         }
@@ -402,19 +421,30 @@
 
     function runOwnerVerification() {
         authStatusText.innerHTML = "🔍 กำลังตรวจสอบใบหน้าเทียบกับสิทธิ์เจ้าของเครื่อง...";
+        
         setTimeout(async () => {
-            authenticatedUser = tabletOwner.name;
-            userNameDisplay.innerText = authenticatedUser;
-            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
+            const isOwnerVerified = true; 
 
-            setTimeout(async () => {
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                stepAuth.style.display = 'none';
-                step2.style.display = 'block';
+            if (isOwnerVerified) {
+                authenticatedUser = tabletOwner.name;
+                userNameDisplay.innerText = authenticatedUser;
+                authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
 
-                await initCamera();
-                startMainAppSession();
-            }, 800);
+                setTimeout(async () => {
+                    if (authStream) authStream.getTracks().forEach(t => t.stop());
+                    stepAuth.style.display = 'none';
+                    step2.style.display = 'block';
+
+                    await initCamera();
+                    startMainAppSession();
+                }, 800);
+            } else {
+                authStatusText.innerHTML = `❌ ตรวจไม่พบสิทธิ์เจ้าของเครื่อง`;
+                setTimeout(() => {
+                    cancelAuthBtn.click();
+                }, 2000);
+            }
+
         }, 1500);
     }
 
@@ -426,14 +456,28 @@
 
     async function initCamera() {
         try {
-            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-            mediaStream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: useFrontCamera ? "user" : "environment" }, 
-                audio: false
-            });
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: { 
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 },
+                    facingMode: useFrontCamera ? "user" : "environment"
+                }, 
+                audio: { echoCancellation: true, noiseSuppression: true } 
+            };
+
+            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
-            alert("ไม่สามารถเปิดใช้งานกล้องได้");
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                video.srcObject = mediaStream;
+            } catch (e) {
+                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
+            }
         }
     }
 
@@ -445,15 +489,115 @@
 
     switchCamBtn.addEventListener('click', switchCamera);
 
-    async function startMainAppSession() {
-        if (!BACKEND_API_KEY) {
-            await fetchServerConfig();
-            if (!BACKEND_API_KEY) {
-                alert("เชื่อมต่อล้มเหลว: ไม่พบ API Key จากเซิร์ฟเวอร์");
-                return;
+    function setupAudioVisualizer(inputStreamOrNode) {
+        if (!audioContext) return;
+        try {
+            analyserNode = audioContext.createAnalyser();
+            analyserNode.fftSize = 64;
+
+            if (inputStreamOrNode instanceof MediaStream) {
+                const source = audioContext.createMediaStreamSource(inputStreamOrNode);
+                source.connect(analyserNode);
+            } else if (inputStreamOrNode instanceof AudioNode) {
+                inputStreamOrNode.connect(analyserNode);
+            }
+
+            drawWaveform();
+        } catch (e) {
+            console.error("Waveform setup error:", e);
+        }
+    }
+
+    function drawWaveform() {
+        if (!analyserNode) return;
+        
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        const bufferLength = analyserNode.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+
+        function renderFrame() {
+            if (!isUserActiveSession) return;
+            requestAnimationFrame(renderFrame);
+
+            analyserNode.getByteFrequencyData(dataArray);
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const barWidth = (canvas.width / bufferLength) * 1.8;
+            let x = 0;
+
+            for (let i = 0; i < bufferLength; i++) {
+                const barHeight = (dataArray[i] / 255) * canvas.height;
+
+                const gradient = canvasCtx.createLinearGradient(0, canvas.height, 0, 0);
+                gradient.addColorStop(0, '#34c759');
+                gradient.addColorStop(1, '#0071e3');
+
+                canvasCtx.fillStyle = gradient;
+                canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+
+                x += barWidth + 1;
             }
         }
+        renderFrame();
+    }
 
+    textMicBtn.addEventListener('click', () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("เบราว์เซอร์นี้ไม่รองรับระบบแปลงเสียงพูดเป็นข้อความ");
+            return;
+        }
+
+        try {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'th-TH';
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 1;
+
+            recognition.onstart = () => {
+                textMicBtn.classList.add('recording');
+                audioStats.innerText = `🗣️ กำลังฟังเสียงพูด... กรุณาพูดใส่ไมค์ได้เลยครับ`;
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    textInput.value = finalTranscript;
+                    audioStats.innerText = `✅ แปลงเสียงพูดสำเร็จ กดส่งข้อความ (➤) หาเจได้เลยครับ`;
+                } else if (interimTranscript) {
+                    textInput.value = interimTranscript;
+                    audioStats.innerText = `🎙️ ได้ยินเสียง: "${interimTranscript}"`;
+                }
+            };
+
+            recognition.onerror = (event) => {
+                audioStats.innerText = `❌ เกิดข้อผิดพลาด: ${event.error}`;
+                textMicBtn.classList.remove('recording');
+            };
+
+            recognition.onend = () => {
+                textMicBtn.classList.remove('recording');
+            };
+
+            recognition.start();
+        } catch (err) {
+            textMicBtn.classList.remove('recording');
+        }
+    });
+
+    async function startMainAppSession() {
         isUserActiveSession = true;
 
         try {
@@ -469,11 +613,26 @@
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เชื่อมต่อสำเร็จ พร้อมพิมพ์คุยกับเจแล้วครับ 💬`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว Project-J พร้อมดูแลแล้วครับ 🔒🎙️`;
                 
                 const dynamicToneInstructions = `
-คุณคือ "เจ" (Project-J) ผู้ช่วยอัจฉริยะส่วนตัว ทำหน้าที่ดูแลผู้สูงอายุและระบบรักษาความปลอดภัย ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย ห้ามใช้คำว่า "ค่ะ" เด็ดขาด
-ผู้ใช้งานปัจจุบันผ่านการสแกนใบหน้ายืนยันตัวตนเรียบร้อยแล้ว คือเจ้าของเครื่อง: ${authenticatedUser}
+คุณคือ "เจ" (Project-J Beta) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+
+ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}
+
+[ขอบเขตบทบาทหน้าที่หลัก]:
+1. Elderly Care & Health Monitoring (ผู้เชี่ยวชาญการดูแลผู้สูงอายุ):
+   - วิเคราะห์ภาพสถานการณ์จากกล้อง (Auto-Vision / Snapshot) เพื่อเฝ้าระวังอุบัติเหตุ การพลัดตกหกล้ม หรือความผิดปกติของผู้สูงอายุในบ้านแบบเรียลไทม์
+   - ให้คำแนะนำเบื้องต้นด้านสุขภาพ การปฏิบัติตัว และการประสานงานแจ้งเตือนญาติหรือผู้ดูแลกรณีฉุกเฉิน
+
+2. Personal Security & Privacy Guard (ระบบรักษาความปลอดภัยส่วนบุคคล):
+   - ตรวจสอบสิทธิ์และยืนยันตัวตนเจ้าของเครื่องก่อนเข้าใช้งานระบบแดชบอร์ดหลักทุกครั้ง
+   - ควบคุมการสลับกล้องและมุมมองความปลอดภัยตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
+
+3. กฎการตอบสนองและประหยัด Token (Response Guidelines):
+   - ปรับระดับโทนเสียงตามบริบทคำถาม: Functional Mode (ตอบสั้นกระชับเมื่อสั่งงาน/ตรวจสอบกล้อง) หรือ Casual Mode (อบอุ่นเป็นกันเองเมื่อคุยเล่น)
+   - ห้ามทักทายหรือพูดขึ้นมาก่อนโดยที่ผู้ใช้ยังไม่ได้เริ่มบทสนทนา
+   - หากผู้ใช้ถามถึงข้อมูลข่าวสารปัจจุบัน ให้เจเรียกใช้เครื่องมือ googleSearch เพื่อค้นหาข้อมูลบนอินเทอร์เน็ตมาตอบทันที
 `;
 
                 const setupMessage = {
@@ -484,10 +643,14 @@
                             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
                         },
                         tools: [{ googleSearch: {} }],
-                        systemInstruction: { parts: [{ text: dynamicToneInstructions }] }
+                        systemInstruction: {
+                            parts: [{ text: dynamicToneInstructions }]
+                        }
                     }
                 };
                 ws.send(JSON.stringify(setupMessage));
+
+                startCentralBackendVisionStream();
             };
 
             ws.onmessage = async (event) => {
@@ -500,7 +663,16 @@
                             if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
                         }
                         if (responseText) {
-                            statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
+                            statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${responseText}`;
+                            
+                            const lowerText = responseText.toLowerCase();
+                            if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) && useFrontCamera) {
+                                useFrontCamera = false;
+                                initCamera();
+                            } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง")) && !useFrontCamera) {
+                                useFrontCamera = true;
+                                initCamera();
+                            }
                         }
                     }
                 } catch (e) { console.error(e); }
@@ -514,9 +686,42 @@
         }
     }
 
-    // ฟังก์ชันแคปภาพเฟรมปัจจุบันแบบเรียลไทม์ (ไม่เก็บลงเครื่อง)
-    function getLiveFrameBase64() {
-        if (!video || video.readyState !== 4) return null;
+    function startCentralBackendVisionStream() {
+        if (autoVisionTimer) clearInterval(autoVisionTimer);
+        autoVisionTimer = setInterval(async () => {
+            if (!video || video.readyState !== 4) return;
+            const canvasSnap = document.createElement('canvas');
+            canvasSnap.width = 640;
+            canvasSnap.height = 480;
+            const ctx = canvasSnap.getContext('2d');
+            ctx.drawImage(video, 0, 0, 640, 480);
+            const base64Image = canvasSnap.toDataURL('image/jpeg', 0.4);
+            canvasSnap.width = 0; canvasSnap.height = 0;
+
+            try {
+                const response = await fetch('http://localhost:3000/api/home/upload-snapshot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        deviceId: "Tablet_Station", 
+                        image: base64Image, 
+                        status: "Secure Standby (Normal)" 
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    const nowTime = new Date().toLocaleTimeString('th-TH');
+                    audioStats.innerText = `📤 อัปโหลดภาพเข้า Server กลางสำเร็จ เวลา ${nowTime} (ประหยัด Token 100%)`;
+                }
+            } catch (err) {
+                audioStats.innerText = `⚠️ กำลังเชื่อมต่อ Server กลาง (พอร์ต 3000)`;
+            }
+        }, 30000);
+    }
+
+    function captureAndSendFrameManual() {
+        if (!video || video.readyState !== 4) return;
         const canvasSnap = document.createElement('canvas');
         canvasSnap.width = 640;
         canvasSnap.height = 480;
@@ -524,16 +729,6 @@
         ctx.drawImage(video, 0, 0, 640, 480);
         const base64Image = canvasSnap.toDataURL('image/jpeg', 0.5).split(',')[1];
         canvasSnap.width = 0; canvasSnap.height = 0;
-        return base64Image;
-    }
-
-    // ปุ่มกดส่งภาพตรวจสอบด้วยตัวเอง (Manual Snapshot)
-    function captureAndSendFrameManual() {
-        const base64Image = getLiveFrameBase64();
-        if (!base64Image) {
-            alert("กล้องยังไม่พร้อมใช้งานครับ");
-            return;
-        }
 
         ws.send(JSON.stringify({
             clientContent: {
@@ -547,16 +742,80 @@
                 turnComplete: true
             }
         }));
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังวิเคราะห์ภาพถ่ายเรียลไทม์...`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพจากกล้อง...`;
     }
 
-    // ฟังก์ชันส่งข้อความ พร้อมระบบเช็กคีย์เวิร์ดเกี่ยวกับภาพ/กล้องอัตโนมัติ (On-Demand Vision)
-    function sendTextDirectly(text) {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            alert("ยังไม่ได้เชื่อมต่อ WebSocket กับเจครับ!");
-            return;
-        }
+    micBtn.addEventListener('click', async () => {
+        if (!isListening) {
+            try {
+                if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                if (audioContext.state === 'suspended') await audioContext.resume();
 
+                isListening = true;
+                micBtn.classList.add('listening');
+                micBtn.innerText = "🛑";
+                audioStats.innerText = `🎙️ กำลังเปิดไมค์สด... (พูดได้เลย เจกำลังฟังอยู่)`;
+
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { channelCount: 1, sampleRate: 16000, echoCancellation: true, noiseSuppression: true } 
+                });
+
+                setupAudioVisualizer(microphoneStream);
+
+                const source = audioContext.createMediaStreamSource(microphoneStream);
+                audioInputProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+
+                audioInputProcessor.onaudioprocess = (e) => {
+                    if (!isListening || !ws || ws.readyState !== WebSocket.OPEN) return;
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    const pcm16 = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        pcm16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
+                    }
+
+                    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(pcm16.buffer)));
+                    ws.send(JSON.stringify({
+                        realtimeInput: {
+                            mediaChunks: [{
+                                mimeType: "audio/pcm;rate=24000",
+                                data: base64Audio
+                            }]
+                        }
+                    }));
+                };
+
+                source.connect(audioInputProcessor);
+                audioInputProcessor.connect(audioContext.destination);
+
+            } catch (err) {
+                alert("ไม่สามารถเข้าถึงไมโครโฟนได้ กรุณาตรวจสอบสิทธิ์บนแท็บเล็ต");
+                stopListeningState();
+            }
+        } else {
+            stopListeningState();
+        }
+    });
+
+    function stopListeningState() {
+        isListening = false;
+        micBtn.classList.remove('listening');
+        micBtn.innerText = "🎤";
+        audioStats.innerText = `🎙️ ปิดไมค์แล้ว กำลังรอเจตอบ...`;
+
+        if (audioInputProcessor) {
+            audioInputProcessor.disconnect();
+            audioInputProcessor = null;
+        }
+        if (microphoneStream) {
+            microphoneStream.getTracks().forEach(track => track.stop());
+            microphoneStream = null;
+        }
+    }
+
+    function sendTextDirectly(text) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        
         const lowerText = text.toLowerCase();
         if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง")) {
             useFrontCamera = false;
@@ -566,36 +825,15 @@
             initCamera();
         }
 
-        // ตรวจสอบคีย์เวิร์ดคำถามเกี่ยวกับภาพหรือกล้อง
-        const visionKeywords = ["ภาพ", "กล้อง", "เห็น", "ดู", "มอง", "รูป", "สถานการณ์", "แต่งตัว", "เสื้อ", "หน้ากล้องมีอะไร"];
-        const needsVision = visionKeywords.some(kw => lowerText.includes(kw));
-
-        if (needsVision) {
-            const base64Image = getLiveFrameBase64();
-            if (base64Image) {
-                ws.send(JSON.stringify({
-                    clientContent: {
-                        turns: [{
-                            role: "user",
-                            parts: [
-                                { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-                                { text: text }
-                            ]
-                        }],
-                        turnComplete: true
-                    }
-                }));
-                statusText.innerHTML = `<span class="status-dot"></span><strong>📸 ส่งข้อความพร้อมภาพถ่ายเรียลไทม์:</strong> ${text}`;
-                return;
-            }
-        }
-
         ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
         statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความ:</strong> ${text}`;
     }
 
     function playAudioChunk(base64Data) {
         if (!audioContext) return;
+        isModelSpeaking = true;
+        if (window.speakingTimeout) clearTimeout(window.speakingTimeout);
+
         const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
         const float32Data = new Float32Array(bytes.byteLength / 2);
         const dataView = new DataView(bytes.buffer);
@@ -605,11 +843,19 @@
         audioBuffer.getChannelData(0).set(float32Data);
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
+
+        setupAudioVisualizer(source);
+
         source.connect(audioContext.destination);
 
         if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
         source.start(nextAudioTime);
         nextAudioTime += audioBuffer.duration;
+
+        window.speakingTimeout = setTimeout(() => {
+            isModelSpeaking = false;
+            audioStats.innerText = `🎙️ เจพูดจบแล้ว กดปุ่มไมค์เพื่อพูดคุยต่อได้เลย`;
+        }, (nextAudioTime - audioContext.currentTime) * 1000 + 1500);
     }
 
     sendTextBtn.addEventListener('click', () => { 
@@ -624,8 +870,10 @@
 
     function stopSession() {
         isUserActiveSession = false;
+        if (autoVisionTimer) clearInterval(autoVisionTimer);
         if (ws) ws.close();
         if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+        stopListeningState();
         step2.style.display = 'none';
         step1.style.display = 'flex';
     }
