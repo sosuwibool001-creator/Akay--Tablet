@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Stable Mic)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Audio Fixed)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -263,7 +263,7 @@
         <div class="logo-box">
             Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta Secure</span>
         </div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (Stable Mic Edition)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (Audio Fixed Edition)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -308,7 +308,7 @@
 
         <div class="dashboard-controls">
             <button id="snapBtn" class="standard-btn">📸 ส่งภาพยาให้เจตรวจ</button>
-            <button id="toggleMicBtn" class="standard-btn mic-off-btn">🎙️ เปิดไมค์คุย (Click to Talk)</button>
+            <button id="toggleMicBtn" class="standard-btn mic-off-btn" style="display:none;">🎙️ เปิดไมค์คุย</button>
             <button id="switchCamBtn" class="standard-btn switch-cam-btn">🔄 สลับกล้อง</button>
             <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
         </div>
@@ -330,8 +330,8 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมทำงาน (Stable Mic Mode)...</div>
-            <div id="audioStats" class="debug-stats">🎙️ ควบคุมไมค์แบบ Manual เพื่อป้องกันสัญญาณชนกันบนแท็บเล็ต</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมทำงาน (Text-to-Speech Audio Fixed)...</div>
+            <div id="audioStats" class="debug-stats">🔊 ระบบเสียงพร้อมใช้งาน (เปิดใช้งาน AudioContext อัตโนมัติเมื่อพิมพ์ส่ง)</div>
         </div>
     </div>
 </div>
@@ -371,13 +371,9 @@
     let mediaStream = null;
     let authStream = null;
     let nextAudioTime = 0;
-    let autoAlertTimer = null;
     let autoVisionTimer = null;
     let pingInterval = null;
-    let lastAlertedTime = "";
-    let recognition = null;
     let isUserActiveSession = false;
-    let isMicActive = false;
     
     let useFrontCamera = true;
     let authenticatedUser = "สมาชิกในครอบครัว";
@@ -503,7 +499,7 @@
             if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
             mediaStream = await navigator.mediaDevices.getUserMedia({
                 video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: useFrontCamera ? "user" : "environment" },
-                audio: false // ปิด Audio stream แยกเพื่อไม่ให้แท็บเล็ตชนกับ WebSocket Audio
+                audio: false 
             });
             video.srcObject = mediaStream;
         } catch (err) {
@@ -521,8 +517,8 @@
     async function startMainAppSession() {
         isUserActiveSession = true;
         try {
+            // สร้าง AudioContext รอไว้
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-            if (audioContext.state === 'suspended') await audioContext.resume();
             nextAudioTime = audioContext.currentTime;
 
             const selectedVoice = voiceSelect.value;
@@ -530,7 +526,7 @@
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจพร้อมดูแลแล้วครับ (Stable Mode)`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจพร้อมดูแลแล้วครับ (พิมพ์คุยได้ทันที)`;
                 const setupMessage = {
                     setup: {
                         model: "models/gemini-3.8-live",
@@ -539,7 +535,7 @@
                             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
                         },
                         tools: [{ googleSearch: {} }],
-                        systemInstruction: { parts: [{ text: `คุณคือ "เจ" ผู้ช่วยดูแลผู้สูงอายุอัจฉริยะ สื่อสารภาษาไทยอย่างนุ่มนวล เป็นกันเอง` }] }
+                        systemInstruction: { parts: [{ text: `คุณคือ "เจ" ผู้ช่วยดูแลผู้สูงอายุอัจฉริยะ สื่อสารภาษาไทยอย่างนุ่มนวล เป็นกันเอง ตอบคำถามสั้นกระชับและออกเสียงพูดผ่านลำโพง` }] }
                     }
                 };
                 ws.send(JSON.stringify(setupMessage));
@@ -554,10 +550,13 @@
                     if (data.serverContent && data.serverContent.modelTurn) {
                         for (const part of data.serverContent.modelTurn.parts) {
                             if (part.text) responseText += part.text;
-                            if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
+                            if (part.inlineData && part.inlineData.data) {
+                                playAudioChunk(part.inlineData.data);
+                            }
                         }
                         if (responseText) {
                             statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
+                            audioStats.innerText = `🔊 เจกำลังพูดตอบกลับผ่านเสียง...`;
                         }
                     }
                 } catch (e) { console.error(e); }
@@ -571,109 +570,73 @@
         }
     }
 
-    // 🎙️ Manual Push-to-Talk / Toggle Mic (ป้องกันการแย่งสิทธิ์และตัดต่ออัตโนมัติ)
-    toggleMicBtn.addEventListener('click', () => {
-        if (!isMicActive) {
-            startControlledSpeechRecognition();
-        } else {
-            stopControlledSpeechRecognition();
-        }
-    });
-
-    function startControlledSpeechRecognition() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            alert("ブラウザが音声認識をサポートしていません");
+    // 💬 ฟังก์ชันส่งข้อความพิมพ์คุย พร้อมปลดล็อก AudioContext ให้อัตโนมัติ
+    async function sendTextDirectly(text) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            alert("ยังไม่ได้เชื่อมต่อ WebSocket กรุณารอสักครู่หรือรีเฟรชหน้าใหม่");
             return;
         }
 
-        if (recognition) { try { recognition.stop(); } catch(e){} }
-
-        recognition = new SpeechRecognition();
-        recognition.lang = 'th-TH';
-        recognition.continuous = false; // ปิด continuous เพื่อความเสถียร ไม่รีสตาร์ทวนรัวๆ
-        recognition.interimResults = true;
-
-        recognition.onstart = () => {
-            isMicActive = true;
-            toggleMicBtn.className = "standard-btn mic-on-btn";
-            toggleMicBtn.innerText = "🔴 กำลังฟัง (กดเพื่อปิดไมค์)";
-            audioStats.innerText = `🎙️ ไมโครโฟนเปิดอยู่ พูดได้เลยครับ...`;
-        };
-
-        recognition.onresult = (event) => {
-            let transcript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                transcript += event.results[i][0].transcript;
-            }
-            audioStats.innerText = `🗣️ ได้ยิน: "${transcript}"`;
-            if (event.results[0].isFinal && transcript.trim()) {
-                sendTextDirectly(transcript.trim());
-                stopControlledSpeechRecognition();
-            }
-        };
-
-        recognition.onerror = (e) => {
-            console.warn("Speech error:", e.error);
-            stopControlledSpeechRecognition();
-        };
-
-        recognition.onend = () => {
-            stopControlledSpeechRecognition();
-        };
-
-        try {
-            recognition.start();
-        } catch (e) {
-            stopControlledSpeechRecognition();
+        // ปลดล็อก AudioContext ตามนโยบาย Browser ทันทีที่ผู้ใช้คลิกส่งข้อความ
+        if (audioContext && audioContext.state === 'suspended') {
+            await audioContext.resume();
         }
+
+        ws.send(JSON.stringify({ 
+            clientContent: { 
+                turns: [{ role: "user", parts: [{ text: text }] }], 
+                turnComplete: true 
+            } 
+        }));
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความแล้ว:</strong> "${text}"<br><strong>⏳ เจกำลังประมวลผลคำตอบ...</strong>`;
     }
 
-    function stopControlledSpeechRecognition() {
-        isMicActive = false;
-        toggleMicBtn.className = "standard-btn mic-off-btn";
-        toggleMicBtn.innerText = "🎙️ เปิดไมค์คุย (Click to Talk)";
-        audioStats.innerText = `🎙️ ปิดไมค์เรียบร้อย (ปลอดภัย ไม่มีสัญญาณชนกัน)`;
-        if (recognition) {
-            try { recognition.stop(); } catch(e){}
-            recognition = null;
-        }
-    }
-
-    function sendTextDirectly(text) {
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
-        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความ:</strong> ${text}`;
-    }
-
+    // 🔊 ฟังก์ชันแปลงและเล่นเสียง Base64 PCM จาก Gemini Live API
     function playAudioChunk(base64Data) {
         if (!audioContext) return;
+        
+        // บังคับ Resume หาก AudioContext หลุดเป็น suspended
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+
         isModelSpeaking = true;
-        if (isMicActive) stopControlledSpeechRecognition(); // ปิดไมค์ทันทีถ้าเจกำลังพูด
 
-        const binaryString = atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+        try {
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
 
-        const float32Data = new Float32Array(bytes.byteLength / 2);
-        const dataView = new DataView(bytes.buffer);
-        for (let i = 0; i < float32Data.length; i++) float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
+            const float32Data = new Float32Array(bytes.byteLength / 2);
+            const dataView = new DataView(bytes.buffer);
+            for (let i = 0; i < float32Data.length; i++) {
+                float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
+            }
 
-        const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
-        audioBuffer.getChannelData(0).set(float32Data);
+            const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
+            audioBuffer.getChannelData(0).set(float32Data);
 
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
+            const source = audioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContext.destination);
 
-        if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
-        source.start(nextAudioTime);
-        nextAudioTime += audioBuffer.duration;
+            if (nextAudioTime < audioContext.currentTime) {
+                nextAudioTime = audioContext.currentTime;
+            }
+            source.start(nextAudioTime);
+            nextAudioTime += audioBuffer.duration;
 
-        if (speakingTimeout) clearTimeout(speakingTimeout);
-        speakingTimeout = setTimeout(() => {
-            isModelSpeaking = false;
-        }, (nextAudioTime - audioContext.currentTime) * 1000 + 500);
+            if (speakingTimeout) clearTimeout(speakingTimeout);
+            speakingTimeout = setTimeout(() => {
+                isModelSpeaking = false;
+                audioStats.innerText = `🔊 พูดจบแล้ว พร้อมรับคำถามถัดไป`;
+            }, (nextAudioTime - audioContext.currentTime) * 1000 + 500);
+
+        } catch (err) {
+            console.error("Audio playback error:", err);
+        }
     }
 
     function startAutoVisionStream() {
@@ -728,7 +691,6 @@
 
     function stopSession() {
         isUserActiveSession = false;
-        if (recognition) recognition.stop();
         if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
         if (authStream) authStream.getTracks().forEach(t => t.stop());
         if (ws) ws.close();
