@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (WebSocket Fixed)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Audio Fixed)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -186,6 +186,8 @@
         button.stop-btn { background-color: var(--accent-red); box-shadow: 0 3px 10px rgba(255, 59, 48, 0.2); }
         button.clear-btn { background-color: var(--accent-orange); box-shadow: 0 3px 10px rgba(255, 149, 0, 0.2); }
         button.switch-cam-btn { background-color: #5856d6; box-shadow: 0 3px 10px rgba(88, 86, 214, 0.2); }
+        button.mic-on-btn { background-color: var(--accent-green); box-shadow: 0 3px 10px rgba(52, 199, 89, 0.2); }
+        button.mic-off-btn { background-color: var(--text-sub); box-shadow: 0 3px 10px rgba(134, 134, 139, 0.2); }
 
         .med-section {
             background: #fbfbfd;
@@ -261,7 +263,7 @@
         <div class="logo-box">
             Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta Secure</span>
         </div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (WebSocket Auto-Queue Edition)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (Audio Fixed Edition)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -306,6 +308,7 @@
 
         <div class="dashboard-controls">
             <button id="snapBtn" class="standard-btn">📸 ส่งภาพยาให้เจตรวจ</button>
+            <button id="toggleMicBtn" class="standard-btn mic-off-btn" style="display:none;">🎙️ เปิดไมค์คุย</button>
             <button id="switchCamBtn" class="standard-btn switch-cam-btn">🔄 สลับกล้อง</button>
             <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
         </div>
@@ -327,8 +330,8 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมทำงาน (Auto-Queue Active)...</div>
-            <div id="audioStats" class="debug-stats">🔊 ระบบเสียงพร้อมทำงาน (ปลดล็อก AudioContext อัตโนมัติ)</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมทำงาน (Text-to-Speech Audio Fixed)...</div>
+            <div id="audioStats" class="debug-stats">🔊 ระบบเสียงพร้อมใช้งาน (เปิดใช้งาน AudioContext อัตโนมัติเมื่อพิมพ์ส่ง)</div>
         </div>
     </div>
 </div>
@@ -347,6 +350,7 @@
     const video = document.getElementById('webcam');
     const stopBtn = document.getElementById('stopBtn');
     const snapBtn = document.getElementById('snapBtn');
+    const toggleMicBtn = document.getElementById('toggleMicBtn');
     const switchCamBtn = document.getElementById('switchCamBtn');
     const clearMemBtn = document.getElementById('clearMemBtn');
     const sendTextBtn = document.getElementById('sendTextBtn');
@@ -370,7 +374,6 @@
     let autoVisionTimer = null;
     let pingInterval = null;
     let isUserActiveSession = false;
-    let messageQueue = []; // 🛡️ คิวเก็บข้อความรอด่งเมื่อ WebSocket กำลังเชื่อมต่อ
     
     let useFrontCamera = true;
     let authenticatedUser = "สมาชิกในครอบครัว";
@@ -514,14 +517,13 @@
     async function startMainAppSession() {
         isUserActiveSession = true;
         try {
+            // สร้าง AudioContext รอไว้
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
             nextAudioTime = audioContext.currentTime;
 
             const selectedVoice = voiceSelect.value;
             const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${BACKEND_API_KEY}`;
             ws = new WebSocket(url);
-
-            statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>สถานะ:</strong> กำลังเชื่อมต่อระบบ AI เจ...`;
 
             ws.onopen = () => {
                 statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เจพร้อมดูแลแล้วครับ (พิมพ์คุยได้ทันที)`;
@@ -537,13 +539,6 @@
                     }
                 };
                 ws.send(JSON.stringify(setupMessage));
-                
-                // 🛡️ ส่งข้อความในคิวทั้งหมดที่ค้างอยู่ทันทีที่ WebSocket เปิดสำเร็จ
-                while (messageQueue.length > 0) {
-                    const queuedText = messageQueue.shift();
-                    sendTextDirectly(queuedText);
-                }
-
                 startAutoVisionStream();
                 startKeepAlivePing();
             };
@@ -568,30 +563,23 @@
             };
 
             ws.onclose = () => {
-                if (isUserActiveSession) {
-                    statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>🔄 การเชื่อมต่อหลุด กำลังเชื่อมต่อใหม่...</strong>`;
-                    setTimeout(startMainAppSession, 3000);
-                }
+                if (isUserActiveSession) setTimeout(startMainAppSession, 3000);
             };
         } catch (e) {
             statusText.innerHTML = `❌ ผิดพลาด: ${e.message}`;
         }
     }
 
-    // 💬 ฟังก์ชันส่งข้อความ พร้อมระบบ Auto-Queue และปลดล็อก AudioContext
+    // 💬 ฟังก์ชันส่งข้อความพิมพ์คุย พร้อมปลดล็อก AudioContext ให้อัตโนมัติ
     async function sendTextDirectly(text) {
-        if (audioContext && audioContext.state === 'suspended') {
-            await audioContext.resume();
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            alert("ยังไม่ได้เชื่อมต่อ WebSocket กรุณารอสักครู่หรือรีเฟรชหน้าใหม่");
+            return;
         }
 
-        // หาก WebSocket ยังไม่พร้อมเชื่อมต่อ ให้เก็บใส่คิวไว้แล้วสั่งเปิดการเชื่อมต่อ
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            messageQueue.push(text);
-            statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>⏳ กำลังเชื่อมต่อระบบ รอส่งข้อความสักครู่...</strong>`;
-            if (!ws || ws.readyState === WebSocket.CLOSED) {
-                startMainAppSession();
-            }
-            return;
+        // ปลดล็อก AudioContext ตามนโยบาย Browser ทันทีที่ผู้ใช้คลิกส่งข้อความ
+        if (audioContext && audioContext.state === 'suspended') {
+            await audioContext.resume();
         }
 
         ws.send(JSON.stringify({ 
@@ -603,9 +591,11 @@
         statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ส่งข้อความแล้ว:</strong> "${text}"<br><strong>⏳ เจกำลังประมวลผลคำตอบ...</strong>`;
     }
 
-    // 🔊 ฟังก์ชันเล่นเสียงตอบรับ
+    // 🔊 ฟังก์ชันแปลงและเล่นเสียง Base64 PCM จาก Gemini Live API
     function playAudioChunk(base64Data) {
         if (!audioContext) return;
+        
+        // บังคับ Resume หาก AudioContext หลุดเป็น suspended
         if (audioContext.state === 'suspended') {
             audioContext.resume();
         }
@@ -689,7 +679,7 @@
     textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextBtn.click(); });
 
     snapBtn.addEventListener('click', () => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) { alert("ยังไม่ได้เชื่อมต่อระบบ กรุณารอสักครู่!"); return; }
+        if (!ws || ws.readyState !== WebSocket.OPEN) { alert("ยังไม่ได้เชื่อมต่อระบบ!"); return; }
         captureAndSendFrame();
         statusText.innerHTML = `<span class="status-dot"></span><strong>📸 ส่งภาพตรวจสอบเรียบร้อย</strong>`;
     });
