@@ -106,6 +106,10 @@
             transition: transform 0.2s, background-color 0.2s;
         }
 
+        .circle-btn span {
+            pointer-events: none; /* ป้องกันไม่ให้คลิกโดนตัวหนังสือ/ไอคอนแล้วปุ่มไม่ทำงาน */
+        }
+
         .circle-btn:active {
             transform: scale(0.95);
             background-color: #f0f4f8;
@@ -412,7 +416,15 @@
                 authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
 
                 setTimeout(async () => {
-                    if (authStream) authStream.getTracks().forEach(t => t.stop());
+                    // ปิดกล้องสแกนหน้าและเคลียร์เทรกให้เรียบร้อย
+                    if (authStream) {
+                        authStream.getTracks().forEach(t => t.stop());
+                        authStream = null;
+                    }
+                    
+                    // หน่วงเวลา 400ms เพื่อให้ระบบฮาร์ดแวร์ปล่อยสิทธิ์กล้องอย่างสมบูรณ์ก่อนเปิดกล้องหลัก
+                    await new Promise(resolve => setTimeout(resolve, 400));
+
                     stepAuth.style.display = 'none';
                     step2.style.display = 'block';
 
@@ -430,7 +442,10 @@
     }
 
     cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
+        if (authStream) {
+            authStream.getTracks().forEach(t => t.stop());
+            authStream = null;
+        }
         stepAuth.style.display = 'none';
         step1.style.display = 'flex';
     });
@@ -439,6 +454,7 @@
         try {
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
             }
 
             const constraints = {
@@ -457,7 +473,8 @@
                 mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 video.srcObject = mediaStream;
             } catch (e) {
-                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
+                console.error("Camera init error:", e);
+                alert("ไม่สามารถเปิดใช้งานกล้องหลักได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
             }
         }
     }
@@ -470,7 +487,6 @@
 
     switchCamBtn.addEventListener('click', switchCamera);
 
-    // ฟังก์ชันเชื่อมต่อ WebSocket พร้อมระบบรอเชื่อมต่อให้อัตโนมัติ
     function connectWebSocket() {
         return new Promise(async (resolve, reject) => {
             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -635,7 +651,6 @@
             await audioContext.resume();
         }
 
-        // เช็กและพยายามเชื่อมต่อใหม่ทันทีหาก WebSocket หลุด
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             statusText.innerHTML = `<span class="status-dot" style="background-color:orange;"></span><strong>สถานะ:</strong> กำลังเชื่อมต่อระบบใหม่...`;
             try {
