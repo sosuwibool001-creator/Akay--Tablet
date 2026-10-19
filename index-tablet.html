@@ -333,12 +333,24 @@
     </div>
 </div>
 
-<!-- โหลดไฟล์ config.js ที่เก็บ API Key เป็นความลับเอาไว้ -->
-<script src="config.js"></script>
 <script>
-    // ดึงค่ามาจาก config.js เพื่อความปลอดภัยไม่ให้หลุดขึ้น GitHub
-    const BACKEND_API_KEY = typeof CONFIG !== 'undefined' ? CONFIG.API_KEY : ""; 
-    const SERVER_URL = "http://localhost:3000";
+    let BACKEND_API_KEY = ""; 
+    const SERVER_URL = ""; // ใช้โดเมนปัจจุบันอัตโนมัติบน Render
+
+    // ฟังก์ชันดึงค่า API Key จากหลังบ้านโดยอัตโนมัติเมื่อเปิดเว็บ
+    async function fetchServerConfig() {
+        try {
+            const res = await fetch('/api/config');
+            const data = await res.json();
+            if (data.apiKey) {
+                BACKEND_API_KEY = data.apiKey;
+                console.log("Loaded API Key from backend successfully");
+            }
+        } catch (err) {
+            console.warn("ไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้:", err);
+        }
+    }
+    fetchServerConfig();
 
     const step1 = document.getElementById('step1');
     const stepAuth = document.getElementById('stepAuth');
@@ -460,18 +472,15 @@
     });
 
     startAuthBtn.addEventListener('click', async () => {
-        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
-            alert("กรุณาตรวจสอบการตั้งค่า API Key ในไฟล์ config.js ให้เรียบร้อยก่อนครับเพื่อนเอก!");
+        if (!BACKEND_API_KEY) {
+            alert("กำลังโหลดค่า API Key จากเซิร์ฟเวอร์ กรุณารอสักครู่แล้วลองใหม่อีกครั้งครับเพื่อนเอก!");
+            await fetchServerConfig();
             return;
         }
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
-            // ขอสิทธิ์กล้องและระงับการแย่งไมค์ชั่วคราว
-            authStream = await navigator.mediaDevices.getUserMedia({ 
-                video: { width: 1280, height: 720 }, 
-                audio: false 
-            });
+            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
             authVideo.srcObject = authStream;
 
             runAutoVerification();
@@ -497,12 +506,8 @@
                 stepAuth.style.display = 'none';
                 step2.style.display = 'block';
 
-                // เพิ่มดีเลย์เล็กน้อย (300ms) ก่อนเปิดกล้องและไมค์หลัก เพื่อป้องกันฮาร์ดแวร์ชนกัน
-                setTimeout(async () => {
-                    await initCamera();
-                    startMainAppSession();
-                }, 300);
-
+                await initCamera();
+                startMainAppSession();
             }, 800);
 
         }, 2000);
@@ -650,11 +655,7 @@ ${historySummaryText}
                 };
                 ws.send(JSON.stringify(setupMessage));
 
-                // หน่วงเวลาเปิด SpeechRecognition 1 วินาที ให้ระบบ AudioContext และ WebSocket นิ่งสนิทก่อน
-                setTimeout(() => {
-                    startSpeechRecognition();
-                }, 1000);
-
+                startSpeechRecognition();
                 startAutoMedAlertChecker();
                 startAutoVisionStream();
                 startKeepAlivePing();
@@ -858,7 +859,7 @@ ${historySummaryText}
 
         recognition.onerror = (event) => {
             if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
-                setTimeout(startSpeechRecognition, 800);
+                setTimeout(startSpeechRecognition, 500);
             }
         };
 
@@ -866,7 +867,7 @@ ${historySummaryText}
             if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
                 setTimeout(() => {
                     try { recognition.start(); } catch(e){}
-                }, 500);
+                }, 300);
             }
         };
 
