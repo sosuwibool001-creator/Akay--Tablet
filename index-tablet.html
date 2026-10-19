@@ -95,7 +95,7 @@
             border-radius: 50%;
             background: #ffffff;
             color: var(--accent-blue);
-            font-size: 44px;
+            font-size: 44px; /* ขยายขนาดไอคอนให้โดดเด่นเต็มปุ่ม */
             border: 2px solid var(--border-color);
             cursor: pointer;
             box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
@@ -104,10 +104,6 @@
             justify-content: center;
             margin: 10px auto;
             transition: transform 0.2s, background-color 0.2s;
-        }
-
-        .circle-btn span {
-            pointer-events: none; /* ป้องกันไม่ให้คลิกโดนตัวหนังสือ/ไอคอนแล้วปุ่มไม่ทำงาน */
         }
 
         .circle-btn:active {
@@ -267,6 +263,7 @@
             </select>
         </div>
 
+        <!-- ปุ่มสแกนหน้าแบบมีแต่รูปหน้าคน (เอาฟอนต์ออกแล้ว) -->
         <button id="startAuthBtn" class="circle-btn" title="สแกนหน้าเจ้าของเครื่อง">
             <span>👤</span>
         </button>
@@ -303,6 +300,7 @@
             <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
         </div>
 
+        <!-- แถบกรอกข้อความ (มีเฉพาะช่องพิมพ์และปุ่มส่ง) -->
         <div class="gemini-input-bar">
             <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ (หากถามเรื่องภาพ ระบบจะแคปภาพส่งทันที)...">
             <button id="sendTextBtn" class="icon-action-btn" title="ส่งข้อความ" style="color: var(--accent-blue);">➤</button>
@@ -310,30 +308,13 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> พร้อมรับข้อความพิมพ์คุยกับเจ...</div>
-            <div id="audioStats" class="debug-stats">🔊 Text & Audio Response Mode: พร้อมใช้งานและเชื่อมต่ออัตโนมัติ</div>
+            <div id="audioStats" class="debug-stats">🔒 Text & On-Demand Vision Mode: ไม่มีระบบไมค์ ไม่เก็บภาพอัตโนมัติ ส่งภาพเฉพาะเมื่อมีคำสั่งถามเท่านั้น</div>
         </div>
     </div>
 </div>
 
 <script>
-    let BACKEND_API_KEY = ""; 
-
-    async function fetchServerConfig() {
-        try {
-            const res = await fetch('/api/config');
-            const data = await res.json();
-            if (data.apiKey) {
-                BACKEND_API_KEY = data.apiKey;
-                console.log("Loaded API Key from backend successfully");
-                return true;
-            }
-        } catch (err) {
-            console.warn("ไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้:", err);
-        }
-        return false;
-    }
-
-    fetchServerConfig();
+    const BACKEND_API_KEY = window.ENV_API_KEY || "GEMINI_API_KEY"; 
 
     const step1 = document.getElementById('step1');
     const stepAuth = document.getElementById('stepAuth');
@@ -374,15 +355,10 @@
     });
 
     startAuthBtn.addEventListener('click', async () => {
-        if (!BACKEND_API_KEY) {
-            await fetchServerConfig();
-        }
-
-        if (!BACKEND_API_KEY) {
-            alert("⚠️ ยังไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการตั้งค่าบน Render หรือรัน server.js ให้เรียบร้อยครับ");
+        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("PLACEHOLDER")) {
+            alert("กรุณาตั้งค่า API Key ให้เรียบร้อยก่อนครับเพื่อนเอก!");
             return;
         }
-
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
@@ -398,7 +374,7 @@
                 authVideo.srcObject = authStream;
                 runOwnerVerification();
             } catch (e) {
-                alert("ไม่สามารถเปิดกล้องได้: " + e.message);
+                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตใช้กล้องในเบราว์เซอร์:\n" + e.message);
                 cancelAuthBtn.click();
             }
         }
@@ -416,15 +392,7 @@
                 authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับเจ้าของเครื่อง (${authenticatedUser})!`;
 
                 setTimeout(async () => {
-                    // ปิดกล้องสแกนหน้าและเคลียร์เทรกให้เรียบร้อย
-                    if (authStream) {
-                        authStream.getTracks().forEach(t => t.stop());
-                        authStream = null;
-                    }
-                    
-                    // หน่วงเวลา 400ms เพื่อให้ระบบฮาร์ดแวร์ปล่อยสิทธิ์กล้องอย่างสมบูรณ์ก่อนเปิดกล้องหลัก
-                    await new Promise(resolve => setTimeout(resolve, 400));
-
+                    if (authStream) authStream.getTracks().forEach(t => t.stop());
                     stepAuth.style.display = 'none';
                     step2.style.display = 'block';
 
@@ -442,10 +410,7 @@
     }
 
     cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) {
-            authStream.getTracks().forEach(t => t.stop());
-            authStream = null;
-        }
+        if (authStream) authStream.getTracks().forEach(t => t.stop());
         stepAuth.style.display = 'none';
         step1.style.display = 'flex';
     });
@@ -454,7 +419,6 @@
         try {
             if (mediaStream) {
                 mediaStream.getTracks().forEach(track => track.stop());
-                mediaStream = null;
             }
 
             const constraints = {
@@ -473,8 +437,7 @@
                 mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 video.srcObject = mediaStream;
             } catch (e) {
-                console.error("Camera init error:", e);
-                alert("ไม่สามารถเปิดใช้งานกล้องหลักได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
+                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
             }
         }
     }
@@ -487,109 +450,90 @@
 
     switchCamBtn.addEventListener('click', switchCamera);
 
-    function connectWebSocket() {
-        return new Promise(async (resolve, reject) => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                resolve(true);
-                return;
-            }
-
-            if (!BACKEND_API_KEY) {
-                await fetchServerConfig();
-                if (!BACKEND_API_KEY) {
-                    reject("ไม่พบ API Key");
-                    return;
-                }
-            }
-
-            try {
-                const selectedVoice = voiceSelect.value;
-                const host = "generativelanguage.googleapis.com";
-                const path = "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
-                const url = `wss://${host}${path}?key=${BACKEND_API_KEY}`;
-
-                ws = new WebSocket(url);
-
-                ws.onopen = () => {
-                    statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เชื่อมต่อสำเร็จ พร้อมรับฟังเสียงตอบกลับครับ 🔊`;
-                    
-                    const dynamicToneInstructions = `
-คุณคือ "เจ" (Project-J Beta) ผู้ช่วยอัจฉริยะส่วนตัว ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device)
-ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}
-ต้องใช้คำลงท้ายว่า **"ครับ"** ทุกครั้ง ห้ามใช้คำว่า "ค่ะ" เด็ดขาด
-`;
-
-                    const setupMessage = {
-                        setup: {
-                            model: "models/gemini-3.8-live",
-                            generationConfig: {
-                                responseModalities: ["AUDIO"],
-                                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
-                            },
-                            tools: [{ googleSearch: {} }],
-                            systemInstruction: {
-                                parts: [{ text: dynamicToneInstructions }]
-                            }
-                        }
-                    };
-                    ws.send(JSON.stringify(setupMessage));
-                    resolve(true);
-                };
-
-                ws.onmessage = async (event) => {
-                    let responseText = "";
-                    try {
-                        let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
-                        if (data.serverContent && data.serverContent.modelTurn) {
-                            for (const part of data.serverContent.modelTurn.parts) {
-                                if (part.text) responseText += part.text;
-                                if (part.inlineData && part.inlineData.data) {
-                                    playAudioChunk(part.inlineData.data);
-                                }
-                            }
-                            if (responseText) {
-                                statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
-                                
-                                const lowerText = responseText.toLowerCase();
-                                if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) && useFrontCamera) {
-                                    useFrontCamera = false;
-                                    initCamera();
-                                } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง")) && !useFrontCamera) {
-                                    useFrontCamera = true;
-                                    initCamera();
-                                }
-                            }
-                        }
-                    } catch (e) { console.error(e); }
-                };
-
-                ws.onerror = (err) => {
-                    console.error("WebSocket error:", err);
-                    reject(err);
-                };
-
-                ws.onclose = () => {
-                    if (isUserActiveSession) {
-                        setTimeout(() => { if (isUserActiveSession) connectWebSocket(); }, 3000);
-                    }
-                };
-            } catch (e) {
-                reject(e);
-            }
-        });
-    }
-
     async function startMainAppSession() {
         isUserActiveSession = true;
+
         try {
             audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
+            if (audioContext.state === 'suspended') await audioContext.resume();
             nextAudioTime = audioContext.currentTime;
-            await connectWebSocket();
+
+            const selectedVoice = voiceSelect.value;
+            const host = "generativelanguage.googleapis.com";
+            const path = "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+            const url = `wss://${host}${path}?key=${BACKEND_API_KEY}`;
+
+            ws = new WebSocket(url);
+
+            ws.onopen = () => {
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับคุณ ${authenticatedUser} เข้าสู่ระบบส่วนตัว Project-J พร้อมดูแลแล้วครับ 🔒`;
+                
+                const dynamicToneInstructions = `
+คุณคือ "เจ" (Project-J Beta) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+
+ผู้ใช้งานปัจจุบันคือเจ้าของเครื่อง: ${authenticatedUser}
+
+[ขอบเขตบทบาทหน้าที่หลัก]:
+1. Elderly Care & Health Monitoring (ผู้เชี่ยวชาญการดูแลผู้สูงอายุ):
+   - วิเคราะห์ภาพสถานการณ์จากกล้องเฉพาะเมื่อมีการเรียกดู (On-Demand Vision) เพื่อเฝ้าระวังอุบัติเหตุ การพลัดตกหกล้ม หรือความผิดปกติของผู้สูงอายุในบ้าน
+   - ให้คำแนะนำเบื้องต้นด้านสุขภาพ การปฏิบัติตัว และการประสานงานแจ้งเตือนญาติหรือผู้ดูแลกรณีฉุกเฉิน
+
+2. Personal Security & Privacy Guard (ระบบรักษาความปลอดภัยส่วนบุคคล):
+   - ตรวจสอบสิทธิ์และยืนยันตัวตนเจ้าของเครื่องก่อนเข้าใช้งานระบบแดชบอร์ดหลักทุกครั้ง
+   - ควบคุมการสลับกล้องและมุมมองความปลอดภัยตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
+
+3. กฎการตอบสนองและประหยัด Token (Response Guidelines):
+   - ปรับระดับโทนเสียงตามบริบทคำถาม: Functional Mode (ตอบสั้นกระชับเมื่อสั่งงาน/ตรวจสอบกล้อง) หรือ Casual Mode (อบอุ่นเป็นกันเองเมื่อคุยเล่น)
+   - ห้ามทักทายหรือพูดขึ้นมาก่อนโดยที่ผู้ใช้ยังไม่ได้เริ่มบทสนทนา
+   - หากผู้ใช้ถามถึงข้อมูลข่าวสารปัจจุบัน ให้เจเรียกใช้เครื่องมือ googleSearch เพื่อค้นหาข้อมูลบนอินเทอร์เน็ตมาตอบทันที
+`;
+
+                const setupMessage = {
+                    setup: {
+                        model: "models/gemini-3.8-live",
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
+                        },
+                        tools: [{ googleSearch: {} }],
+                        systemInstruction: {
+                            parts: [{ text: dynamicToneInstructions }]
+                        }
+                    }
+                };
+                ws.send(JSON.stringify(setupMessage));
+            };
+
+            ws.onmessage = async (event) => {
+                let responseText = "";
+                try {
+                    let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
+                    if (data.serverContent && data.serverContent.modelTurn) {
+                        for (const part of data.serverContent.modelTurn.parts) {
+                            if (part.text) responseText += part.text;
+                            if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
+                        }
+                        if (responseText) {
+                            statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${responseText}`;
+                            
+                            const lowerText = responseText.toLowerCase();
+                            if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) && useFrontCamera) {
+                                useFrontCamera = false;
+                                initCamera();
+                            } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง")) && !useFrontCamera) {
+                                useFrontCamera = true;
+                                initCamera();
+                            }
+                        }
+                    }
+                } catch (e) { console.error(e); }
+            };
+
+            ws.onclose = () => {
+                if (isUserActiveSession) setTimeout(() => { if (isUserActiveSession) startMainAppSession(); }, 3000);
+            };
         } catch (e) {
-            console.error("Session start error:", e);
+            stopSession();
         }
     }
 
@@ -605,21 +549,7 @@
         return base64Image;
     }
 
-    async function captureAndSendFrameManual() {
-        if (audioContext && audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
-
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            statusText.innerHTML = `<span class="status-dot" style="background-color:orange;"></span><strong>สถานะ:</strong> กำลังเชื่อมต่อใหม่...`;
-            try {
-                await connectWebSocket();
-            } catch (e) {
-                alert("ยังไม่สามารถเชื่อมต่อ WebSocket กับเจได้ กรุณาลองใหม่อีกครั้งครับ!");
-                return;
-            }
-        }
-
+    function captureAndSendFrameManual() {
         const base64Image = getLiveFrameBase64();
         if (!base64Image) {
             alert("กล้องยังไม่พร้อมใช้งานครับ");
@@ -641,24 +571,10 @@
         statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังวิเคราะห์ภาพถ่ายเรียลไทม์...`;
     }
 
-    async function sendTextDirectly(text) {
-        if (audioContext) {
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-        } else {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-            await audioContext.resume();
-        }
-
+    function sendTextDirectly(text) {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
-            statusText.innerHTML = `<span class="status-dot" style="background-color:orange;"></span><strong>สถานะ:</strong> กำลังเชื่อมต่อระบบใหม่...`;
-            try {
-                await connectWebSocket();
-            } catch (e) {
-                alert("ยังไม่ได้เชื่อมต่อ WebSocket กับเจครับ!");
-                return;
-            }
+            alert("ยังไม่ได้เชื่อมต่อ WebSocket กับเจครับ!");
+            return;
         }
         
         const lowerText = text.toLowerCase();
@@ -699,35 +615,20 @@
 
     function playAudioChunk(base64Data) {
         if (!audioContext) return;
-        try {
-            if (audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
+        const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        const float32Data = new Float32Array(bytes.byteLength / 2);
+        const dataView = new DataView(bytes.buffer);
+        for (let i = 0; i < float32Data.length; i++) float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
 
-            const bytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
-            const float32Data = new Float32Array(bytes.byteLength / 2);
-            const dataView = new DataView(bytes.buffer);
-            for (let i = 0; i < float32Data.length; i++) {
-                float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
-            }
+        const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
+        audioBuffer.getChannelData(0).set(float32Data);
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
 
-            const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
-            audioBuffer.getChannelData(0).set(float32Data);
-            
-            const source = audioContext.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContext.destination);
-
-            if (nextAudioTime < audioContext.currentTime) {
-                nextAudioTime = audioContext.currentTime;
-            }
-            source.start(nextAudioTime);
-            nextAudioTime += audioBuffer.duration;
-            
-            audioStats.innerText = `🔊 กำลังเล่นเสียงตอบกลับจากเจ...`;
-        } catch (err) {
-            console.error("Audio playback error:", err);
-        }
+        if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
+        source.start(nextAudioTime);
+        nextAudioTime += audioBuffer.duration;
     }
 
     sendTextBtn.addEventListener('click', () => { 
