@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Secure Master Edition)</title>
+    <title>Project-J (Beta) - Ak❤️+y Guardian Edition (Secure Production)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -98,7 +98,7 @@
             margin-bottom: 25px;
         }
 
-        select, input[type="password"] {
+        select {
             width: 100%;
             padding: 13px 16px;
             font-size: 14px;
@@ -110,7 +110,7 @@
             transition: all 0.2s ease;
             box-sizing: border-box;
         }
-        select:focus, input[type="password"]:focus {
+        select:focus {
             border-color: var(--accent-blue);
             background: #fff;
             box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.12);
@@ -256,7 +256,7 @@
 <body>
 
 <div class="container">
-    <!-- Step 1: หน้าแรกเลือกเสียงและตั้งค่า API Key -->
+    <!-- Step 1: หน้าแรกเลือกเสียง (สะอาด ปลอดภัย ไม่มีช่องกรอก API Key) -->
     <div id="step1">
         <div class="logo-box">
             Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Beta Secure</span>
@@ -271,7 +271,6 @@
                 <option value="Kore">♀️ Kore (เสียงสดใส)</option>
                 <option value="Aoede">♀️ Aoede (เสียงนุ่มนวล)</option>
             </select>
-            <input type="password" id="manualApiKeyInput" placeholder="กรอก API Key (หรือปล่อยว่างเพื่อดึงจาก Server Render)">
         </div>
 
         <button id="startAuthBtn" class="circle-btn">
@@ -335,25 +334,20 @@
 </div>
 
 <script>
-    // 🛡️ Secure API Key Architecture: ดึงจาก Backend Render หรือ Environment ปลอดภัย
+    // 🛡️ Secure Backend API Key Resolution (ดึงจากเบื้องหลัง Server Render เท่านั้น)
     let BACKEND_API_KEY = window.ENV_API_KEY || ""; 
 
     async function fetchApiKeyFromServer() {
         if (BACKEND_API_KEY) return BACKEND_API_KEY;
-        const manualInput = document.getElementById('manualApiKeyInput').value.trim();
-        if (manualInput) {
-            BACKEND_API_KEY = manualInput;
-            return BACKEND_API_KEY;
-        }
 
         try {
-            const response = await fetch('http://localhost:3000/api/config/apikey');
+            const response = await fetch('/api/config/apikey');
             const data = await response.json();
             if (data && data.apiKey) {
                 BACKEND_API_KEY = data.apiKey;
             }
         } catch (e) {
-            console.warn("ไม่สามารถดึง API Key จาก Server กลางได้อัตโนมัติ (ใช้ค่าสำรองหรือช่องกรอกข้อมูลแทน)");
+            console.error("ไม่สามารถดึง API Key จาก Server Render ได้ กรุณาตรวจสอบการตั้งค่า Backend Endpoint", e);
         }
         return BACKEND_API_KEY;
     }
@@ -478,11 +472,14 @@
     });
 
     startAuthBtn.addEventListener('click', async () => {
+        // ดึง API Key จาก Server Render เบื้องหลังทันทีที่กดปุ่มสแกนหน้า
         await fetchApiKeyFromServer();
-        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
-            alert("กรุณากรอก API Key หรือตั้งค่าเซิร์ฟเวอร์เรนเดอร์ให้เรียบร้อยก่อนครับเพื่อนเอก!");
+        
+        if (!BACKEND_API_KEY) {
+            alert("ไม่สามารถดึง API Key จาก Server Render ได้ กรุณาตรวจสอบการเชื่อมต่อหลังบ้านครับเพื่อนเอก!");
             return;
         }
+
         step1.style.display = 'none';
         stepAuth.style.display = 'flex';
         try {
