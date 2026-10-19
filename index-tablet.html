@@ -338,19 +338,57 @@
     let BACKEND_API_KEY = window.ENV_API_KEY || ""; 
 
     async function fetchApiKeyFromServer() {
-        if (BACKEND_API_KEY) return BACKEND_API_KEY;
+        if (BACKEND_API_KEY && !BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
+            return BACKEND_API_KEY;
+        }
 
         try {
-            const response = await fetch('/api/config/apikey');
+            // ปรับ URL ให้ตรงกับพอร์ตและเส้นทาง Backend บน Render ของเพื่อนเอก (เช่น ถ้ารันโดเมนเดียวกันให้ใช้relative path)
+            const response = await fetch('/api/config/apikey', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (!response.ok) throw new Error('Network response was not ok');
+            
             const data = await response.json();
             if (data && data.apiKey) {
                 BACKEND_API_KEY = data.apiKey;
             }
         } catch (e) {
-            console.error("ไม่สามารถดึง API Key จาก Server Render ได้ กรุณาตรวจสอบการตั้งค่า Backend Endpoint", e);
+            console.error("⚠️ ไม่สามารถดึง API Key จาก Server Render เบื้องหลังได้:", e);
+            // กรณีฉุกเฉิน สามารถกำหนดค่าสำรองระดับ Hardcode ป้องกันระบบล่มหน้างานได้ที่นี่
+            BACKEND_API_KEY = window.ENV_API_KEY || ""; 
         }
         return BACKEND_API_KEY;
     }
+
+    // ผูกเข้ากับปุ่มเริ่มใช้งานอย่างปลอดภัย
+    const startAuthBtn = document.getElementById('startAuthBtn');
+    startAuthBtn.addEventListener('click', async () => {
+        // แสดงสถานะกำลังโหลดคีย์เบื้องหลัง
+        authStatusText.innerHTML = "🔄 กำลังเชื่อมต่อระบบความปลอดภัยเซิร์ฟเวอร์...";
+        
+        await fetchApiKeyFromServer();
+        
+        if (!BACKEND_API_KEY) {
+            alert("ไม่สามารถเชื่อมต่อระบบคีย์ความปลอดภัยจาก Server Render ได้ กรุณาตรวจสอบการตั้งค่า Backend API ครับเพื่อนเอก!");
+            return;
+        }
+
+        step1.style.display = 'none';
+        stepAuth.style.display = 'flex';
+        try {
+            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+            authVideo.srcObject = authStream;
+
+            runAutoVerification();
+
+        } catch (err) {
+            alert("ไม่สามารถเปิดกล้องเพื่อยืนยันตัวตนได้: " + err.message);
+            cancelAuthBtn.click();
+        }
+    });
 
     const step1 = document.getElementById('step1');
     const stepAuth = document.getElementById('stepAuth');
