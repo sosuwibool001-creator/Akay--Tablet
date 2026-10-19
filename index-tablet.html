@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Tablet Master)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (PC Master)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -259,9 +259,9 @@
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">
-            Project-J <span style="font-size: 14px; background: #eef2ff; color: #4f46e5; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">Tablet Master</span>
+            Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle;">PC Master</span>
         </div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (Tablet Version)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -297,7 +297,7 @@
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J (Tablet) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
+                Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
@@ -327,24 +327,24 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (Tablet Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Smart Auto-Vision (Tablet): ตรวจกรองและบันทึกภาพลงเซิร์ฟเวอร์หลังบ้านทุก 7s</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (PC Mode)...</div>
+            <div id="audioStats" class="debug-stats">📹 Smart Auto-Vision (PC): ตรวจกรองและบันทึกภาพลงเซิร์ฟเวอร์หลังบ้านทุก 7s</div>
         </div>
     </div>
 </div>
 
 <script>
+    // 🟢 ดึงค่า API Key จากหลังบ้านโดยอัตโนมัติ รองรับบน Render แบบปลอดภัย
     let BACKEND_API_KEY = ""; 
     const SERVER_URL = ""; // ใช้โดเมนปัจจุบันอัตโนมัติบน Render
 
-    // ฟังก์ชันดึงค่า API Key จากหลังบ้านโดยอัตโนมัติเมื่อเปิดเว็บ
     async function fetchServerConfig() {
         try {
             const res = await fetch('/api/config');
             const data = await res.json();
             if (data.apiKey) {
                 BACKEND_API_KEY = data.apiKey;
-                console.log("Loaded API Key from backend successfully");
+                console.log("Loaded API Key from backend successfully (PC Master)");
             }
         } catch (err) {
             console.warn("ไม่สามารถดึง API Key จากเซิร์ฟเวอร์ได้:", err);
@@ -406,11 +406,11 @@
     let speechTimeout = null;
 
     function getMedProfile() {
-        return JSON.parse(localStorage.getItem('akay_medication_profile_tablet') || '[]');
+        return JSON.parse(localStorage.getItem('akay_medication_profile_pc') || '[]');
     }
 
     function saveMedProfile(list) {
-        localStorage.setItem('akay_medication_profile_tablet', JSON.stringify(list));
+        localStorage.setItem('akay_medication_profile_pc', JSON.stringify(list));
         renderMedList();
     }
 
@@ -459,19 +459,19 @@
     renderMedList();
 
     function saveToHistory(role, text) {
-        let history = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
+        let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
         const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
         history.push({ role: role, text: text, time: nowThai });
         if (history.length > 30) history.shift();
-        localStorage.setItem('akay_chat_history_tablet', JSON.stringify(history));
+        localStorage.setItem('akay_chat_history_pc', JSON.stringify(history));
     }
 
     clearMemBtn.addEventListener('click', () => {
-        localStorage.removeItem('akay_chat_history_tablet');
+        localStorage.removeItem('akay_chat_history_pc');
         alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ! (ตารางยาถาวรยังอยู่ครบ)");
     });
 
-    // ปรับแก้ปุ่มสแกนหน้าให้ทำการรอโหลด API Key จากหลังบ้านให้อัตโนมัติทันที
+    // 🟢 ปรับแก้ปุ่มสแกนหน้าให้ตรวจสอบและรอโหลด API Key จากหลังบ้านอัตโนมัติ
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY) {
             startAuthBtn.innerText = "⏳ กำลังเชื่อมต่อ...";
@@ -584,7 +584,7 @@
             ws = new WebSocket(url);
 
             ws.onopen = () => {
-                let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
+                let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
                 let medProfile = getMedProfile();
                 
                 const currentThaiTime = new Date().toLocaleString('th-TH', { 
@@ -601,11 +601,11 @@
                     ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                     : "ไม่มีประวัติคุยเก่า";
 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (Tablet Mode) เจพร้อมดูแลแล้วครับ (รองรับ 3 ภาษา) 🎙️🔊📹`;
-                audioStats.innerText = `📹 Smart Auto-Vision Active (Tablet): ตรวจกรองและส่งภาพลงหลังบ้านทุก 7s`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (รองรับ 3 ภาษา) 🎙️🔊📹`;
+                audioStats.innerText = `📹 Smart Auto-Vision Active (PC): ตรวจกรองและส่งภาพลงหลังบ้านทุก 7s`;
                 
                 const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Tablet Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
 
 ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
@@ -765,21 +765,22 @@ ${historySummaryText}
 
         try {
             isUploadingSnapshot = true;
+            // 🟢 ส่งค่า device: 'pc' เพื่อให้หลังบ้านบันทึกลงโฟลเดอร์ของ PC
             const res = await fetch(`${SERVER_URL}/api/snapshot/upload`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     imageBase64: base64Image,
-                    device: 'tablet' 
+                    device: 'pc' 
                 })
             });
             const data = await res.json();
             
             const nowTime = new Date().toLocaleTimeString('th-TH');
             if (data.filteredAsMotion) {
-                audioStats.innerText = `📹 Smart Filter: 🚨 พบการเคลื่อนไหว บันทึกลง motion_events_tablet (${nowTime})`;
+                audioStats.innerText = `📹 Smart Filter: 🚨 พบการเคลื่อนไหว บันทึกลง motion_events_pc (${nowTime})`;
             } else {
-                audioStats.innerText = `📹 Smart Filter: 💤 สถานะปกติ บันทึกลง snapshots_tablet (${nowTime})`;
+                audioStats.innerText = `📹 Smart Filter: 💤 สถานะปกติ บันทึกลง snapshots_pc (${nowTime})`;
             }
         } catch (err) {
             console.warn("ไม่สามารถบันทึกภาพลงโฟลเดอร์หลังบ้านได้:", err.message);
@@ -811,7 +812,7 @@ ${historySummaryText}
                 }
             }
             saveToHistory('user', '[ระบบสตรีมภาพยาให้เจช่วยตรวจ]');
-            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพยาจากกล้อง Tablet...`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพยาจากกล้อง PC...`;
         }
     }
 
@@ -910,7 +911,7 @@ ${historySummaryText}
 
                 if (timeQueryMatch) {
                     let extractedTime = `${timeQueryMatch[1].padStart(2, '0')}:${timeQueryMatch[2]}`;
-                    let fetchUrl = `${SERVER_URL}/api/snapshot/search?time=${encodeURIComponent(extractedTime)}&device=tablet`;
+                    let fetchUrl = `${SERVER_URL}/api/snapshot/search?time=${encodeURIComponent(extractedTime)}&device=pc`;
                     
                     const res = await fetch(fetchUrl);
                     const apiData = await res.json();
