@@ -245,13 +245,27 @@
 </div>
 
 <script>
-    const BACKEND_API_KEY = ""; 
-    const response = await fetch('/api/config/apikey');
-    const data = await response.json();
-    const GEMINI_API_KEY = data.apiKey;
-    const SERVER_URL = "http://localhost:3000";
 
-    const step1 = document.getElementById('step1');
+let BACKEND_API_KEY = "";
+let GEMINI_API_KEY = "";
+const SERVER_URL = "";
+
+// สร้างฟังก์ชันมารองรับการดึงค่า Config
+async function initConfig() {
+    try {
+        const response = await fetch('/api/config/apikey');
+        const data = await response.json();
+        BACKEND_API_KEY = data.apiKey;
+    } catch (err) {
+        console.error("Failed to load config", err);
+    }
+}
+initConfig();
+
+// โค้ดดึง Element ต่างๆ ด้านล่างคงไว้เหมือนเดิม
+const step1 = document.getElementById('step1');
+// ...
+
     const stepSetup = document.getElementById('stepSetup');
     const stepAuth = document.getElementById('stepAuth');
     const step2 = document.getElementById('step2');
