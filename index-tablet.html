@@ -616,14 +616,14 @@ ${historySummaryText}
             }
         }, 15000);
     }
-
+// ปิดการส่งภาพเบื้องหลังทุก 20 วินาที เพื่อความเป็นส่วนตัว
     function startAutoVisionStream() {
         if (autoVisionTimer) clearInterval(autoVisionTimer);
         autoVisionTimer = setInterval(() => {
             if (!video || video.readyState !== 4) return;
             if (isModelSpeaking) return;
             captureAndSendFrame(false);
-        }, 20000);        
+        }, 20000); //     
     }
 
     async function captureAndSendFrame(isManualTrigger = false) {
