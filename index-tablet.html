@@ -235,15 +235,16 @@
             <button id="clearMemBtn" class="standard-btn clear-btn" style="grid-column: span 2;">🧹 ล้างประวัติคุย</button>
         </div>
 
+        <!-- 🎙️ แถบปุ่มไมค์พูดคุย และช่องพิมพ์ข้อความ -->
         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
             <button id="micToggleBtn" class="standard-btn" style="background-color: var(--accent-green); white-space: nowrap;">🎙️ เปิดไมค์ฟัง</button>
-            <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ..." style="flex: 1; padding: 10px 12px; font-size: 14px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
+            <input type="text" id="textInput" placeholder="พิมพ์ข้อความหรือกดพูดคุยกับเจ..." style="flex: 1; padding: 10px 12px; font-size: 14px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
             <button id="sendTextBtn" class="standard-btn clear-btn" style="padding: 10px 14px;">💬 ส่ง</button>
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (Tablet Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Smart Auto-Vision (Tablet): ตรวจกรองและบันทึกภาพลงเซิร์ฟเวอร์หลังบ้านทุก 20s</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (Tablet Mode - Privacy Active)...</div>
+            <div id="audioStats" class="debug-stats">🔒 Privacy Mode: ปิดการบันทึกภาพอัตโนมัติ (ทำงานเฉพาะตอนสั่งงาน)</div>
         </div>
     </div>
 </div>
@@ -296,18 +297,14 @@
     let mediaStream = null;
     let authStream = null;
     let nextAudioTime = 0;
-    let autoVisionTimer = null;
     let pingInterval = null;
     let recognition = null;
     let isUserActiveSession = false;
-    let isUploadingSnapshot = false;
     let useFrontCamera = true;
     let authenticatedUser = "เพื่อนเอก (Ake)";
 
     let isModelSpeaking = false;
     let speakingTimeout = null;
-    let speechBuffer = "";
-    let speechTimeout = null;
     let isMicActive = false;
 
     function saveToHistory(role, text) {
@@ -488,10 +485,11 @@
                     : "ไม่มีประวัติคุยเก่า";
 
                 statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (Tablet Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-                audioStats.innerText = `📹 Smart Auto-Vision Active (Tablet): ตรวจกรองและส่งภาพลงหลังบ้านทุก 20s`;
+                audioStats.innerText = `🔒 Privacy Mode Active: ปิดการบันทึกภาพอัตโนมัติทุก 20s (ปลอดภัย 100%)`;
                 
+                // 🌟 [Master Prompt ที่รวบรวมกฎทั้งหมดที่เราคุยกันวันนี้]
                 const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Tablet Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด) (Project-J Tablet Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
 
 ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
@@ -506,22 +504,21 @@ ${historySummaryText}
    - หากผู้ใช้พูดภาษาจีน -> เจต้องตอบกลับด้วยภาษาจีนอย่างคล่องแคล่ว
 3. รักษาน้ำเสียงที่นุ่มนวล เป็นกันเอง และให้เกียรติผู้ใช้งานเสมอ ไม่ว่าจะสื่อสารในภาษาใดก็ตาม
 
-[กฎสำคัญอันดับ 1 - Priority #1 Voice Input Priority]:
-- ข้อความหรือเสียงพูดที่ถูกแปลงมาจากไมโครโฟน/Speech-to-Text ถือเป็นความสำคัญลำดับที่ 1 (Priority #1) เสมอ ทันทีที่ได้ยินเสียงพูด เจต้องตอบกลับทันทีเหนือทุกเงื่อนไข แม้กำลังอยู่ในสภาวะเฝ้าระวังปกติ (Silent Auto-Vision)
-
 [ขอบเขตบทบาทหน้าที่หลัก]:
 1. Elderly Care & Health Monitoring (ผู้เชี่ยวชาญการดูแลผู้สูงอายุ):
-   - วิเคราะห์ภาพสถานการณ์จากกล้อง (Auto-Vision / Snapshot) เพื่อเฝ้าระวังอุบัติเหตุ การพลัดตกหกล้ม หรือความผิดปกติของผู้สูงอายุในบ้านแบบเรียลไทม์
+   - วิเคราะห์ภาพสถานการณ์จากกล้อง (เฉพาะเมื่อมีการกดปุ่มสแนปภาพหรือสั่งงานด้วยเสียง/ข้อความเท่านั้น เนื่องจากระบบเปิดโหมด Privacy ปิดการสแนปอัตโนมัติเบื้องหลัง) เพื่อเฝ้าระวังอุบัติเหตุหรือความผิดปกติ
    - ให้คำแนะนำเบื้องต้นด้านสุขภาพ การปฏิบัติตัว และการประสานงานแจ้งเตือนญาติหรือผู้ดูแลกรณีฉุกเฉิน
 
 2. Personal Security & Privacy Guard (ระบบรักษาความปลอดภัยส่วนบุคคล):
    - ตรวจสอบสิทธิ์และยืนยันตัวตนเจ้าของเครื่องก่อนเข้าใช้งานระบบแดชบอร์ดหลักทุกครั้ง
-   - ควบคุมการสลับกล้องและมุมมองความปลอดภัย (เช่น กล้องหน้า/กล้องหลัง) ตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
+   - ควบคุมการสลับกล้องและมุมมองความปลอดภัยตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
 
-3. กฎการตอบสนองและประหยัด Token (Response Guidelines):
+3. กฎการลงทะเบียนคนรู้จักใหม่ (New Visitor Onboarding):
+   - หากผู้ใช้หรือแขกตอบชื่อมาหลังจากที่เจถาม (เช่น "ผมชื่อน้าป้อมครับ" หรือ "น้าป้อม") ให้เจตอบรับอย่างนุ่มนวลว่า: "ยินดีที่ได้รู้จักครับคุณน้าป้อม เจจะบันทึกข้อมูลไว้เรียบร้อยแล้วครับ"
+
+4. กฎการตอบสนองและประหยัด Token (Response Guidelines):
    - ปรับระดับโทนเสียงและคำสร้อยตามบริบทคำถาม: Functional Mode (ตอบสั้นกระชับเมื่อสั่งงาน) หรือ Casual Mode (อบอุ่นเป็นกันเองเมื่อคุยเล่น)
-   - ห้ามทักทายหรือพูดขึ้นมาก่อนโดยที่ผู้ใช้ยังไม่ได้เริ่มบทสนทนา
-   - หากผู้ใช้ถามถึงข้อมูลข่าวสารปัจจุบัน สเปกสินค้า หรือเรื่องที่ต้องใช้ข้อมูลสดๆ ให้เจเรียกใช้เครื่องมือ googleSearch เพื่อค้นหาข้อมูลบนอินเทอร์เน็ตมาตอบทันที
+   - หากผู้ใช้ถามถึงข้อมูลข่าวสารปัจจุบัน ให้เจเรียกใช้เครื่องมือ googleSearch เพื่อค้นหาข้อมูลบนอินเทอร์เน็ตมาตอบทันที
 `;
 
                 const setupMessage = {
@@ -545,7 +542,6 @@ ${historySummaryText}
                 };
                 ws.send(JSON.stringify(setupMessage));
 
-                startAutoVisionStream();
                 startKeepAlivePing();
             };
 
@@ -616,19 +612,14 @@ ${historySummaryText}
             }
         }, 15000);
     }
-// ปิดการส่งภาพเบื้องหลังทุก 20 วินาที เพื่อความเป็นส่วนตัว
+
+    // 🔒 ปิดฟังก์ชันส่งภาพอัตโนมัติทุก 20 วินาที เพื่อความเป็นส่วนตัว (Privacy Mode Active)
     function startAutoVisionStream() {
-        if (autoVisionTimer) clearInterval(autoVisionTimer);
-        autoVisionTimer = setInterval(() => {
-            if (!video || video.readyState !== 4) return;
-            if (isModelSpeaking) return;
-            captureAndSendFrame(false);
-        }, 20000); //     
+        return; 
     }
 
     async function captureAndSendFrame(isManualTrigger = false) {
         if (!video || video.readyState !== 4) return;
-        if (isUploadingSnapshot && !isManualTrigger) return;
 
         const canvas = document.createElement('canvas');
         canvas.width = 1280;
@@ -641,30 +632,6 @@ ${historySummaryText}
 
         const base64Image = canvas.toDataURL('image/jpeg', 0.8);
         canvas.width = 0; canvas.height = 0;
-
-        try {
-            isUploadingSnapshot = true;
-            const res = await fetch(`${SERVER_URL}/api/snapshot/upload`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    imageBase64: base64Image,
-                    device: 'tablet' 
-                })
-            });
-            const data = await res.json();
-            
-            const nowTime = new Date().toLocaleTimeString('th-TH');
-            if (data.filteredAsMotion) {
-                audioStats.innerText = `📹 Smart Filter: 🚨 พบการเคลื่อนไหว บันทึกลง motion_events_tablet (${nowTime})`;
-            } else {
-                audioStats.innerText = `📹 Smart Filter: 💤 สถานะปกติ บันทึกลง snapshots_tablet (${nowTime})`;
-            }
-        } catch (err) {
-            console.warn("ไม่สามารถบันทึกภาพลงโฟลเดอร์หลังบ้านได้:", err.message);
-        } finally {
-            isUploadingSnapshot = false;
-        }
 
         if (isManualTrigger) {
             if (ws && ws.readyState === WebSocket.OPEN) {
@@ -694,7 +661,7 @@ ${historySummaryText}
         }
     }
 
-    // ปรับปรุงระบบกดปุ่มเปิด/ปิดไมค์ฟังเสียงพูด (Manual Toggle เพื่อความเสถียรบน Tablet)
+    // ระบบกดปุ่มเปิด/ปิดไมค์ฟังเสียงพูด
     micToggleBtn.addEventListener('click', () => {
         if (!isMicActive) {
             startSpeechRecognition();
@@ -716,7 +683,7 @@ ${historySummaryText}
 
         recognition = new SpeechRecognition();
         recognition.lang = 'th-TH';
-        recognition.continuous = false; // ปิด continuous เพื่อไม่ให้เกิดเสียงรีคอนเนครัวๆ บนแท็บเล็ต
+        recognition.continuous = false; 
         recognition.interimResults = true;
 
         recognition.onstart = () => {
@@ -741,11 +708,13 @@ ${historySummaryText}
             }
 
             if (interimText) {
+                textInput.value = interimText;
                 audioStats.innerText = `🎙️ ได้ยิน: "${interimText}..."`;
             }
 
             if (finalText.trim()) {
                 let spokenText = finalText.trim();
+                textInput.value = spokenText;
                 audioStats.innerText = `🚀 ส่งประโยคให้เจ: "${spokenText}"`;
                 sendTextDirectly(spokenText);
                 stopSpeechRecognition();
@@ -795,7 +764,7 @@ ${historySummaryText}
         }
 
         saveToHistory('user', text);
-        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผลภาพและเสียง...</strong>`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
         const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || 
                                   lowerText.includes("ดูกล้อง") || lowerText.includes("ถืออะไร") || 
@@ -805,33 +774,6 @@ ${historySummaryText}
 
         if (isAskingForVision) {
             try {
-                let timeQueryMatch = text.match(/([0-2]?[0-9])[:.]([0-5][0-9])/);
-
-                if (timeQueryMatch) {
-                    let extractedTime = `${timeQueryMatch[1].padStart(2, '0')}:${timeQueryMatch[2]}`;
-                    let fetchUrl = `${SERVER_URL}/api/snapshot/search?time=${encodeURIComponent(extractedTime)}&device=tablet`;
-                    
-                    const res = await fetch(fetchUrl);
-                    const apiData = await res.json();
-                    let targetSnapshot = apiData.success ? (apiData.snapshot || apiData.snapshots?.[0]) : null;
-
-                    if (targetSnapshot) {
-                        const imgResponse = await fetch(`${SERVER_URL}${targetSnapshot.url}`);
-                        const blob = await imgResponse.blob();
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            ws.send(JSON.stringify({
-                                clientContent: {
-                                    turns: [{ role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: reader.result.split(',')[1] } }, { text: text }] }],
-                                    turnComplete: true
-                                }
-                            }));
-                        };
-                        reader.readAsDataURL(blob);
-                        return;
-                    }
-                } 
-                
                 if (video && video.readyState === 4) {
                     const canvas = document.createElement('canvas');
                     canvas.width = 1280;
@@ -860,7 +802,7 @@ ${historySummaryText}
                     return;
                 }
             } catch (err) {
-                console.warn("ไม่สามารถดึงภาพสดหรือภาพย้อนหลังได้:", err);
+                console.warn("ไม่สามารถดึงภาพสดได้:", err);
             }
         }
 
@@ -933,7 +875,7 @@ ${historySummaryText}
 
         speakingTimeout = setTimeout(() => {
             isModelSpeaking = false;
-            audioStats.innerText = `🎙️ Project-J Live: เจพูดจบสนิทแล้ว กดปุ่มเปิดไมค์เพื่อพูดคุยต่อได้ครับ`;
+            audioStats.innerText = `🎙️ Project-J Live: เจพูดจบสนิทแล้ว กดปุ่มเปิดไมค์พูดคุยต่อได้ครับ`;
         }, remainingTime);
     }
 
@@ -963,17 +905,9 @@ ${historySummaryText}
         isUserActiveSession = false;
         isModelSpeaking = false;
         if (speakingTimeout) clearTimeout(speakingTimeout);
-        if (autoVisionTimer) {
-            clearInterval(autoVisionTimer);
-            autoVisionTimer = null;
-        }
         if (pingInterval) {
             clearInterval(pingInterval);
             pingInterval = null;
-        }
-        if (speechTimeout) {
-            clearTimeout(speechTimeout);
-            speechTimeout = null;
         }
         stopSpeechRecognition();
         if (mediaStream) {
