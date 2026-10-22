@@ -652,6 +652,7 @@ ${historySummaryText}
 
     function startAutoVisionStream() {
         if (autoVisionTimer) clearInterval(autoVisionTimer);
+        // ตั้งเวลาให้ระบบแคปและส่งภาพอัตโนมัติทุกๆ 20 วินาที
         autoVisionTimer = setInterval(() => {
             if (!video || video.readyState !== 4) return;
             if (isModelSpeaking) return;
