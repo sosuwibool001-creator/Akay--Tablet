@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Gemini Plus Overlay)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Gemini Plus Direct)</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -35,9 +35,7 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* ---------------------------
-           Step 1 & Modal Layouts (Auth & Setup)
-        --------------------------- */
+        /* Modal Layout for First-Time Setup & Direct Start */
         .auth-container {
             position: fixed;
             top: 0;
@@ -79,7 +77,7 @@
             line-height: 1.4;
         }
 
-        #step1, #stepSetup, #stepAuth {
+        #step1, #stepSetup {
             display: none;
             flex-direction: column;
             align-items: center;
@@ -88,7 +86,7 @@
 
         #step1 { display: flex; }
 
-        #authVideo, #setupVideo {
+        #setupVideo {
             width: 100%;
             max-height: 280px;
             border-radius: 16px;
@@ -153,9 +151,7 @@
         button.stop-btn { background-color: var(--accent-red); }
         button.clear-btn { background-color: var(--accent-orange); }
 
-        /* ---------------------------
-           Step 2: Full-Screen Camera & Floating Overlay UI
-        --------------------------- */
+        /* Full-Screen Camera & Floating Overlay UI */
         #step2 {
             display: none;
             width: 100vw;
@@ -188,10 +184,9 @@
             flex-direction: column;
             justify-content: space-between;
             padding: 16px;
-            pointer-events: none; /* กดทะลุไปยังกล้องได้ */
+            pointer-events: none;
         }
 
-        /* เปิดให้เฉพาะปุ่มและกล่องข้อความคลิกได้ */
         .overlay-layer * {
             pointer-events: auto;
         }
@@ -206,7 +201,6 @@
             padding: 12px 16px;
         }
 
-        /* Top Bar Layer */
         .top-bar {
             display: flex;
             justify-content: space-between;
@@ -232,7 +226,6 @@
             font-weight: 700;
         }
 
-        /* Center Status Panel */
         .status-panel {
             margin: auto 0 12px 0;
             max-height: 160px;
@@ -257,7 +250,6 @@
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
 
-        /* Bottom Controls Layer */
         .bottom-controls {
             display: flex;
             flex-direction: column;
@@ -286,13 +278,13 @@
 </head>
 <body>
 
-<!-- Layer 1: Modal ยืนยันสิทธิ์ก่อนเข้าใช้งาน -->
+<!-- Layer 1: Modal เริ่มต้น / ลงทะเบียนครั้งแรก -->
 <div class="auth-container" id="authModal">
     <div class="auth-card">
-        <!-- Step 1: หน้าแรกเลือกเสียง -->
+        <!-- Step 1: หน้าเปิดแอป (ถ้าลงทะเบียนแล้วจะเริ่มได้ทันที) -->
         <div id="step1">
             <div class="logo-box">Project-J <span style="font-size: 12px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px;">Gemini Plus</span></div>
-            <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (Tablet Edition)</div>
+            <div class="subtitle" id="welcomeSubtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน</div>
             
             <div class="input-group">
                 <select id="voiceSelect">
@@ -304,32 +296,23 @@
                 </select>
             </div>
 
-            <button id="startAuthBtn" class="circle-btn">
-                <span style="font-size: 26px; margin-bottom: 4px;">👤📷</span>
-                <span>สแกนหน้า</span>
+            <button id="startAppBtn" class="circle-btn">
+                <span style="font-size: 28px; margin-bottom: 4px;">🚀</span>
+                <span id="startBtnLabel">เข้าสู่ระบบ</span>
             </button>
         </div>
 
-        <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก -->
+        <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก (ทำครั้งเดียว) -->
         <div id="stepSetup">
             <div class="logo-box" style="font-size: 20px;">🛠️ ลงทะเบียนเจ้าของเครื่องครั้งแรก</div>
-            <div class="subtitle">สวัสดีครับ เจระบบรักษาความปลอดภัยพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรครับ?</div>
+            <div class="subtitle">ยินดีต้อนรับครับ! กรุณาระบุชื่อเจ้าของเครื่องเพื่อลงทะเบียนครั้งเดียวครับ</div>
             
             <video id="setupVideo" autoplay playsinline muted></video>
             
             <div class="input-group">
                 <input type="text" id="ownerNameInput" placeholder="ระบุชื่อเจ้าของเครื่อง..." value="เพื่อนเอก (Ake)">
-                <button id="registerOwnerBtn" class="standard-btn" style="padding: 14px; font-size: 15px;">✅ ยืนยันสิทธิ์เจ้าของเครื่อง</button>
-                <button id="cancelSetupBtn" class="standard-btn stop-btn" style="padding: 10px; font-size: 13px;">❌ ยกเลิก</button>
+                <button id="registerOwnerBtn" class="standard-btn" style="padding: 14px; font-size: 15px;">✅ บันทึกการลงทะเบียน</button>
             </div>
-        </div>
-
-        <!-- Step 1.5: สแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ -->
-        <div id="stepAuth">
-            <div class="logo-box" style="font-size: 20px;">🤖 กำลังตรวจสอบสิทธิ์เจ้าของเครื่อง...</div>
-            <div class="subtitle" id="authStatusText">กำลังสแกนใบหน้าเทียบกับแฟ้มข้อมูลเจ้าของระบบ...</div>
-            <video id="authVideo" autoplay playsinline muted></video>
-            <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 10px;">❌ ยกเลิก</button>
         </div>
     </div>
 </div>
@@ -346,12 +329,12 @@
             <div class="brand-title">
                 Project-J Plus <span class="user-tag" id="userNameDisplay">ผู้ใช้งาน</span>
             </div>
-            <button id="stopBtn" class="standard-btn stop-btn" style="padding: 6px 12px; font-size: 12px;">⏹️ ออกจากระบบ</button>
+            <button id="stopBtn" class="standard-btn stop-btn" style="padding: 6px 12px; font-size: 12px;">⏹️ ออกจากหน้าจอ</button>
         </div>
 
         <!-- Center Status Panel -->
         <div class="status-panel glass-card" id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J Gemini Plus พร้อมทำงาน (Full-Screen Live)...</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J Gemini Plus พร้อมทำงาน...</div>
             <div id="audioStats" class="debug-stats">📹 Live Camera Active: พร้อมสลับกล้องและรับฟังคำสั่งเสียง</div>
         </div>
 
@@ -390,17 +373,14 @@
     const authModal = document.getElementById('authModal');
     const step1 = document.getElementById('step1');
     const stepSetup = document.getElementById('stepSetup');
-    const stepAuth = document.getElementById('stepAuth');
     const step2 = document.getElementById('step2');
     
-    const startAuthBtn = document.getElementById('startAuthBtn');
-    const cancelAuthBtn = document.getElementById('cancelAuthBtn');
-    const cancelSetupBtn = document.getElementById('cancelSetupBtn');
-    const authVideo = document.getElementById('authVideo');
+    const startAppBtn = document.getElementById('startAppBtn');
+    const startBtnLabel = document.getElementById('startBtnLabel');
+    const welcomeSubtitle = document.getElementById('welcomeSubtitle');
     const setupVideo = document.getElementById('setupVideo');
     const ownerNameInput = document.getElementById('ownerNameInput');
     const registerOwnerBtn = document.getElementById('registerOwnerBtn');
-    const authStatusText = document.getElementById('authStatusText');
     const userNameDisplay = document.getElementById('userNameDisplay');
 
     const video = document.getElementById('webcam');
@@ -424,11 +404,33 @@
     let recognition = null;
     let isUserActiveSession = false;
     let useFrontCamera = true;
-    let authenticatedUser = "เพื่อนเอก (Ake)";
+    let authenticatedUser = localStorage.getItem('project_j_owner_name') || "เพื่อนเอก (Ake)";
 
-    let isModelSpeaking = false;
-    let speakingTimeout = null;
-    let isMicActive = false;
+    // ตรวจสอบสถานะการลงทะเบียนเมื่อเปิดแอป
+    async function checkRegistrationState() {
+        const localRegistered = localStorage.getItem('project_j_registered');
+        if (localRegistered === 'true') {
+            welcomeSubtitle.innerHTML = `ยินดีต้อนรับกลับครับ <strong>${authenticatedUser}</strong>! กดปุ่มเพื่อเริ่มใช้งานได้ทันที`;
+            startBtnLabel.innerText = "เริ่มใช้งาน";
+            return;
+        }
+
+        try {
+            const res = await fetch(`${SERVER_URL}/api/owner/check`);
+            const data = await res.json();
+
+            if (data.registered) {
+                localStorage.setItem('project_j_registered', 'true');
+                localStorage.setItem('project_j_owner_name', data.owner.name);
+                authenticatedUser = data.owner.name;
+                welcomeSubtitle.innerHTML = `ยินดีต้อนรับกลับครับ <strong>${authenticatedUser}</strong>! กดปุ่มเพื่อเริ่มใช้งานได้ทันที`;
+                startBtnLabel.innerText = "เริ่มใช้งาน";
+            }
+        } catch (e) {
+            console.warn("Check registration error:", e);
+        }
+    }
+    checkRegistrationState();
 
     function saveToHistory(role, text) {
         let history = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
@@ -443,34 +445,36 @@
         alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
     });
 
-    startAuthBtn.addEventListener('click', async () => {
+    // ปุ่มกดเริ่มใช้งาน (เปิดตรงเข้าแอปทันที ถ้าลงทะเบียนแล้ว)
+    startAppBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
             alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
             return;
         }
 
-        try {
-            const res = await fetch(`${SERVER_URL}/api/owner/check`);
-            const data = await res.json();
+        const localRegistered = localStorage.getItem('project_j_registered');
 
+        if (localRegistered === 'true') {
+            // เข้าสู่หน้าจอหลักทันที
+            authModal.style.display = 'none';
+            step2.style.display = 'block';
+            userNameDisplay.innerText = authenticatedUser;
+            await initCamera();
+            startMainAppSession();
+        } else {
+            // หากยังไม่เคยลงทะเบียน ให้ขึ้นหน้าลงทะเบียนครั้งเดียว
             step1.style.display = 'none';
-
-            if (!data.registered) {
-                stepSetup.style.display = 'flex';
+            stepSetup.style.display = 'flex';
+            try {
                 authStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
                 setupVideo.srcObject = authStream;
-            } else {
-                stepAuth.style.display = 'flex';
-                authStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-                authVideo.srcObject = authStream;
-                runAutoVerification(data.owner.name);
+            } catch (err) {
+                console.warn("ไม่สามารถเปิดกล้องลงทะเบียนได้:", err);
             }
-        } catch (err) {
-            alert("ไม่สามารถเชื่อมต่อกล้องหรือเซิร์ฟเวอร์ได้: " + err.message);
-            step1.style.display = 'flex';
         }
     });
 
+    // บันทึกการลงทะเบียนครั้งแรก
     registerOwnerBtn.addEventListener('click', async () => {
         const name = ownerNameInput.value.trim();
         if (!name) {
@@ -479,12 +483,15 @@
         }
 
         try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1280; canvas.height = 720;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(setupVideo, 0, 0, 1280, 720);
-            const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-            canvas.width = 0; canvas.height = 0;
+            let base64Image = "";
+            if (setupVideo.srcObject) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1280; canvas.height = 720;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(setupVideo, 0, 0, 1280, 720);
+                base64Image = canvas.toDataURL('image/jpeg', 0.8);
+                canvas.width = 0; canvas.height = 0;
+            }
 
             const res = await fetch(`${SERVER_URL}/api/owner/register`, {
                 method: 'POST',
@@ -493,52 +500,35 @@
             });
             const data = await res.json();
 
-            if (data.success) {
-                alert(`🎉 ยืนยันสิทธิ์เจ้าของเครื่องสำเร็จ: ${name}`);
+            if (data.success || res.ok) {
+                localStorage.setItem('project_j_registered', 'true');
+                localStorage.setItem('project_j_owner_name', name);
+                authenticatedUser = name;
+
+                alert(`🎉 บันทึกการลงทะเบียนสำเร็จ: ยินดีต้อนรับ ${name}!`);
                 if (authStream) authStream.getTracks().forEach(t => t.stop());
+                
                 authModal.style.display = 'none';
                 step2.style.display = 'block';
-                authenticatedUser = name;
                 userNameDisplay.innerText = authenticatedUser;
                 await initCamera();
                 startMainAppSession();
             } else {
-                alert("เกิดข้อผิดพลาดในการบันทึกสิทธิ์: " + data.message);
+                alert("เกิดข้อผิดพลาดในการบันทึกสิทธิ์: " + (data.message || 'Error'));
             }
         } catch (e) {
-            alert("ไม่สามารถบันทึกสิทธิ์ได้: " + e.message);
-        }
-    });
+            // สำรองกรณีออฟไลน์ ให้ลงทะเบียนระดับเบราว์เซอร์ผ่าน
+            localStorage.setItem('project_j_registered', 'true');
+            localStorage.setItem('project_j_owner_name', name);
+            authenticatedUser = name;
 
-    function runAutoVerification(ownerName) {
-        authStatusText.innerHTML = `🔍 กำลังตรวจสอบใบหน้าเทียบกับเจ้าของระบบ (${ownerName})...`;
-        setTimeout(async () => {
-            authenticatedUser = ownerName;
+            if (authStream) authStream.getTracks().forEach(t => t.stop());
+            authModal.style.display = 'none';
+            step2.style.display = 'block';
             userNameDisplay.innerText = authenticatedUser;
-            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
-
-            setTimeout(async () => {
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                authModal.style.display = 'none';
-                step2.style.display = 'block';
-
-                await initCamera();
-                startMainAppSession();
-            }, 800);
-
-        }, 2000);
-    }
-
-    cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepAuth.style.display = 'none';
-        step1.style.display = 'flex';
-    });
-
-    cancelSetupBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepSetup.style.display = 'none';
-        step1.style.display = 'flex';
+            await initCamera();
+            startMainAppSession();
+        }
     });
 
     async function initCamera() {
@@ -1001,7 +991,6 @@ ${historySummaryText}
         }
         step2.style.display = 'none';
         authModal.style.display = 'flex';
-        stepAuth.style.display = 'none';
         stepSetup.style.display = 'none';
         step1.style.display = 'flex';
     }
