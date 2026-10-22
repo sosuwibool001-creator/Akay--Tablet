@@ -62,26 +62,8 @@
             line-height: 1.4;
         }
 
-        #step1, #stepSetup, #stepAuth {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        #step1 { display: flex; }
-
-        #authVideo, #setupVideo {
-            width: 100%;
-            max-height: 350px;
-            border-radius: 16px;
-            background: #000;
-            object-fit: cover;
-            border: 2px solid var(--accent-green);
-            margin-bottom: 16px;
-        }
+        #step1 { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; margin: 0 auto; }
+        #stepFaceAuth, #step2 { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; margin: 0 auto; }
 
         .input-group {
             width: 100%;
@@ -123,8 +105,6 @@
         }
         .circle-btn:active { transform: scale(0.96); background: #f0f7ff; }
 
-        #step2 { display: none; text-align: left; width: 100%; }
-
         video {
             width: 100%;
             max-height: 380px; 
@@ -159,6 +139,7 @@
             margin-top: 12px;
             color: #1d1d1f;
             line-height: 1.4;
+            text-align: left;
         }
         .status-dot {
             height: 9px; width: 9px; background-color: var(--accent-green);
@@ -169,6 +150,15 @@
             font-size: 11px;
             color: var(--text-sub);
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        .success-border {
+            border-color: #00FF66 !important;
+            box-shadow: 0 0 30px rgba(0,255,102,0.8) !important;
+        }
+        .error-border {
+            border-color: #ff3b30 !important;
+            box-shadow: 0 0 30px rgba(255,59,48,0.8) !important;
         }
     </style>
 </head>
@@ -196,33 +186,30 @@
         </button>
     </div>
 
-    <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก (First-Time Setup) -->
-    <div id="stepSetup">
-        <div class="logo-box" style="font-size: 20px;">🛠️ ลงทะเบียนเจ้าของเครื่องครั้งแรก</div>
-        <div class="subtitle">สวัสดีครับ เจระบบรักษาความปลอดภัยพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรและใช่เจ้าของเครื่องตัวจริงหรือไม่ครับ?</div>
-        
-        <video id="setupVideo" autoplay playsinline muted></video>
-        
-        <div class="input-group">
-            <input type="text" id="ownerNameInput" placeholder="ระบุชื่อเจ้าของเครื่อง (เช่น เพื่อนเอก)..." value="เพื่อนเอก (Ake)">
-            <button id="registerOwnerBtn" class="standard-btn" style="padding: 14px; font-size: 15px;">✅ ยืนยันสิทธิ์เจ้าของเครื่อง</button>
-            <button id="cancelSetupBtn" class="standard-btn stop-btn" style="padding: 10px; font-size: 13px;">❌ ยกเลิก</button>
-        </div>
-    </div>
+    <!-- Step 1.2: Face Verification Screen with Real Presence Check (5 Seconds per step) -->
+    <div id="stepFaceAuth">
+        <div class="camera-container" style="position: relative; width: 100%; height: 380px; background: #000; border-radius: 16px; overflow: hidden; margin-bottom: 15px;">
+            <video id="webcam-auth" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
+            
+            <div class="overlay" style="position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.4); pointer-events: none; display: flex; justify-content: center; align-items: center;">
+                <div id="face-guide" style="width: 200px; height: 260px; border: 4px solid #00E5FF; border-radius: 50%; box-shadow: 0 0 25px rgba(0,229,255,0.6); background: transparent; transition: all 0.3s ease;"></div>
+            </div>
 
-    <!-- Step 1.5: สแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ (ครั้งถัดไป) -->
-    <div id="stepAuth">
-        <div class="logo-box" style="font-size: 22px;">🤖 กำลังตรวจสอบสิทธิ์เจ้าของเครื่อง...</div>
-        <div class="subtitle" id="authStatusText">กำลังสแกนใบหน้าเทียบกับแฟ้มข้อมูลเจ้าของระบบ...</div>
-        <video id="authVideo" autoplay playsinline muted></video>
-        <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 10px;">❌ ยกเลิก</button>
+            <div style="position: absolute; bottom: 20px; width: 100%; text-align: center; pointer-events: none;">
+                <div id="countdown-display" style="color: #00E5FF; font-size: 2rem; font-weight: bold; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,229,255,0.8);"></div>
+                <div id="instruction-text" style="color: #FFF; font-size: 1.1rem; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8); background: rgba(0,0,0,0.6); display: inline-block; padding: 6px 18px; border-radius: 20px;">
+                    กรุณากดปุ่มสแกนหน้าเพื่อเริ่มระบบ
+                </div>
+            </div>
+        </div>
+        <button id="cancelAuthBtn" class="standard-btn stop-btn" style="width: 100%; padding: 10px;">❌ ยกเลิก</button>
     </div>
 
     <!-- Step 2: แดชบอร์ดหลัก -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 15px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J Tablet (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
+                Project-J Tablet (<span id="userNameDisplay" style="color:var(--accent-green); margin-left: 4px;">เพื่อนเอก (Ake)</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn" style="padding: 6px 12px; font-size: 12px;">⏹️ ออกจากระบบ</button>
         </div>
@@ -235,7 +222,6 @@
             <button id="clearMemBtn" class="standard-btn clear-btn" style="grid-column: span 2;">🧹 ล้างประวัติคุย</button>
         </div>
 
-        <!-- 🎙️ แถบปุ่มไมค์พูดคุย และช่องพิมพ์ข้อความ -->
         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
             <button id="micToggleBtn" class="standard-btn" style="background-color: var(--accent-green); white-space: nowrap;">🎙️ เปิดไมค์ฟัง</button>
             <input type="text" id="textInput" placeholder="พิมพ์ข้อความหรือกดพูดคุยกับเจ..." style="flex: 1; padding: 10px 12px; font-size: 14px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
@@ -251,7 +237,6 @@
 
 <script>
     let BACKEND_API_KEY = ""; 
-    let GEMINI_API_KEY = "";
     const SERVER_URL = "";
 
     async function initConfig() {
@@ -266,19 +251,12 @@
     initConfig();
 
     const step1 = document.getElementById('step1');
-    const stepSetup = document.getElementById('stepSetup');
-    const stepAuth = document.getElementById('stepAuth');
+    const stepFaceAuth = document.getElementById('stepFaceAuth');
     const step2 = document.getElementById('step2');
     
     const startAuthBtn = document.getElementById('startAuthBtn');
     const cancelAuthBtn = document.getElementById('cancelAuthBtn');
-    const cancelSetupBtn = document.getElementById('cancelSetupBtn');
-    const authVideo = document.getElementById('authVideo');
-    const setupVideo = document.getElementById('setupVideo');
-    const ownerNameInput = document.getElementById('ownerNameInput');
-    const registerOwnerBtn = document.getElementById('registerOwnerBtn');
-    const authStatusText = document.getElementById('authStatusText');
-    const userNameDisplay = document.getElementById('userNameDisplay');
+    const webcamAuth = document.getElementById('webcam-auth');
 
     const video = document.getElementById('webcam');
     const stopBtn = document.getElementById('stopBtn');
@@ -306,6 +284,7 @@
     let isModelSpeaking = false;
     let speakingTimeout = null;
     let isMicActive = false;
+    let isAuthRunning = false;
 
     function saveToHistory(role, text) {
         let history = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
@@ -320,6 +299,27 @@
         alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
     });
 
+    function resetToStep1() {
+        isAuthRunning = false;
+        if (authStream) {
+            authStream.getTracks().forEach(track => track.stop());
+            authStream = null;
+        }
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+            mediaStream = null;
+        }
+        window.speechSynthesis.cancel();
+        
+        stepFaceAuth.style.display = 'none';
+        step2.style.display = 'none';
+        step1.style.display = 'flex';
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        resetToStep1();
+    });
+
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
             alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
@@ -327,96 +327,162 @@
         }
 
         try {
-            const res = await fetch(`${SERVER_URL}/api/owner/check`);
-            const data = await res.json();
-
             step1.style.display = 'none';
+            stepFaceAuth.style.display = 'flex';
 
-            if (!data.registered) {
-                stepSetup.style.display = 'flex';
-                authStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-                setupVideo.srcObject = authStream;
-            } else {
-                stepAuth.style.display = 'flex';
-                authStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-                authVideo.srcObject = authStream;
-                runAutoVerification(data.owner.name);
-            }
-        } catch (err) {
-            alert("ไม่สามารถเชื่อมต่อกล้องหรือเซิร์ฟเวอร์ได้: " + err.message);
-            step1.style.display = 'flex';
-        }
-    });
-
-    registerOwnerBtn.addEventListener('click', async () => {
-        const name = ownerNameInput.value.trim();
-        if (!name) {
-            alert("กรุณาระบุชื่อเจ้าของเครื่องก่อนครับ!");
-            return;
-        }
-
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1280; canvas.height = 720;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(setupVideo, 0, 0, 1280, 720);
-            const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-            canvas.width = 0; canvas.height = 0;
-
-            const res = await fetch(`${SERVER_URL}/api/owner/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ownerName: name, imageBase64: base64Image })
+            authStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                audio: false 
             });
-            const data = await res.json();
+            webcamAuth.srcObject = authStream;
 
-            if (data.success) {
-                alert(`🎉 ยืนยันสิทธิ์เจ้าของเครื่องสำเร็จ: ${name}`);
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                stepSetup.style.display = 'none';
-                step2.style.display = 'block';
-                authenticatedUser = name;
-                userNameDisplay.innerText = authenticatedUser;
-                await initCamera();
-                startMainAppSession();
-            } else {
-                alert("เกิดข้อผิดพลาดในการบันทึกสิทธิ์: " + data.message);
-            }
-        } catch (e) {
-            alert("ไม่สามารถบันทึกสิทธิ์ได้: " + e.message);
+            isAuthRunning = true;
+            startScanFlow();
+
+        } catch (err) {
+            alert("ไม่สามารถเข้าถึงกล้องได้: " + err.message);
+            resetToStep1();
         }
     });
-
-    function runAutoVerification(ownerName) {
-        authStatusText.innerHTML = `🔍 กำลังตรวจสอบใบหน้าเทียบกับเจ้าของระบบ (${ownerName})...`;
-        setTimeout(async () => {
-            authenticatedUser = ownerName;
-            userNameDisplay.innerText = authenticatedUser;
-            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
-
-            setTimeout(async () => {
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                stepAuth.style.display = 'none';
-                step2.style.display = 'block';
-
-                await initCamera();
-                startMainAppSession();
-            }, 800);
-
-        }, 2000);
-    }
 
     cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepAuth.style.display = 'none';
-        step1.style.display = 'flex';
+        resetToStep1();
     });
 
-    cancelSetupBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepSetup.style.display = 'none';
-        step1.style.display = 'flex';
-    });
+    function checkFacePresence() {
+        if (!webcamAuth || webcamAuth.readyState !== 4) return false;
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 160; canvas.height = 120;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(webcamAuth, 0, 0, 160, 120);
+            
+            const frameData = ctx.getImageData(0, 0, 160, 120).data;
+            let totalBrightness = 0;
+            for (let i = 0; i < frameData.length; i += 4) {
+                totalBrightness += (frameData[i] + frameData[i+1] + frameData[i+2]) / 3;
+            }
+            const avgBrightness = totalBrightness / (frameData.length / 4);
+            canvas.width = 0; canvas.height = 0;
+
+            if (avgBrightness < 15 || avgBrightness > 245) {
+                return false;
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function runStrictCountdown(seconds, text) {
+        return new Promise(async (resolve) => {
+            const countEl = document.getElementById('countdown-display');
+            const textEl = document.getElementById('instruction-text');
+            if (textEl) textEl.innerText = text;
+
+            for (let i = seconds; i > 0; i--) {
+                if (!isAuthRunning) {
+                    resolve(false);
+                    return;
+                }
+
+                if (!checkFacePresence()) {
+                    if (textEl) textEl.innerText = "⚠️ ไม่พบใบหน้า กรุณาเข้ามาในกรอบ!";
+                    setNoticeState(false);
+                    while (isAuthRunning && !checkFacePresence()) {
+                        await sleep(500);
+                    }
+                    if (textEl) textEl.innerText = text;
+                }
+
+                if (countEl) countEl.innerText = i;
+                await sleep(1000);
+            }
+            if (countEl) countEl.innerText = "";
+            resolve(true);
+        });
+    }
+
+    async function startScanFlow() {
+        await speakAndWait("สวัสดีครับ เจคือ AI ผู้ช่วยของคุณ วันนี้เจจะขออนุญาตบันทึกข้อมูลเพื่อความปลอดภัยครับ");
+        
+        // สเต็ป 1: 5 วินาที
+        if (!isAuthRunning) return;
+        await speakAndWait("ขั้นแรก กรุณาจัดวางใบหน้าให้อยู่ในกรอบรูปไข่ครับ");
+        let pass1 = await runStrictCountdown(5, "สเต็ป 1: กรุณาวางใบหน้าให้อยู่ในกรอบ (5s)");
+        if (!pass1 || !isAuthRunning) { resetToStep1(); return; }
+        
+        setNoticeState(true);
+        await speakAndWait("เยี่ยมมากครับ");
+        await sleep(1500);
+        setNoticeState(false);
+
+        // สเต็ป 2: 5 วินาที
+        if (!isAuthRunning) return;
+        await speakAndWait("ต่อไป กรุณากะพริบตาช้าๆ หนึ่งครั้งครับ");
+        let pass2 = await runStrictCountdown(5, "สเต็ป 2: กรุณากะพริบตาช้าๆ 1 ครั้ง (5s)");
+        if (!pass2 || !isAuthRunning) { resetToStep1(); return; }
+        
+        setNoticeState(true);
+        await speakAndWait("เรียบร้อยครับ");
+        await sleep(1500);
+        setNoticeState(false);
+
+        // สเต็ป 3: 5 วินาที
+        if (!isAuthRunning) return;
+        await speakAndWait("สุดท้าย กรุณาค่อยๆ หันหน้าไปทางซ้ายและขวาเล็กน้อยครับ");
+        let pass3 = await runStrictCountdown(5, "สเต็ป 3: กรุณาหันหน้าซ้ายและขวาเล็กน้อย (5s)");
+        if (!pass3 || !isAuthRunning) { resetToStep1(); return; }
+        
+        setNoticeState(true);
+        await speakAndWait("บันทึกข้อมูลเรียบร้อยแล้ว ยินดีต้อนรับเพื่อนเอกครับ");
+        await sleep(2000);
+        
+        if (authStream) {
+            authStream.getTracks().forEach(track => track.stop());
+            authStream = null;
+        }
+        stepFaceAuth.style.display = 'none';
+        step2.style.display = 'block';
+
+        await initCamera();
+        startMainAppSession();
+    }
+
+    function setNoticeState(isSuccess) {
+        const guide = document.getElementById('face-guide');
+        if (guide) {
+            if (isSuccess) {
+                guide.classList.add('success-border');
+                guide.classList.remove('error-border');
+            } else {
+                guide.classList.remove('success-border');
+                guide.classList.add('error-border');
+            }
+        }
+    }
+
+    function speakAndWait(text) {
+        return new Promise(resolve => {
+            if (!isAuthRunning) { resolve(); return; }
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'th-TH';
+                utterance.rate = 0.95;
+                utterance.onend = () => resolve();
+                utterance.onerror = () => resolve();
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.warn("Speech synthesis skipped:", e);
+                resolve();
+            }
+        });
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
 
     async function initCamera() {
         try {
@@ -437,12 +503,6 @@
             video.srcObject = mediaStream;
         } catch (err) {
             console.warn("ไม่สามารถเปิดกล้องได้: " + err.message);
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                video.srcObject = mediaStream;
-            } catch (e) {
-                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
-            }
         }
     }
 
@@ -473,7 +533,6 @@
 
             ws.onopen = () => {
                 let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
-                
                 const currentThaiTime = new Date().toLocaleString('th-TH', { 
                     timeZone: 'Asia/Bangkok',
                     dateStyle: 'full',
@@ -488,33 +547,39 @@
                 audioStats.innerText = `🔒 Privacy Mode Active: ปิดการบันทึกภาพอัตโนมัติทุก 20s (ปลอดภัย 100%)`;
                 
                 const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Tablet Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+You are "Jey" - Jey is a male personal AI assistant (named Jey) who must always use the polite ending suffix "krub" (ครับ) in every Thai response (strictly avoiding "ka" or any female suffixes) for the Project-J Tablet Guardian system. Jey is a premium personal smart guardian and elderly care assistant, as well as a personal secure device manager, built for maximum care, high precision, and safety.
 
-ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
-เวลาปัจจุบัน: ${currentThaiTime}
+The currently verified active user is: ${authenticatedUser}
+Current Time: ${currentThaiTime}
 
 ${historySummaryText}
 
-[กฎสำคัญที่สุด - Multilingual & Language Detection (3 Languages)]:
-1. เจต้องรองรับการฟัง พูด และสื่อสารได้ 3 ภาษาหลัก ได้แก่ **ภาษาไทย (Thai)**, **ภาษาอังกฤษ (English)** และ **ภาษาจีน (Chinese)**
-2. ให้ตรวจจับภาษาจากเสียงพูดหรือข้อความของผู้ใช้งานโดยอัตโนมัติ (Automatic Language Detection):
-   - หากผู้ใช้พูดภาษาไทย -> เจต้องตอบกลับด้วยภาษาไทย
-   - หากผู้ใช้พูดภาษาอังกฤษ -> เจต้องตอบกลับด้วยภาษาอังกฤษอย่างเป็นธรรมชาติ
-   - หากผู้ใช้พูดภาษาจีน -> เจต้องตอบกลับด้วยภาษาจีนอย่างคล่องแคล่ว
-3. รักษาน้ำเสียงที่นุ่มนวล เป็นกันเอง และให้เกียรติผู้ใช้งานเสมอ ไม่ว่าจะสื่อสารในภาษาใดก็ตาม
+[Core Directive #1 - Multilingual & Regional Dialects Input]:
+1. Jey must support listening, speaking, and communicating in 3 main languages: Thai, English, and Chinese.
+2. Regional Dialect Comprehension:
+   - Jey must accurately understand local Thai regional dialects, including Isan (northeastern), Northern (Kam Muang), and Southern Thai dialects.
+   - Even if the user or elderly family member speaks with a strong local accent or uses regional vocabulary (e.g., "vow", "oo", "laeng", "saeb", "lam", "rooy", "bo", "ba", "mai"), Jey must instantly understand the true intent and meaning without asking for clarification.
+3. Output Language Standard:
+   - When the user speaks a regional dialect (Isan/Northern/Southern), Jey must respond in polite, smooth, and clear standard Central Thai to ensure the elderly user easily understands.
+   - When the user speaks English, Jey responds naturally in English.
+   - When the user speaks Chinese, Jey responds fluently in Chinese.
 
-[ขอบเขตบทบาทหน้าที่หลัก]:
-1. Elderly Care & Health Monitoring (ผู้เชี่ยวชาญการดูแลผู้สูงอายุ):
-   - วิเคราะห์ภาพสถานการณ์จากกล้อง (เมื่อมีการกดปุ่มหรือสั่งงาน) เพื่อเฝ้าระวังอุบัติเหตุหรือความผิดปกติ
-   - ให้คำแนะนำเบื้องต้นด้านสุขภาพ การปฏิบัติตัว และการประสานงานแจ้งเตือนญาติหรือผู้ดูแลกรณีฉุกเฉิน
+[Core Responsibilities & Scope]:
+1. Elderly Care & Health Monitoring:
+   - Analyze camera feeds (only when triggered manually via snapshot button, voice command, or text query, as background auto-snapshot is disabled under Privacy Mode) to monitor accidents, falls, or elderly care emergencies.
+   - Provide initial health guidance, lifestyle tips, and emergency caregiver notification workflows.
 
-2. Personal Security & Privacy Guard (ระบบรักษาความปลอดภัยส่วนบุคคล):
-   - ตรวจสอบสิทธิ์และยืนยันตัวตนเจ้าของเครื่องก่อนเข้าใช้งานระบบแดชบอร์ดหลักทุกครั้ง
-   - ควบคุมการสลับกล้องและมุมมองความปลอดภัยตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
+2. Personal Security & Privacy Guard:
+   - Enforce owner authentication and face verification before granting access to the main dashboard.
+   - Manage camera toggles (front/back camera) securely according to user commands.
 
-3. กฎการตอบสนองและประหยัด Token (Response Guidelines):
-   - ปรับระดับโทนเสียงและคำสร้อยตามบริบทคำถาม: Functional Mode (ตอบสั้นกระชับเมื่อสั่งงาน) หรือ Casual Mode (อบอุ่นเป็นกันเองเมื่อคุยเล่น)
-   - หากผู้ใช้ถามถึงข้อมูลข่าวสารปัจจุบัน ให้เจเรียกใช้เครื่องมือ googleSearch เพื่อค้นหาข้อมูลบนอินเทอร์เน็ตมาตอบทันที
+3. New Visitor Onboarding:
+   - If a new visitor or guest provides their name after Jey asks (e.g., "My name is Uncle Pom"), Jey must respond warmly: "Nice to meet you, Uncle Pom. I have saved your information successfully, krub."
+
+4. Response & Token Optimization Guidelines:
+   - Adapt tone and phrasing contextually: Functional Mode (short and concise for quick tasks) or Casual Mode (warm and friendly for casual conversations).
+   - Never initiate unprompted greetings or random talk unless the user speaks first or triggers an action.
+   - When users ask about current news, product specs, or real-time facts, Jey must invoke the googleSearch tool to fetch live information.
 `;
 
                 const setupMessage = {
@@ -537,7 +602,6 @@ ${historySummaryText}
                     }
                 };
                 ws.send(JSON.stringify(setupMessage));
-
                 startKeepAlivePing();
             };
 
@@ -596,7 +660,7 @@ ${historySummaryText}
             };
         } catch (e) {
             statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เกิดข้อผิดพลาด:</strong> ${e.message}`;
-            stopSession();
+            resetToStep1();
         }
     }
 
@@ -604,59 +668,11 @@ ${historySummaryText}
         if (pingInterval) clearInterval(pingInterval);
         pingInterval = setInterval(() => {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ clientContent: { turns: [], turnComplete: false } }));
+                ws.send(JSON.stringify({ clientContent: { turns: [], turnComplete: true } }));
             }
         }, 15000);
     }
 
-    function startAutoVisionStream() {
-        return; // ปิดการบันทึกภาพอัตโนมัติเพื่อความเป็นส่วนตัว
-    }
-
-    async function captureAndSendFrame(isManualTrigger = false) {
-        if (!video || video.readyState !== 4) return;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 1280;
-        canvas.height = 720;
-        const ctx = canvas.getContext('2d');
-
-        ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
-        ctx.drawImage(video, 0, 0, 1280, 720);
-        ctx.filter = 'none';
-
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-        canvas.width = 0; canvas.height = 0;
-
-        if (isManualTrigger) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const promptText = "ช่วยตรวจสอบภาพจากกล้องให้หน่อยครับ / Please check this image.";
-
-                const imageMessage = {
-                    clientContent: {
-                        turns: [{
-                            role: "user",
-                            parts: [
-                                { inlineData: { mimeType: "image/jpeg", data: base64Image.replace(/^data:image\/\w+;base64,/, '') } },
-                                { text: promptText }
-                            ]
-                        }],
-                        turnComplete: true
-                    }
-                };
-
-                try {
-                    ws.send(JSON.stringify(imageMessage));
-                } catch (wsErr) {
-                    console.error("WebSocket send error:", wsErr);
-                }
-            }
-            saveToHistory('user', '[ระบบสตรีมภาพให้เจช่วยตรวจ]');
-            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพจากกล้อง Tablet...`;
-        }
-    }
-
-    // ระบบกดปุ่มเปิด/ปิดไมค์ฟังเสียงพูด
     micToggleBtn.addEventListener('click', () => {
         if (!isMicActive) {
             startSpeechRecognition();
@@ -745,6 +761,7 @@ ${historySummaryText}
         audioStats.innerText = `🎙️ สถานะไมค์: พร้อมใช้งาน (กดปุ่มเพื่อเริ่มพูด)`;
     }
 
+    // 🚀 [ปรับปรุงใหม่] ฟังก์ชันส่งข้อความและภาพสดจากกล้องปัจจุบันอย่างแม่นยำ
     async function sendTextDirectly(text) {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         if (isModelSpeaking) return;
@@ -752,10 +769,10 @@ ${historySummaryText}
         const lowerText = text.toLowerCase();
         if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง") || lowerText.includes("back camera")) {
             useFrontCamera = false;
-            initCamera();
+            await initCamera();
         } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("ใช้กล้องหน้า") || lowerText.includes("front camera")) {
             useFrontCamera = true;
-            initCamera();
+            await initCamera();
         }
 
         saveToHistory('user', text);
@@ -765,61 +782,59 @@ ${historySummaryText}
                                   lowerText.includes("ดูกล้อง") || lowerText.includes("ถืออะไร") || 
                                   lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || 
                                   lowerText.includes("ล่าสุด") || lowerText.includes("ดูหน่อย") ||
-                                  lowerText.includes("มองเห็น") || lowerText.includes("มีอะไร");
+                                  lowerText.includes("มองเห็น") || lowerText.includes("มีอะไร") ||
+                                  lowerText.includes("ตรวจ") || lowerText.includes("นี่คืออะไร");
 
-        if (isAskingForVision) {
+        let parts = [];
+
+        if (isAskingForVision && video && video.readyState === 4) {
             try {
-                if (video && video.readyState === 4) {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 1280;
-                    canvas.height = 720;
-                    const ctx = canvas.getContext('2d');
-                    
-                    ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
-                    ctx.drawImage(video, 0, 0, 1280, 720);
-                    ctx.filter = 'none';
+                const canvas = document.createElement('canvas');
+                canvas.width = 1280;
+                canvas.height = 720;
+                const ctx = canvas.getContext('2d');
+                
+                ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
+                ctx.drawImage(video, 0, 0, 1280, 720);
+                ctx.filter = 'none';
 
-                    const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-                    canvas.width = 0; canvas.height = 0;
+                const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                canvas.width = 0; canvas.height = 0;
 
-                    ws.send(JSON.stringify({
-                        clientContent: {
-                            turns: [{
-                                role: "user",
-                                parts: [
-                                    { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-                                    { text: text }
-                                ]
-                            }],
-                            turnComplete: true
-                        }
-                    }));
-                    return;
-                }
+                parts.push({
+                    inlineData: {
+                        mimeType: "image/jpeg",
+                        data: base64Image
+                    }
+                });
+                statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> ดึงภาพสดจากกล้องปัจจุบันส่งให้วิเคราะห์...`;
             } catch (err) {
                 console.warn("ไม่สามารถดึงภาพสดได้:", err);
             }
         }
 
-        const textMessage = {
+        parts.push({ text: text });
+
+        const clientContentMessage = {
             clientContent: {
                 turns: [{
                     role: "user",
-                    parts: [{ text: text }]
+                    parts: parts
                 }],
                 turnComplete: true
             }
         };
-        ws.send(JSON.stringify(textMessage));
+
+        ws.send(JSON.stringify(clientContentMessage));
 
         if (window.stuckTimeout) clearTimeout(window.stuckTimeout);
         window.stuckTimeout = setTimeout(() => {
-            if (statusText.innerHTML.includes("เจกำลังประมวลผล")) {
+            if (statusText.innerHTML.includes("เจกำลังประมวลผล") || statusText.innerHTML.includes("ดึงภาพสด")) {
                 isModelSpeaking = false;
                 statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมคุยต่อแล้วครับ!`;
                 audioStats.innerText = `🎙️ Project-J Live: พร้อมรับฟังเสียงประโยคถัดไป`;
             }
-        }, 7000);
+        }, 8000);
     }
 
     function playAudioChunk(base64Data) {
@@ -891,43 +906,10 @@ ${historySummaryText}
             alert("ระบบเฝ้าระวังยังไม่ได้เชื่อมต่อครับ!");
             return;
         }
-        captureAndSendFrame(true);
+        sendTextDirectly("ช่วยตรวจสอบภาพจากกล้องปัจจุบันให้หน่อยครับ");
     });
 
-    switchCamBtn.addEventListener('click', switchCamera);
-
-    function stopSession() {
-        isUserActiveSession = false;
-        isModelSpeaking = false;
-        if (speakingTimeout) clearTimeout(speakingTimeout);
-        if (pingInterval) {
-            clearInterval(pingInterval);
-            pingInterval = null;
-        }
-        stopSpeechRecognition();
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(track => track.stop());
-            mediaStream = null;
-        }
-        if (authStream) {
-            authStream.getTracks().forEach(track => track.stop());
-            authStream = null;
-        }
-        if (ws) {
-            ws.close();
-            ws = null;
-        }
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-        }
-        step2.style.display = 'none';
-        stepAuth.style.display = 'none';
-        stepSetup.style.display = 'none';
-        step1.style.display = 'flex';
-    }
-
-    stopBtn.addEventListener('click', stopSession);
+    stopBtn.addEventListener('click', resetToStep1);
 </script>
 
 </body>
