@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8"> 
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project-J (Beta) - Ake ❤️ Guardian Edition (PC Master)</title>
     <style>
@@ -773,7 +773,26 @@ ${historySummaryText}
             recognition.start();
         } catch(e) {}
     }
+const axios = require('axios');
 
+// 📸 ฟังก์ชันส่งภาพจากกล้อง PC ขึ้นเซิร์ฟเวอร์อัตโนมัติทุกๆ 5 วินาที
+setInterval(async () => {
+    try {
+        // 1. ดึงภาพจากกล้อง PC (เปลี่ยนเป็นฟังก์ชันแคปเจอร์ภาพจริงของโค้ดเพื่อนเอก)
+        const currentImageBase64 = capturePCWebcamAsBase64(); 
+
+        if (!currentImageBase64) return;
+
+        // 2. ยิง API ส่งภาพขึ้นไปเก็บไว้บนเซิร์ฟเวอร์ Render
+        await axios.post('https://akay-tablet.onrender.com/api/camera/upload-latest', {
+            imageBase64: currentImageBase64
+        });
+        
+        console.log("📸 อัปเดตภาพล่าสุดจากกล้อง PC ขึ้นเซิร์ฟเวอร์สำเร็จ");
+    } catch (err) {
+        console.error("อัปเดตภาพไม่สำเร็จ:", err.message);
+    }
+}, 5000); // ทำงานทุกๆ 5 วินาที
     async function sendTextDirectly(text) {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         if (isModelSpeaking) return;
