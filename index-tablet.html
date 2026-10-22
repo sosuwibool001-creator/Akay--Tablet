@@ -726,18 +726,18 @@ ${historySummaryText}
         }, 15000);
     }
 
-  async function fetchLatestHomeCameraFrame() {
-        try {
-            // 🟢 เติม ?t=Date.now() เพื่อบังคับให้เบราว์เซอร์และเซิร์ฟเวอร์โหลดภาพใหม่ล่าสุดเสมอ ห้ามใช้ภาพเก่าในแคช
-            const response = await fetch(`${SERVER_URL}/api/camera/latest-image?t=${Date.now()}`);
-            const data = await response.json();
-            if (data.success && data.imageBase64) {
-                return data.imageBase64;
-            }
-        } catch (err) {
-            console.warn("ไม่สามารถดึงภาพจากกล้อง PC ในบ้านได้:", err);
+   async function fetchLatestHomeCameraFrame() {
+    try {
+        // เติม ?t=Date.now() เพื่อบังคับไม่ให้ใช้ภาพค้างในแคช
+        const response = await fetch(`${SERVER_URL}/api/camera/latest-image?t=${Date.now()}`);
+        const data = await response.json();
+        if (data.success && data.imageBase64) {
+            return data.imageBase64;
         }
-        return null;
+    } catch (err) {
+        console.warn("ไม่สามารถดึงภาพจากกล้อง PC ในบ้านได้:", err);
+    }
+    return null;
     }
 
     micToggleBtn.addEventListener('click', () => {
