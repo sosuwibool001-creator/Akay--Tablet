@@ -1,1029 +1,371 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (PC Master)</title>
-    <style>
-        :root {
-            --bg-color: #f5f5f7;
-            --card-bg: #ffffff;
-            --text-main: #0071e3;
-            --text-sub: #86868b;
-            --border-color: #d2d2d7;
-            --accent-green: #34c759;
-            --accent-blue: #0071e3;
-            --accent-orange: #ff9500;
-            --accent-red: #ff3b30;
+// server_7_cloud_ready.js - Project-J Smart Guardian Server (Supabase Cloud Storage Integrated)
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const cors = require('cors');
+const axios = require('axios');
+const FormData = require('form-data');
+const { createClient } = require('@supabase/supabase-js');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// ตั้งค่าการเชื่อมต่อ Supabase Cloud Storage (ดึงค่าจาก Environment Variables บน Render)
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
+let supabase = null;
+
+if (SUPABASE_URL && SUPABASE_KEY) {
+    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    console.log('[Cloud Storage] เชื่อมต่อกับ Supabase สำเร็จ 🟢');
+} else {
+    console.log('[Cloud Storage Warning] ไม่พบค่า SUPABASE_URL หรือ SUPABASE_KEY ระบบจะบันทึกแบบ Local ชั่วคราว');
+}
+
+// โฟลเดอร์สำรองบนเครื่อง (Local Fallback Directories)
+const DIR_PC = path.join(__dirname, 'snapshots_pc');
+const DIR_TABLET = path.join(__dirname, 'snapshots_tablet');
+const DIR_MOTION_PC = path.join(__dirname, 'motion_events_pc');
+const DIR_MOTION_TABLET = path.join(__dirname, 'motion_events_tablet');
+const DIR_FAMILY_PC = path.join(__dirname, 'family_events_pc');
+const DIR_FAMILY_TABLET = path.join(__dirname, 'family_events_tablet');
+const DIR_VISITOR_PC = path.join(__dirname, 'visitor_events_pc');
+const DIR_VISITOR_TABLET = path.join(__dirname, 'visitor_events_tablet');
+const DIR_UPLOADS = path.join(__dirname, 'uploads');
+
+const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
+
+[
+    DIR_PC, DIR_TABLET, 
+    DIR_MOTION_PC, DIR_MOTION_TABLET, 
+    DIR_FAMILY_PC, DIR_FAMILY_TABLET, 
+    DIR_VISITOR_PC, DIR_VISITOR_TABLET,
+    DIR_UPLOADS
+].forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+});
+
+const lastFrames = { pc: null, tablet: null };
+const lastTelegramAlertTime = { pc: 0, tablet: 0 };
+const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
+
+let pendingAudioVerifications = {};
+
+app.use(cors());
+app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
+app.use(express.static(__dirname));
+
+const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
+const VISITOR_WHITELIST = ["คุณน้า", "ช่างไฟ", "เพื่อนบ้าน", "Guest"];
+
+// 🔍 API ตรวจสอบว่าระบบมีเจ้าของเครื่องลงทะเบียนไว้หรือยัง
+app.get('/api/owner/check', (req, res) => {
+    if (fs.existsSync(OWNER_CONFIG_PATH)) {
+        try {
+            const ownerData = JSON.parse(fs.readFileSync(OWNER_CONFIG_PATH, 'utf8'));
+            return res.json({ registered: true, owner: ownerData });
+        } catch (e) {
+            return res.json({ registered: false });
         }
+    }
+    return res.json({ registered: false });
+});
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            text-align: center;
-            padding: 20px;
-            margin: 0;
-            -webkit-font-smoothing: antialiased;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 850px;
-            background: var(--card-bg);
-            padding: 40px 30px;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-            border: 1px solid rgba(0, 0, 0, 0.04);
-            box-sizing: border-box;
-        }
-
-        .logo-box {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 38px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            color: var(--accent-blue);
-            margin-bottom: 8px;
-        }
-
-        .subtitle {
-            font-size: 13px;
-            color: var(--text-sub);
-            margin-bottom: 30px;
-            font-weight: 400;
-        }
-
-        #step1, #stepSetup, #stepAuth {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            max-width: 540px;
-            margin: 0 auto;
-        }
-
-        #step1 { display: flex; }
-
-        #authVideo, #setupVideo {
-            width: 100%;
-            max-height: 400px;
-            border-radius: 18px;
-            background: #000;
-            object-fit: cover;
-            border: 2px solid var(--accent-green);
-            margin-bottom: 20px;
-        }
-
-        .input-group {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 25px;
-        }
-
-        select, input[type="text"] {
-            width: 100%;
-            padding: 13px 16px;
-            font-size: 14px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            background: #fafafa;
-            color: #1d1d1f;
-            outline: none;
-            box-sizing: border-box;
-        }
-
-        .circle-btn {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: #ffffff;
-            color: var(--accent-blue);
-            font-size: 13px;
-            font-weight: 600;
-            border: 1px solid var(--border-color);
-            cursor: pointer;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
-        }
-        .circle-btn:hover { transform: scale(1.05); background: #f0f7ff; }
-
-        #step2 { display: none; text-align: left; width: 100%; }
-
-        video {
-            width: 100%;
-            max-height: 480px; 
-            border-radius: 18px;
-            background: #000;
-            object-fit: cover;
-            border: 1px solid var(--border-color);
-            margin-bottom: 15px;
-        }
-
-        button.standard-btn {
-            padding: 10px 16px;
-            font-size: 13px;
-            font-weight: 600;
-            border-radius: 10px;
-            cursor: pointer;
-            border: none;
-            color: #fff;
-            background-color: var(--accent-blue);
-        }
-        button.stop-btn { background-color: var(--accent-red); }
-        button.clear-btn { background-color: var(--accent-orange); }
-
-        #output {
-            padding: 15px;
-            background: #fbfbfd;
-            border-radius: 14px;
-            min-height: 70px;
-            font-size: 13px;
-            border: 1px solid var(--border-color);
-            margin-top: 12px;
-            color: #1d1d1f;
-        }
-        .status-dot {
-            height: 9px; width: 9px; background-color: var(--accent-green);
-            border-radius: 50%; display: inline-block; margin-right: 6px;
-        }
-        .debug-stats {
-            margin-top: 6px;
-            font-size: 11px;
-            color: var(--text-sub);
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <!-- Step 1: หน้าแรกเลือกเสียง -->
-    <div id="step1">
-        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">PC Master</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version)</div>
-        
-        <div class="input-group">
-            <select id="voiceSelect">
-                <option value="Puck">♂️ Puck (เสียงนุ่มนวล)</option>
-                <option value="Charon">♂️ Charon (เสียงเข้ม)</option>
-                <option value="Fenrir">♂️ Fenrir (เสียงทุ้ม)</option>
-                <option value="Kore">♀️ Kore (เสียงสดใส)</option>
-                <option value="Aoede">♀️ Aoede (เสียงนุ่มนวล)</option>
-            </select>
-        </div>
-
-        <button id="startAuthBtn" class="circle-btn">
-            <span style="font-size: 20px;">👤📷</span>
-            <span>สแกนหน้า</span>
-        </button>
-    </div>
-
-    <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก (First-Time Setup) -->
-    <div id="stepSetup">
-        <div class="logo-box" style="font-size: 24px;">🛠️ ลงทะเบียนเจ้าของเครื่องครั้งแรก</div>
-        <div class="subtitle">สวัสดีครับ เจระบบรักษาความปลอดภัยพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรและใช่เจ้าของเครื่องตัวจริงหรือไม่ครับ?</div>
-        
-        <video id="setupVideo" autoplay playsinline muted></video>
-        
-        <div class="input-group">
-            <input type="text" id="ownerNameInput" placeholder="ระบุชื่อเจ้าของเครื่อง (เช่น เพื่อนเอก)..." value="เพื่อนเอก (Ake)">
-            <button id="registerOwnerBtn" class="standard-btn" style="padding: 12px; font-size: 14px;">✅ ยืนยันสิทธิ์เจ้าของเครื่อง</button>
-            <button id="cancelSetupBtn" class="standard-btn stop-btn" style="padding: 10px; font-size: 13px;">❌ ยกเลิก</button>
-        </div>
-    </div>
-
-    <!-- Step 1.5: สแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ (ครั้งถัดไป) -->
-    <div id="stepAuth">
-        <div class="logo-box" style="font-size: 26px;">🤖 กำลังตรวจสอบสิทธิ์เจ้าของเครื่อง...</div>
-        <div class="subtitle" id="authStatusText">กำลังสแกนใบหน้าเทียบกับแฟ้มข้อมูลเจ้าของระบบ...</div>
-        <video id="authVideo" autoplay playsinline muted></video>
-        <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 15px;">❌ ยกเลิก</button>
-    </div>
-
-    <!-- Step 2: แดชบอร์ดหลัก -->
-    <div id="step2">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
-            </div>
-            <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
-        </div>
-
-        <video id="webcam" autoplay playsinline muted></video>
-
-        <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
-            <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ (Manual)</button>
-            <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้อง</button>
-            <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติคุย</button>
-        </div>
-
-        <div style="display: flex; gap: 6px;">
-            <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ..." style="flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
-            <button id="sendTextBtn" class="standard-btn clear-btn" style="padding: 8px 14px;">💬 ส่ง</button>
-        </div>
-
-        <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (PC Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Smart Auto-Vision (PC): ตรวจกรองและบันทึกภาพลงเซิร์ฟเวอร์หลังบ้านทุก 20s</div>
-        </div>
-    </div>
-</div>
-
-<script>
-
-let BACKEND_API_KEY = "";
-let GEMINI_API_KEY = "";
-const SERVER_URL = "";
-
-// สร้างฟังก์ชันมารองรับการดึงค่า Config
-async function initConfig() {
+// 👤 API บันทึกเจ้าของเครื่องตัวจริงครั้งแรก (First-Time Owner Registration)
+app.post('/api/owner/register', (req, res) => {
     try {
-        const response = await fetch('/api/config/apikey');
-        const data = await response.json();
-        BACKEND_API_KEY = data.apiKey;
+        const { ownerName, imageBase64 } = req.body;
+        if (!ownerName) {
+            return res.status(400).json({ success: false, message: 'Owner name required' });
+        }
+
+        const ownerData = {
+            name: ownerName,
+            registeredAt: new Date().toISOString(),
+            role: "Admin / เจ้าของเครื่องตัวจริง"
+        };
+
+        fs.writeFileSync(OWNER_CONFIG_PATH, JSON.stringify(ownerData, null, 2));
+        if (!FAMILY_WHITELIST.includes(ownerName)) {
+            FAMILY_WHITELIST.push(ownerName);
+        }
+
+        console.log(`✅ [Owner Registered]: บันทึกเจ้าของเครื่องสำเร็จ -> ${ownerName}`);
+        return res.json({ success: true, message: `บันทึกเจ้าของเครื่อง ${ownerName} เรียบร้อยแล้ว` });
+    } catch (error) {
+        console.error('Owner register error:', error);
+        return res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/config/apikey', (req, res) => {
+   const apiKey = process.env.BACKEND_API_KEY; 
+    if (!apiKey) {
+        return res.status(500).json({ error: "API Key not configured on server" });
+    }
+    res.json({ apiKey: apiKey });
+});
+
+// 🖥️ แยกเส้นทางหน้าจอหลัก (PC / Desktop) และหน้าจอแท็บเล็ตชัดเจน
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/tablet', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index-tablet.html'));
+});
+
+// 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น latest_home.jpg ทันที
+app.post('/api/camera/upload-latest', (req, res) => {
+    try {
+        const { imageBase64 } = req.body;
+        if (!imageBase64) {
+            return res.status(400).json({ success: false, message: 'Missing imageBase64' });
+        }
+
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+
+        fs.writeFileSync(filePath, base64Data, 'base64');
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
+
+        return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
     } catch (err) {
-        console.error("Failed to load config", err);
+        console.error('Save image error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// 📸 API 2: สำหรับให้แท็บเล็ตดึงภาพล่าสุดจากกล้อง PC บ้านไปให้เจดู
+app.get('/api/camera/latest-image', (req, res) => {
+    const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+    if (fs.existsSync(filePath)) {
+        const imageBuffer = fs.readFileSync(filePath);
+        const base64Image = imageBuffer.toString('base64');
+        return res.json({ success: true, imageBase64: base64Image });
+    } else {
+        return res.status(404).json({ success: false, message: 'ยังไม่มีภาพบันทึกในระบบ' });
+    }
+});
+
+// เปิด Static Routes สำหรับเรียกดูไฟล์ผ่าน URL
+app.use('/uploads', express.static(DIR_UPLOADS));
+app.use('/snapshots_pc', express.static(DIR_PC));
+app.use('/snapshots_tablet', express.static(DIR_TABLET));
+app.use('/motion_events_pc', express.static(DIR_MOTION_PC));
+app.use('/motion_events_tablet', express.static(DIR_MOTION_TABLET));
+app.use('/family_events_pc', express.static(DIR_FAMILY_PC));
+app.use('/family_events_tablet', express.static(DIR_FAMILY_TABLET));
+app.use('/visitor_events_pc', express.static(DIR_VISITOR_PC));
+app.use('/visitor_events_tablet', express.static(DIR_VISITOR_TABLET));
+
+// ☁️ ฟังก์ชันอัปโหลดภาพขึ้น Supabase Cloud Storage
+async function uploadToCloudStorage(buffer, filename, folderType) {
+    if (!supabase) return null;
+    try {
+        const filePath = `${folderType}/${filename}`;
+        const { error } = await supabase.storage
+            .from('project-j-events')
+            .upload(filePath, buffer, {
+                contentType: 'image/jpeg',
+                upsert: true
+            });
+
+        if (error) throw error;
+
+        const { data: publicUrlData } = supabase.storage
+            .from('project-j-events')
+            .getPublicUrl(filePath);
+
+        return publicUrlData.publicUrl;
+    } catch (err) {
+        console.error('[Cloud Storage Error]:', err.message);
+        return null;
     }
 }
-initConfig();
 
-// โค้ดดึง Element ต่างๆ ด้านล่างคงไว้เหมือนเดิม
-const step1 = document.getElementById('step1');
-// ...
-
-    const stepSetup = document.getElementById('stepSetup');
-    const stepAuth = document.getElementById('stepAuth');
-    const step2 = document.getElementById('step2');
-    
-    const startAuthBtn = document.getElementById('startAuthBtn');
-    const cancelAuthBtn = document.getElementById('cancelAuthBtn');
-    const cancelSetupBtn = document.getElementById('cancelSetupBtn');
-    const authVideo = document.getElementById('authVideo');
-    const setupVideo = document.getElementById('setupVideo');
-    const ownerNameInput = document.getElementById('ownerNameInput');
-    const registerOwnerBtn = document.getElementById('registerOwnerBtn');
-    const authStatusText = document.getElementById('authStatusText');
-    const userNameDisplay = document.getElementById('userNameDisplay');
-
-    const video = document.getElementById('webcam');
-    const stopBtn = document.getElementById('stopBtn');
-    const snapBtn = document.getElementById('snapBtn');
-    const switchCamBtn = document.getElementById('switchCamBtn');
-    const clearMemBtn = document.getElementById('clearMemBtn');
-    const sendTextBtn = document.getElementById('sendTextBtn');
-    const textInput = document.getElementById('textInput');
-    const voiceSelect = document.getElementById('voiceSelect');
-    const statusText = document.getElementById('statusText');
-    const audioStats = document.getElementById('audioStats');
-
-    let ws = null;
-    let audioContext = null;
-    let mediaStream = null;
-    let authStream = null;
-    let nextAudioTime = 0;
-    let autoVisionTimer = null;
-    let pingInterval = null;
-    let recognition = null;
-    let isUserActiveSession = false;
-    let isUploadingSnapshot = false;
-    let useFrontCamera = true;
-    let authenticatedUser = "เพื่อนเอก (Ake)";
-
-    let isModelSpeaking = false;
-    let speakingTimeout = null;
-    let speechBuffer = "";
-    let speechTimeout = null;
-
-    function saveToHistory(role, text) {
-        let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
-        const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
-        history.push({ role: role, text: text, time: nowThai });
-        if (history.length > 30) history.shift();
-        localStorage.setItem('akay_chat_history_pc', JSON.stringify(history));
-    }
-
-    clearMemBtn.addEventListener('click', () => {
-        localStorage.removeItem('akay_chat_history_pc');
-        alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
-    });
-
-    startAuthBtn.addEventListener('click', async () => {
-        if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
-            alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
-            return;
-        }
-
-        try {
-            const res = await fetch(`${SERVER_URL}/api/owner/check`);
-            const data = await res.json();
-
-            step1.style.display = 'none';
-
-            if (!data.registered) {
-                stepSetup.style.display = 'flex';
-                authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
-                setupVideo.srcObject = authStream;
-            } else {
-                stepAuth.style.display = 'flex';
-                authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
-                authVideo.srcObject = authStream;
-                runAutoVerification(data.owner.name);
-            }
-        } catch (err) {
-            alert("ไม่สามารถเชื่อมต่อกล้องหรือเซิร์ฟเวอร์ได้: " + err.message);
-            step1.style.display = 'flex';
-        }
-    });
-
-    registerOwnerBtn.addEventListener('click', async () => {
-        const name = ownerNameInput.value.trim();
-        if (!name) {
-            alert("กรุณาระบุชื่อเจ้าของเครื่องก่อนครับ!");
-            return;
-        }
-
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1280; canvas.height = 720;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(setupVideo, 0, 0, 1280, 720);
-            const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-            canvas.width = 0; canvas.height = 0;
-
-            const res = await fetch(`${SERVER_URL}/api/owner/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ownerName: name, imageBase64: base64Image })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                alert(`🎉 ยืนยันสิทธิ์เจ้าของเครื่องสำเร็จ: ${name}`);
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                stepSetup.style.display = 'none';
-                step2.style.display = 'block';
-                authenticatedUser = name;
-                userNameDisplay.innerText = authenticatedUser;
-                await initCamera();
-                startMainAppSession();
-            } else {
-                alert("เกิดข้อผิดพลาดในการบันทึกสิทธิ์: " + data.message);
-            }
-        } catch (e) {
-            alert("ไม่สามารถบันทึกสิทธิ์ได้: " + e.message);
-        }
-    });
-
-    function runAutoVerification(ownerName) {
-        authStatusText.innerHTML = `🔍 กำลังตรวจสอบใบหน้าเทียบกับเจ้าของระบบ (${ownerName})...`;
-        setTimeout(async () => {
-            authenticatedUser = ownerName;
-            userNameDisplay.innerText = authenticatedUser;
-            authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
-
-            setTimeout(async () => {
-                if (authStream) authStream.getTracks().forEach(t => t.stop());
-                stepAuth.style.display = 'none';
-                step2.style.display = 'block';
-
-                await initCamera();
-                startMainAppSession();
-            }, 800);
-
-        }, 2000);
-    }
-
-    cancelAuthBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepAuth.style.display = 'none';
-        step1.style.display = 'flex';
-    });
-
-    cancelSetupBtn.addEventListener('click', () => {
-        if (authStream) authStream.getTracks().forEach(t => t.stop());
-        stepSetup.style.display = 'none';
-        step1.style.display = 'flex';
-    });
-
-    async function initCamera() {
-        try {
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-            }
-
-            const constraints = {
-                video: { 
-                    width: { ideal: 1280 }, 
-                    height: { ideal: 720 },
-                    facingMode: useFrontCamera ? "user" : "environment"
-                }, 
-                audio: { 
-                    echoCancellation: true, 
-                    noiseSuppression: true, 
-                    autoGainControl: true 
-                } 
-            };
-
-            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-            video.srcObject = mediaStream;
-        } catch (err) {
-            console.warn("ไม่สามารถเปิดไมค์/กล้องได้: " + err.message);
-            try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                video.srcObject = mediaStream;
-            } catch (e) {
-                alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
-            }
-        }
-    }
-
-    async function switchCamera() {
-        useFrontCamera = !useFrontCamera;
-        await initCamera();
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เปลี่ยนเป็นใช้งาน${useFrontCamera ? "กล้องหน้า" : "กล้องหลัง"}เรียบร้อยครับ 📷`;
-    }
-
-    switchCamBtn.addEventListener('click', switchCamera);
-
-    async function startMainAppSession() {
-        isUserActiveSession = true;
-
-        try {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-            nextAudioTime = audioContext.currentTime;
-
-            const selectedVoice = voiceSelect.value;
-            const host = "generativelanguage.googleapis.com";
-            const path = "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
-            const url = `wss://${host}${path}?key=${BACKEND_API_KEY}`;
-
-            ws = new WebSocket(url);
-
-            ws.onopen = () => {
-                let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
-                
-                const currentThaiTime = new Date().toLocaleString('th-TH', { 
-                    timeZone: 'Asia/Bangkok',
-                    dateStyle: 'full',
-                    timeStyle: 'medium'
-                });
-
-                let historySummaryText = savedHistory.length > 0 
-                    ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
-                    : "ไม่มีประวัติคุยเก่า";
-
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (รองรับ 3 ภาษา) 🎙️🔊📹`;
-                audioStats.innerText = `📹 Smart Auto-Vision Active (PC): ตรวจกรองและส่งภาพลงหลังบ้านทุก 20s`;
-                
-                const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
-
-ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
-เวลาปัจจุบัน: ${currentThaiTime}
-
-${historySummaryText}
-
-[กฎสำคัญที่สุด - Multilingual & Language Detection (3 Languages)]:
-1. เจต้องรองรับการฟัง พูด และสื่อสารได้ 3 ภาษาหลัก ได้แก่ **ภาษาไทย (Thai)**, **ภาษาอังกฤษ (English)** และ **ภาษาจีน (Chinese)**
-2. ให้ตรวจจับภาษาจากเสียงพูดหรือข้อความของผู้ใช้งานโดยอัตโนมัติ (Automatic Language Detection):
-   - หากผู้ใช้พูดภาษาไทย -> เจต้องตอบกลับด้วยภาษาไทย
-   - หากผู้ใช้พูดภาษาอังกฤษ -> เจต้องตอบกลับด้วยภาษาอังกฤษอย่างเป็นธรรมชาติ
-   - หากผู้ใช้พูดภาษาจีน -> เจต้องตอบกลับด้วยภาษาจีนอย่างคล่องแคล่ว
-1. Jey must support listening, speaking, and communicating in 3 main languages: Thai, English, and Chinese.
-2. Regional Dialect Comprehension:
-   - Jey must accurately understand local Thai regional dialects, including Isan (northeastern), Northern (Kam Muang), and Southern Thai dialects.
-   - Even if the user or elderly family member speaks with a strong local accent or uses regional vocabulary, Jey must instantly understand the true intent and meaning.
-**Matching Regional Dialect Responses (สำคัญที่สุด)**:
-   - **ภาษาอีสาน**: หากผู้ใช้พูดภาษาอีสานมา เจต้องตอบกลับเป็น **ภาษาอีสาน** ที่สุภาพและเป็นกันเอง (เช่น ใช้คำว่า "เว้า", "เบิ่ง", "ครับผม/เด้อครับ")
-   - **ภาษาเหนือ (คำเมือง)**: หากผู้ใช้พูดภาษาเหนือมา เจต้องตอบกลับเป็น **ภาษาเหนือ/คำเมือง** ที่นุ่มนวลไพเราะ (เช่น ใช้คำว่า "อู้", "ผ่อ", "ครับผม/ก๊อปม")
-   - **ภาษาใต้**: หากผู้ใช้พูดภาษาใต้มา เจต้องตอบกลับเป็น **ภาษาใต้** ที่จริงใจ ชัดเจน สั้นกระชับ
-   - **ภาษาไทยกลาง**: ตอบกลับด้วยภาษาไทยกลางปกติ
-รักษาน้ำเสียงที่นุ่มนวล ให้เกียรติ และใส่ใจดูแลผู้สูงอายุในบ้านเสมอ
-   3. Output Language Standard:
-   - When the user speaks a regional dialect, Jey responds in polite Central Thai with "krub" (ครับ).
-   - When the user speaks English, Jey responds naturally in English.
-   - When the user speaks Chinese, Jey responds fluently in Chinese.
-
-[Core Responsibilities]:
-1. Elderly Care & Safety Monitoring: Analyze camera feeds (tablet camera or home PC camera) to monitor safety and assist elderly care.
-2. Privacy & Camera Switching: Manage camera controls (front/back camera) dynamically based on user requests.
-3. Search Tool Usage: When asked about live facts or news, invoke googleSearch.
-
-
-3. รักษาน้ำเสียงที่นุ่มนวล เป็นกันเอง และให้เกียรติผู้ใช้งานเสมอ ไม่ว่าจะสื่อสารในภาษาใดก็ตาม
-
-[กฎสำคัญอันดับ 1 - Priority #1 Voice Input Priority]:
-- ข้อความหรือเสียงพูดที่ถูกแปลงมาจากไมโครโฟน/Speech-to-Text ถือเป็นความสำคัญลำดับที่ 1 (Priority #1) เสมอ ทันทีที่ได้ยินเสียงพูด เจต้องตอบกลับทันทีเหนือทุกเงื่อนไข แม้กำลังอยู่ในสภาวะเฝ้าระวังปกติ (Silent Auto-Vision)
-
-[ขอบเขตบทบาทหน้าที่หลัก]:
-1. Elderly Care & Health Monitoring (ผู้เชี่ยวชาญการดูแลผู้สูงอายุ):
-   - วิเคราะห์ภาพสถานการณ์จากกล้อง (Auto-Vision / Snapshot) เพื่อเฝ้าระวังอุบัติเหตุ การพลัดตกหกล้ม หรือความผิดปกติของผู้สูงอายุในบ้านแบบเรียลไทม์
-   - ให้คำแนะนำเบื้องต้นด้านสุขภาพ การปฏิบัติตัว และการประสานงานแจ้งเตือนญาติหรือผู้ดูแลกรณีฉุกเฉิน
-
-2. Personal Security & Privacy Guard (ระบบรักษาความปลอดภัยส่วนบุคคล):
-   - ตรวจสอบสิทธิ์และยืนยันตัวตนเจ้าของเครื่องก่อนเข้าใช้งานระบบแดชบอร์ดหลักทุกครั้ง
-   - ควบคุมการสลับกล้องและมุมมองความปลอดภัย (เช่น กล้องหน้า/กล้องหลัง) ตามคำสั่งของผู้ใช้งานอย่างแม่นยำ
-
-3. กฎการตอบสนองและประหยัด Token (Response Guidelines):
-   - ปรับระดับโทนเสียงและคำสร้อยตามบริบทคำถาม: Functional Mode (ตอบสั้นกระชับเมื่อสั่งงาน) หรือ Casual Mode (อบอุ่นเป็นกันเองเมื่อคุยเล่น)
-   - ห้ามทักทายหรือพูดขึ้นมาก่อนโดยที่ผู้ใช้ยังไม่ได้เริ่มบทสนทนา
-   - หากผู้ใช้ถามถึงข้อมูลข่าวสารปัจจุบัน สเปกสินค้า หรือเรื่องที่ต้องใช้ข้อมูลสดๆ ให้เจเรียกใช้เครื่องมือ googleSearch เพื่อค้นหาข้อมูลบนอินเทอร์เน็ตมาตอบทันที
-
-[กฎการลงทะเบียนคนรู้จักใหม่ (New Visitor Onboarding)]:
-หากผู้ใช้หรือแขกตอบชื่อมาหลังจากที่เจถาม (เช่น "ผมชื่อน้าป้อมครับ" หรือ "น้าป้อม") ให้เจตอบรับอย่างนุ่มนวลว่า: "ยินดีที่ได้รู้จักครับคุณน้าป้อม เจจะบันทึกข้อมูลไว้เรียบร้อยแล้วครับ"
-จากนั้นส่งข้อมูลชื่อนั้นกลับระบบเพื่อบันทึกเข้าแฟ้มคนรู้จัก (Visitor Whitelist) ทันที
-
-[กฎเหล็กช่วง Beta Test - Standby & Wake Word Mode]:ในสถานะการทำงานปกติ เจต้องอยู่ใน โหมดสแตนบาย (Standby Mode) 
-ห้ามส่งเสียงพูดคุย ทักทาย หรือโต้ตอบใดๆ กับสภาพแวดล้อมรอบข้างโดยเด็ดขาด จนกว่าผู้ใช้งานจะพูดเรียกชื่อ "เจ" นำหน้าประโยค หรือมีการส่งคำสั่ง/กดปุ่มเรียกใช้งานเข้ามา 
-หากไม่มีการเรียกชื่อ "เจ" แม้กล้องจะตรวจจับภาพหรือมีการส่งสตรีมภาพเบื้องหลังเข้ามา ให้เจเงียบและบันทึกข้อมูลทางหลังบ้านอย่างเดียวเท่านั้น ห้ามส่งเสียงออกลำโพง  
-`;
-
-                const setupMessage = {
-                    setup: {
-                        model: "models/gemini-3.8-live",
-                        generationConfig: {
-                            responseModalities: ["AUDIO"],
-                            speechConfig: {
-                                voiceConfig: {
-                                    prebuiltVoiceConfig: { voiceName: selectedVoice }
-                                }
-                            }
-                        },
-                        tools: [
-                            { googleSearch: {} }
-                        ],
-                        systemInstruction: {
-                            parts: [{ text: dynamicToneInstructions }]
-                        }
-                    }
-                };
-                ws.send(JSON.stringify(setupMessage));
-
-                startSpeechRecognition();
-                startAutoVisionStream();
-                startKeepAlivePing();
-            };
-
-            ws.onmessage = async (event) => {
-                let responseText = "";
-                try {
-                    let data;
-                    if (event.data instanceof Blob) {
-                        const textData = await event.data.text();
-                        data = JSON.parse(textData);
-                    } else {
-                        data = JSON.parse(event.data);
-                    }
-
-                    if (data.serverContent && data.serverContent.modelTurn) {
-                        const parts = data.serverContent.modelTurn.parts;
-                        for (const part of parts) {
-                            if (part.text) {
-                                responseText += part.text;
-                            }
-                            if (part.inlineData && part.inlineData.data) {
-                                playAudioChunk(part.inlineData.data);
-                            }
-                        }
-                        if (responseText) {
-                            saveToHistory('model', responseText);
-                            statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
-                            
-                            const lowerText = responseText.toLowerCase();
-                            if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง") || lowerText.includes("back camera")) && useFrontCamera) {
-                                useFrontCamera = false;
-                                initCamera();
-                            } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง") || lowerText.includes("front camera")) && !useFrontCamera) {
-                                useFrontCamera = true;
-                                initCamera();
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error parsing message:", e);
-                }
-            };
-
-            ws.onerror = (error) => {
-                console.error("WebSocket Error:", error);
-            };
-
-            ws.onclose = () => {
-                if (isUserActiveSession) {
-                    statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>🔄 สัญญาณหลุด กำลังเชื่อมต่อใหม่ใน 3 วิ...</strong>`;
-                    setTimeout(() => { if (isUserActiveSession) startMainAppSession(); }, 3000);
-                } else {
-                    statusText.innerHTML = `<span class="status-dot" style="background:#d2d2d7;"></span><strong>สถานะ:</strong> ปิดระบบเรียบร้อยแล้ว`;
-                    audioStats.innerText = `🎙️ Audio Status: ตัดการเชื่อมต่อแล้ว`;
-                }
-            };
-        } catch (e) {
-            statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เกิดข้อผิดพลาด:</strong> ${e.message}`;
-            stopSession();
-        }
-    }
-
-    function startKeepAlivePing() {
-        if (pingInterval) clearInterval(pingInterval);
-        pingInterval = setInterval(() => {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ clientContent: { turns: [], turnComplete: false } }));
-            }
-        }, 15000);
-    }
-
-    function startAutoVisionStream() {
-        if (autoVisionTimer) clearInterval(autoVisionTimer);
-        // ตั้งเวลาให้ระบบแคปและส่งภาพอัตโนมัติทุกๆ 20 วินาที
-        autoVisionTimer = setInterval(() => {
-            if (!video || video.readyState !== 4) return;
-            if (isModelSpeaking) return;
-            captureAndSendFrame(false);
-        }, 20000);        
-    }
-
-    async function captureAndSendFrame(isManualTrigger = false) {
-        if (!video || video.readyState !== 4) return;
-        if (isUploadingSnapshot && !isManualTrigger) return;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 1280;
-        canvas.height = 720;
-        const ctx = canvas.getContext('2d');
-
-        ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
-        ctx.drawImage(video, 0, 0, 1280, 720);
-        ctx.filter = 'none';
-
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-        canvas.width = 0; canvas.height = 0;
-
-        try {
-            isUploadingSnapshot = true;
-            const res = await fetch(`${SERVER_URL}/api/snapshot/upload`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    imageBase64: base64Image,
-                    device: 'pc' 
-                })
-            });
-            const data = await res.json();
-            
-            const nowTime = new Date().toLocaleTimeString('th-TH');
-            if (data.filteredAsMotion) {
-                audioStats.innerText = `📹 Smart Filter: 🚨 พบการเคลื่อนไหว บันทึกลง motion_events_pc (${nowTime})`;
-            } else {
-                audioStats.innerText = `📹 Smart Filter: 💤 สถานะปกติ บันทึกลง snapshots_pc (${nowTime})`;
-            }
-        } catch (err) {
-            console.warn("ไม่สามารถบันทึกภาพลงโฟลเดอร์หลังบ้านได้:", err.message);
-        } finally {
-            isUploadingSnapshot = false;
-        }
-
-        if (isManualTrigger) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const promptText = "ช่วยตรวจสอบภาพจากกล้องให้หน่อยครับ / Please check this image.";
-
-                const imageMessage = {
-                    clientContent: {
-                        turns: [{
-                            role: "user",
-                            parts: [
-                                { inlineData: { mimeType: "image/jpeg", data: base64Image.replace(/^data:image\/\w+;base64,/, '') } },
-                                { text: promptText }
-                            ]
-                        }],
-                        turnComplete: true
-                    }
-                };
-
-                try {
-                    ws.send(JSON.stringify(imageMessage));
-                } catch (wsErr) {
-                    console.error("WebSocket send error:", wsErr);
-                }
-            }
-            saveToHistory('user', '[ระบบสตรีมภาพให้เจช่วยตรวจ]');
-            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพจากกล้อง PC...`;
-        }
-    }
-
-    function startSpeechRecognition() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return;
-
-        if (recognition) {
-            try { recognition.stop(); } catch(e){}
-        }
-
-        recognition = new SpeechRecognition();
-        recognition.lang = 'th-TH';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onresult = (event) => {
-            if (isModelSpeaking) return;
-
-            let interimText = '';
-            let currentChunk = '';
-
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) {
-                    currentChunk += event.results[i][0].transcript;
-                } else {
-                    interimText += event.results[i][0].transcript;
-                }
-            }
-
-            if (interimText) {
-                audioStats.innerText = `🎙️ กำลังฟังเสียง: "${interimText}..."`;
-            }
-
-            if (currentChunk.trim()) {
-                speechBuffer += " " + currentChunk.trim();
-                audioStats.innerText = `🗣️ สะสมคำพูด: "${speechBuffer.trim()}"`;
-
-                if (speechTimeout) clearTimeout(speechTimeout);
-
-                speechTimeout = setTimeout(() => {
-                    let finalTextToSend = speechBuffer.trim();
-                    speechBuffer = "";
-
-                    if (finalTextToSend && !isModelSpeaking) {
-                        audioStats.innerText = `🚀 ส่งประโยคให้เจตอบ: "${finalTextToSend}"`;
-                        sendTextDirectly(finalTextToSend);
-                    }
-                }, 1200);
-            }
-        };
-
-        recognition.onerror = (event) => {
-            if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
-                setTimeout(startSpeechRecognition, 500);
-            }
-        };
-
-        recognition.onend = () => {
-            if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
-                setTimeout(() => {
-                    try { recognition.start(); } catch(e){}
-                }, 300);
-            }
-        };
-
-        try {
-            recognition.start();
-        } catch(e) {}
-    }
-
-    async function sendTextDirectly(text) {
-        if (!ws || ws.readyState !== WebSocket.OPEN) return;
-        if (isModelSpeaking) return;
-
-        const lowerText = text.toLowerCase();
-        if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง") || lowerText.includes("back camera")) {
-            useFrontCamera = false;
-            initCamera();
-        } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("ใช้กล้องหน้า") || lowerText.includes("front camera")) {
-            useFrontCamera = true;
-            initCamera();
-        }
-
-        saveToHistory('user', text);
-        statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผลภาพและเสียง...</strong>`;
-
-        const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || 
-                                  lowerText.includes("ดูกล้อง") || lowerText.includes("ถืออะไร") || 
-                                  lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || 
-                                  lowerText.includes("ล่าสุด") || lowerText.includes("ดูหน่อย") ||
-                                  lowerText.includes("มองเห็น") || lowerText.includes("มีอะไร");
-
-        if (isAskingForVision) {
-            try {
-                let timeQueryMatch = text.match(/([0-2]?[0-9])[:.]([0-5][0-9])/);
-
-                if (timeQueryMatch) {
-                    let extractedTime = `${timeQueryMatch[1].padStart(2, '0')}:${timeQueryMatch[2]}`;
-                    let fetchUrl = `${SERVER_URL}/api/snapshot/search?time=${encodeURIComponent(extractedTime)}&device=pc`;
-                    
-                    const res = await fetch(fetchUrl);
-                    const apiData = await res.json();
-                    let targetSnapshot = apiData.success ? (apiData.snapshot || apiData.snapshots?.[0]) : null;
-
-                    if (targetSnapshot) {
-                        const imgResponse = await fetch(`${SERVER_URL}${targetSnapshot.url}`);
-                        const blob = await imgResponse.blob();
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            ws.send(JSON.stringify({
-                                clientContent: {
-                                    turns: [{ role: "user", parts: [{ inlineData: { mimeType: "image/jpeg", data: reader.result.split(',')[1] } }, { text: text }] }],
-                                    turnComplete: true
-                                }
-                            }));
-                        };
-                        reader.readAsDataURL(blob);
-                        return;
-                    }
-                } 
-                
-                if (video && video.readyState === 4) {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 1280;
-                    canvas.height = 720;
-                    const ctx = canvas.getContext('2d');
-                    
-                    ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
-                    ctx.drawImage(video, 0, 0, 1280, 720);
-                    ctx.filter = 'none';
-
-                    const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-                    canvas.width = 0; canvas.height = 0;
-
-                    ws.send(JSON.stringify({
-                        clientContent: {
-                            turns: [{
-                                role: "user",
-                                parts: [
-                                    { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-                                    { text: text }
-                                ]
-                            }],
-                            turnComplete: true
-                        }
-                    }));
-                    return;
-                }
-            } catch (err) {
-                console.warn("ไม่สามารถดึงภาพสดหรือภาพย้อนหลังได้:", err);
-            }
-        }
-
-        const textMessage = {
-            clientContent: {
-                turns: [{
-                    role: "user",
-                    parts: [{ text: text }]
-                }],
-                turnComplete: true
-            }
-        };
-        ws.send(JSON.stringify(textMessage));
-
-        if (window.stuckTimeout) clearTimeout(window.stuckTimeout);
-        window.stuckTimeout = setTimeout(() => {
-            if (statusText.innerHTML.includes("เจกำลังประมวลผล")) {
-                isModelSpeaking = false;
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมคุยต่อแล้วครับ!`;
-                audioStats.innerText = `🎙️ Project-J Live: พร้อมรับฟังเสียงประโยคถัดไป`;
-                if (isUserActiveSession && recognition) {
-                    try { recognition.start(); } catch(e){}
-                }
-            }
-        }, 7000);
-    }
-
-    function playAudioChunk(base64Data) {
-        if (!audioContext) return;
+async function sendTelegramAlertWithPhoto(imageInput, caption) {
+    const TELEGRAM_BOT_TOKEN = '8643709223:AAF0nILPSKiEqO_Yky_zwkdzUQvXn_Sv408'; 
+    const TELEGRAM_CHAT_ID = '7469060426';
+
+    try {
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`;
+        const form = new FormData();
+        form.append('chat_id', TELEGRAM_CHAT_ID);
         
-        if (window.stuckTimeout) {
-            clearTimeout(window.stuckTimeout);
-            window.stuckTimeout = null;
+        if (typeof imageInput === 'string' && imageInput.startsWith('http')) {
+            form.append('photo', imageInput);
+        } else {
+            form.append('photo', fs.createReadStream(imageInput));
         }
 
-        isModelSpeaking = true;
-        if (speakingTimeout) {
-            clearTimeout(speakingTimeout);
-            speakingTimeout = null;
+        form.append('caption', caption);
+        form.append('parse_mode', 'Markdown');
+
+        await axios.post(url, form, { headers: form.getHeaders() });
+    } catch (error) {
+        console.error("[Telegram Photo Error]:", error.message);
+    }
+}
+
+app.post('/api/snapshot/upload', async (req, res) => {
+    try {
+        const { imageBase64, device, recognizedName, isFamily } = req.body;
+        if (!imageBase64) {
+            return res.status(400).json({ success: false, message: 'No image data provided' });
         }
 
-        if (recognition) {
-            try { recognition.stop(); } catch(e) {}
+        const isTablet = device === 'tablet';
+        const deviceKey = isTablet ? 'tablet' : 'pc';
+
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
+        if (!isTablet) {
+            const latestPath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+            fs.writeFileSync(latestPath, buffer);
         }
 
-        const binaryString = atob(base64Data);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+        const timeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
+        const timestamp = Date.now();
 
-        const float32Data = new Float32Array(bytes.byteLength / 2);
-        const dataView = new DataView(bytes.buffer);
-        for (let i = 0; i < float32Data.length; i++) {
-            float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
-        }
+        const snapshotDir = isTablet ? DIR_TABLET : DIR_PC;
+        const snapshotPrefix = isTablet ? 'tablet_' : 'pc_';
+        const snapshotFilename = `${snapshotPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
+        const snapshotFilePath = path.join(snapshotDir, snapshotFilename);
 
-        const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
-        audioBuffer.getChannelData(0).set(float32Data);
+        fs.writeFileSync(snapshotFilePath, buffer);
 
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
+        const previousBuffer = lastFrames[deviceKey];
+        lastFrames[deviceKey] = buffer;
 
-        if (nextAudioTime < audioContext.currentTime) {
-            nextAudioTime = audioContext.currentTime;
-        }
-        source.start(nextAudioTime);
-        nextAudioTime += audioBuffer.duration;
+        let hasImportantMotion = false;
+        if (previousBuffer) {
+            let diffCount = 0;
+            const sampleStep = 50;
+            const checkLength = Math.min(buffer.length, previousBuffer.length);
+            let totalSamples = 0;
 
-        const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 1500;
-
-        speakingTimeout = setTimeout(() => {
-            isModelSpeaking = false;
-            audioStats.innerText = `🎙️ Project-J Live: เจพูดจบสนิทแล้ว พร้อมรับฟังเสียงประโยคยาว`;
-            if (isUserActiveSession && recognition) {
-                try { recognition.start(); } catch(e) {}
+            for (let i = 0; i < checkLength; i += sampleStep) {
+                totalSamples++;
+                if (Math.abs(buffer[i] - previousBuffer[i]) > 35) diffCount++;
             }
-        }, remainingTime);
+            hasImportantMotion = (diffCount / totalSamples) > 0.35;
+        }
+
+        let eventFolderType = 'snapshots_24h';
+        let personCategory = 'none'; 
+
+        let isConfirmedFamily = isFamily;
+        let isConfirmedVisitor = false;
+
+        if (recognizedName) {
+            if (FAMILY_WHITELIST.some(fam => recognizedName.includes(fam))) {
+                isConfirmedFamily = true;
+            } else if (VISITOR_WHITELIST.some(vis => recognizedName.includes(vis))) {
+                isConfirmedVisitor = true;
+            }
+        }
+
+        if (hasImportantMotion || recognizedName) {
+            let targetEventDir;
+            let eventPrefix;
+            let bucketFolder = 'motion_events';
+
+            if (isConfirmedFamily) {
+                personCategory = 'family';
+                targetEventDir = isTablet ? DIR_FAMILY_TABLET : DIR_FAMILY_PC;
+                eventPrefix = isTablet ? 'family_tablet_' : 'family_pc_';
+                eventFolderType = 'family_events';
+                bucketFolder = 'family_events';
+            } else if (isConfirmedVisitor) {
+                personCategory = 'visitor';
+                targetEventDir = isTablet ? DIR_VISITOR_TABLET : DIR_VISITOR_PC;
+                eventPrefix = isTablet ? 'visitor_tablet_' : 'visitor_pc_';
+                eventFolderType = 'visitor_events';
+                bucketFolder = 'visitor_events';
+            } else {
+                personCategory = 'stranger';
+                targetEventDir = isTablet ? DIR_MOTION_TABLET : DIR_MOTION_PC;
+                eventPrefix = isTablet ? 'tablet_motion_' : 'pc_motion_';
+                eventFolderType = 'motion_events';
+                bucketFolder = 'motion_events';
+            }
+
+            const eventFilename = `${eventPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
+            const eventFilePath = path.join(targetEventDir, eventFilename);
+            fs.writeFileSync(eventFilePath, buffer);
+
+            const cloudUrl = await uploadToCloudStorage(buffer, eventFilename, bucketFolder);
+            const alertImageSource = cloudUrl || eventFilePath;
+
+            if (personCategory === 'stranger') {
+                const sessionId = `verify_${deviceKey}_${timestamp}`;
+                pendingAudioVerifications[sessionId] = {
+                    imagePath: alertImageSource,
+                    deviceKey: deviceKey,
+                    status: 'waiting_for_voice'
+                };
+
+                setTimeout(async () => {
+                    if (pendingAudioVerifications[sessionId] && pendingAudioVerifications[sessionId].status === 'waiting_for_voice') {
+                        delete pendingAudioVerifications[sessionId];
+                        const nowTime = Date.now();
+                        if (nowTime - lastTelegramAlertTime[deviceKey] > TELEGRAM_ALERT_COOLDOWN) {
+                            lastTelegramAlertTime[deviceKey] = nowTime;
+                            await sendTelegramAlertWithPhoto(
+                                alertImageSource, 
+                                `🚨 *แจ้งเตือนด่วน! พบผู้บุกรุก (ไม่ตอบชื่อยืนยันตัวตน)*\nตรวจสอบพบที่อุปกรณ์: *${deviceKey.toUpperCase()}* ❌`
+                            );
+                        }
+                    }
+                }, 12000);
+            } else {
+                const nowTime = Date.now();
+                if (nowTime - lastTelegramAlertTime[deviceKey] > TELEGRAM_ALERT_COOLDOWN) {
+                    lastTelegramAlertTime[deviceKey] = nowTime;
+                    let alertCaption = personCategory === 'family' 
+                        ? `🏠 *แจ้งเตือนครอบครัว Project-J*\nพบบุคคลในครอบครัว: *คุณ ${recognizedName || 'สมาชิก'}* 🟢`
+                        : `🎴 *แจ้งเตือนคนรู้จัก / แขก*\nพบคุณ *${recognizedName}* 🔵`;
+                    await sendTelegramAlertWithPhoto(alertImageSource, alertCaption);
+                }
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            filename: snapshotFilename,
+            filteredAsMotion: hasImportantMotion,
+            recognizedPerson: recognizedName || null,
+            category: personCategory,
+            folder: eventFolderType
+        });
+
+    } catch (error) {
+        console.error('Server error:', error);
+        return res.status(500).json({ success: false, message: error.message });
     }
+});
 
-    sendTextBtn.addEventListener('click', sendTextMessage);
-    textInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendTextMessage();
-    });
-
-    function sendTextMessage() {
-        const text = textInput.value.trim();
-        if (!text) return;
-        sendTextDirectly(text);
-        textInput.value = "";
+app.post('/api/verify/response', (req, res) => {
+    const { sessionId, spokenName } = req.body;
+    if (pendingAudioVerifications[sessionId]) {
+        if (spokenName && spokenName.trim() !== "") {
+            VISITOR_WHITELIST.push(spokenName.trim());
+            pendingAudioVerifications[sessionId].status = 'verified';
+            delete pendingAudioVerifications[sessionId];
+            return res.json({ success: true, message: `บันทึกชื่อ ${spokenName} สำเร็จ` });
+        }
     }
+    return res.json({ success: false, message: "Session expired or invalid name" });
+});
 
-    snapBtn.addEventListener('click', () => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            alert("ระบบเฝ้าระวังยังไม่ได้เชื่อมต่อครับ!");
-            return;
-        }
-        captureAndSendFrame(true);
-    });
-
-    switchCamBtn.addEventListener('click', switchCamera);
-
-    function stopSession() {
-        isUserActiveSession = false;
-        isModelSpeaking = false;
-        if (speakingTimeout) clearTimeout(speakingTimeout);
-        if (autoVisionTimer) {
-            clearInterval(autoVisionTimer);
-            autoVisionTimer = null;
-        }
-        if (pingInterval) {
-            clearInterval(pingInterval);
-            pingInterval = null;
-        }
-        if (speechTimeout) {
-            clearTimeout(speechTimeout);
-            speechTimeout = null;
-        }
-        if (recognition) {
-            try { recognition.stop(); } catch(e){}
-            recognition = null;
-        }
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(track => track.stop());
-            mediaStream = null;
-        }
-        if (authStream) {
-            authStream.getTracks().forEach(track => track.stop());
-            authStream = null;
-        }
-        if (ws) {
-            ws.close();
-            ws = null;
-        }
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-        }
-        step2.style.display = 'none';
-        stepAuth.style.display = 'none';
-        stepSetup.style.display = 'none';
-        step1.style.display = 'flex';
-    }
-
-    stopBtn.addEventListener('click', stopSession);
-</script>
-
-</body>
-</html>
+app.listen(PORT, () => {
+    console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
+    console.log(`[Architecture] Multi-View Routes & Supabase Cloud Storage Active 🟢📱💻`);
+});
