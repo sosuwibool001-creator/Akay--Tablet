@@ -31,6 +31,7 @@ const DIR_FAMILY_PC = path.join(__dirname, 'family_events_pc');
 const DIR_FAMILY_TABLET = path.join(__dirname, 'family_events_tablet');
 const DIR_VISITOR_PC = path.join(__dirname, 'visitor_events_pc');
 const DIR_VISITOR_TABLET = path.join(__dirname, 'visitor_events_tablet');
+const DIR_UPLOADS = path.join(__dirname, 'uploads');
 
 const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
 
@@ -38,7 +39,8 @@ const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
     DIR_PC, DIR_TABLET, 
     DIR_MOTION_PC, DIR_MOTION_TABLET, 
     DIR_FAMILY_PC, DIR_FAMILY_TABLET, 
-    DIR_VISITOR_PC, DIR_VISITOR_TABLET
+    DIR_VISITOR_PC, DIR_VISITOR_TABLET,
+    DIR_UPLOADS
 ].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -52,7 +54,7 @@ const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
 let pendingAudioVerifications = {};
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' })); 
+app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
@@ -115,7 +117,41 @@ app.get('/tablet', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// เปิด Static Routes เผื่อเรียกดูไฟล์แบบ Local
+// 📸 API 1: สำหรับให้กล้อง PC อัปเดตภาพล่าสุดเข้ามาเก็บไว้ในเซิร์ฟเวอร์
+app.post('/api/camera/upload-latest', (req, res) => {
+    try {
+        const { imageBase64 } = req.body;
+        if (!imageBase64) {
+            return res.status(400).json({ success: false, message: 'Missing imageBase64' });
+        }
+
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+
+        fs.writeFileSync(filePath, base64Data, 'base64');
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
+
+        return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
+    } catch (err) {
+        console.error('Save image error:', err);
+        return res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// 📸 API 2: สำหรับให้แท็บเล็ตดึงภาพล่าสุดจากกล้อง PC บ้านไปให้เจดู
+app.get('/api/camera/latest-image', (req, res) => {
+    const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+    if (fs.existsSync(filePath)) {
+        const imageBuffer = fs.readFileSync(filePath);
+        const base64Image = imageBuffer.toString('base64');
+        return res.json({ success: true, imageBase64: base64Image });
+    } else {
+        return res.status(404).json({ success: false, message: 'ยังไม่มีภาพบันทึกในระบบ' });
+    }
+});
+
+// เปิด Static Routes สำหรับเรียกดูไฟล์ผ่าน URL
+app.use('/uploads', express.static(DIR_UPLOADS));
 app.use('/snapshots_pc', express.static(DIR_PC));
 app.use('/snapshots_tablet', express.static(DIR_TABLET));
 app.use('/motion_events_pc', express.static(DIR_MOTION_PC));
@@ -322,13 +358,7 @@ app.post('/api/verify/response', (req, res) => {
     }
     return res.json({ success: false, message: "Session expired or invalid name" });
 });
-// 📌 เสิร์ฟไฟล์หน้าเว็บไซต์ Static (เช่น index-tablet.html)
-app.use(express.static(path.join(__dirname)));
 
-// 📌 กำหนดให้หน้าแรกเปิดไฟล์ index-tablet.html โดยตรง
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index-tablet.html'));
-});
 app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
     console.log(`[Architecture] Multi-View Routes & Supabase Cloud Storage Active 🟢📱💻`);
