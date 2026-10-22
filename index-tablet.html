@@ -62,16 +62,9 @@
             line-height: 1.4;
         }
 
-        #step1, #stepFaceAuth, #step2 {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        #step1 { display: flex; }
+        /* 🔒 ล็อกซ่อนสเต็ปอื่นๆ ตั้งแต่เริ่มต้น */
+        #step1 { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; margin: 0 auto; }
+        #stepFaceAuth, #step2 { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; margin: 0 auto; }
 
         .input-group {
             width: 100%;
@@ -112,8 +105,6 @@
             touch-action: manipulation;
         }
         .circle-btn:active { transform: scale(0.96); background: #f0f7ff; }
-
-        #step2 { display: none; text-align: left; width: 100%; }
 
         video {
             width: 100%;
@@ -161,10 +152,13 @@
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
 
-        /* 🖼️ Face Verification Styles */
         .success-border {
             border-color: #00FF66 !important;
             box-shadow: 0 0 30px rgba(0,255,102,0.8) !important;
+        }
+        .error-border {
+            border-color: #ff3b30 !important;
+            box-shadow: 0 0 30px rgba(255,59,48,0.8) !important;
         }
     </style>
 </head>
@@ -192,7 +186,7 @@
         </button>
     </div>
 
-    <!-- Step 1.2: 🖼️ Face Verification Screen with Countdown & Green Border -->
+    <!-- Step 1.2: Face Verification Screen with Real Presence Check -->
     <div id="stepFaceAuth">
         <div class="camera-container" style="position: relative; width: 100%; height: 380px; background: #000; border-radius: 16px; overflow: hidden; margin-bottom: 15px;">
             <video id="webcam-auth" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
@@ -228,7 +222,6 @@
             <button id="clearMemBtn" class="standard-btn clear-btn" style="grid-column: span 2;">🧹 ล้างประวัติคุย</button>
         </div>
 
-        <!-- 🎙️ แถบปุ่มไมค์พูดคุย และช่องพิมพ์ข้อความ -->
         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
             <button id="micToggleBtn" class="standard-btn" style="background-color: var(--accent-green); white-space: nowrap;">🎙️ เปิดไมค์ฟัง</button>
             <input type="text" id="textInput" placeholder="พิมพ์ข้อความหรือกดพูดคุยกับเจ..." style="flex: 1; padding: 10px 12px; font-size: 14px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
@@ -293,20 +286,29 @@
     let isMicActive = false;
     let isAuthRunning = false;
 
-    function saveToHistory(role, text) {
-        let history = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
-        const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
-        history.push({ role: role, text: text, time: nowThai });
-        if (history.length > 30) history.shift();
-        localStorage.setItem('akay_chat_history_tablet', JSON.stringify(history));
+    // 🔒 [บังคับล็อกหน้าแรก]
+    function resetToStep1() {
+        isAuthRunning = false;
+        if (authStream) {
+            authStream.getTracks().forEach(track => track.stop());
+            authStream = null;
+        }
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+            mediaStream = null;
+        }
+        window.speechSynthesis.cancel();
+        
+        stepFaceAuth.style.display = 'none';
+        step2.style.display = 'none';
+        step1.style.display = 'flex';
     }
 
-    clearMemBtn.addEventListener('click', () => {
-        localStorage.removeItem('akay_chat_history_tablet');
-        alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
+    window.addEventListener('DOMContentLoaded', () => {
+        resetToStep1();
     });
 
-    // 👤 กดปุ่มสแกนหน้าอย่างเป็นทางการ (Strict Manual Trigger Only)
+    // 👤 กดปุ่มสแกนหน้าอย่างเป็นทางการ
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
             alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
@@ -324,70 +326,111 @@
             webcamAuth.srcObject = authStream;
 
             isAuthRunning = true;
-            // เริ่มรันสเต็ปนับถอยหลังทันที
             startScanFlow();
 
         } catch (err) {
             alert("ไม่สามารถเข้าถึงกล้องได้: " + err.message);
-            stopAuthSession();
+            resetToStep1();
         }
     });
 
     cancelAuthBtn.addEventListener('click', () => {
-        stopAuthSession();
+        resetToStep1();
     });
 
-    function stopAuthSession() {
-        isAuthRunning = false;
-        if (authStream) {
-            authStream.getTracks().forEach(track => track.stop());
-            authStream = null;
+    // 🔍 ตรวจสอบว่ามีใบหน้าจริงอยู่หน้ากล้องไหม
+    function checkFacePresence() {
+        if (!webcamAuth || webcamAuth.readyState !== 4) return false;
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 160; canvas.height = 120;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(webcamAuth, 0, 0, 160, 120);
+            
+            const frameData = ctx.getImageData(0, 0, 160, 120).data;
+            let totalBrightness = 0;
+            for (let i = 0; i < frameData.length; i += 4) {
+                totalBrightness += (frameData[i] + frameData[i+1] + frameData[i+2]) / 3;
+            }
+            const avgBrightness = totalBrightness / (frameData.length / 4);
+            canvas.width = 0; canvas.height = 0;
+
+            if (avgBrightness < 15 || avgBrightness > 245) {
+                return false;
+            }
+            return true;
+        } catch (e) {
+            return false;
         }
-        window.speechSynthesis.cancel();
-        stepFaceAuth.style.display = 'none';
-        step1.style.display = 'flex';
     }
 
-    // 🔄 ฟังก์ชันรันลำดับสเต็ปการสแกนหน้า (แยกอิสระด้วย UI Timer)
+    // ⏱️ ปรับการนับถอยหลังพร้อมเช็กตัวตนแบบละเอียด
+    function runStrictCountdown(seconds, text) {
+        return new Promise(async (resolve) => {
+            const countEl = document.getElementById('countdown-display');
+            const textEl = document.getElementById('instruction-text');
+            if (textEl) textEl.innerText = text;
+
+            for (let i = seconds; i > 0; i--) {
+                if (!isAuthRunning) {
+                    resolve(false);
+                    return;
+                }
+
+                if (!checkFacePresence()) {
+                    if (textEl) textEl.innerText = "⚠️ ไม่พบใบหน้า กรุณาเข้ามาในกรอบ!";
+                    setNoticeState(false);
+                    while (isAuthRunning && !checkFacePresence()) {
+                        await sleep(500);
+                    }
+                    if (textEl) textEl.innerText = text;
+                }
+
+                if (countEl) countEl.innerText = i;
+                await sleep(1000);
+            }
+            if (countEl) countEl.innerText = "";
+            resolve(true);
+        });
+    }
+
+    // 🔄 ฟังก์ชันรันลำดับสเต็ปสแกนหน้า (ปรับเพิ่มเป็น 5 วินาที พร้อมเพิ่มเวลาหน่วงให้เจพูดจบ)
     async function startScanFlow() {
-        speakText("สวัสดีครับ เจคือ AI ผู้ช่วยของคุณ วันนี้เจจะขออนุญาตบันทึกข้อมูลเพื่อความปลอดภัยครับ");
+        await speakAndWait("สวัสดีครับ เจคือ AI ผู้ช่วยของคุณ วันนี้เจจะขออนุญาตบันทึกข้อมูลเพื่อความปลอดภัยครับ");
         
-        // สเต็ปที่ 1: จัดหน้าตรงกรอบ
+        // สเต็ปที่ 1: วางใบหน้าในกรอบ (เพิ่มเป็น 5 วินาที)
         if (!isAuthRunning) return;
-        document.getElementById('instruction-text').innerText = "สเต็ป 1: กรุณาวางใบหน้าให้อยู่ในกรอบรูปไข่";
-        speakText("ขั้นแรก กรุณาวางใบหน้าให้อยู่ในกรอบครับ");
-        await runCountdown(3, "เตรียมพร้อมจัดหน้า...");
+        await speakAndWait("ขั้นแรก กรุณาจัดวางใบหน้าให้อยู่ในกรอบรูปไข่ครับ");
+        let pass1 = await runStrictCountdown(5, "สเต็ป 1: กรุณาวางใบหน้าให้อยู่ในกรอบรูปไข่ (5s)");
+        if (!pass1 || !isAuthRunning) { resetToStep1(); return; }
         
-        if (!isAuthRunning) return;
-        setSuccessState(true);
-        speakText("เยี่ยมมากครับ");
-        await sleep(1000);
-        setSuccessState(false);
+        setNoticeState(true);
+        await speakAndWait("เยี่ยมมากครับ");
+        await sleep(1500);
+        setNoticeState(false);
 
-        // สเต็ปที่ 2: กะพริบตา
+        // สเต็ปที่ 2: กะพริบตา (เพิ่มเป็น 5 วินาที)
         if (!isAuthRunning) return;
-        document.getElementById('instruction-text').innerText = "สเต็ป 2: กรุณากะพริบตาช้าๆ 1 ครั้ง";
-        speakText("ต่อไป กรุณากะพริบตาช้าๆ หนึ่งครั้งครับ");
-        await runCountdown(3, "ตรวจจับการกะพริบตา...");
+        await speakAndWait("ต่อไป กรุณากะพริบตาช้าๆ หนึ่งครั้งครับ");
+        let pass2 = await runStrictCountdown(5, "สเต็ป 2: กรุณากะพริบตาช้าๆ 1 ครั้ง (5s)");
+        if (!pass2 || !isAuthRunning) { resetToStep1(); return; }
         
-        if (!isAuthRunning) return;
-        setSuccessState(true);
-        speakText("เรียบร้อยครับ");
-        await sleep(1000);
-        setSuccessState(false);
+        setNoticeState(true);
+        await speakAndWait("เรียบร้อยครับ");
+        await sleep(1500);
+        setNoticeState(false);
 
-        // สเต็ปที่ 3: หันซ้ายหันขวา
+        // สเต็ปที่ 3: หันซ้ายขวา (เพิ่มเป็น 5 วินาที)
         if (!isAuthRunning) return;
-        document.getElementById('instruction-text').innerText = "สเต็ป 3: กรุณาหันหน้าไปทางซ้ายและขวาเล็กน้อย";
-        speakText("สุดท้าย กรุณาหันหน้าไปทางซ้ายและขวาเล็กน้อยครับ");
-        await runCountdown(3, "กำลังบันทึกมิติใบหน้า...");
+        await speakAndWait("สุดท้าย กรุณาค่อยๆ หันหน้าไปทางซ้ายและขวาเล็กน้อยครับ");
+        let pass3 = await runStrictCountdown(5, "สเต็ป 3: กรุณาหันหน้าซ้ายและขวาเล็กน้อย (5s)");
+        if (!pass3 || !isAuthRunning) { resetToStep1(); return; }
         
-        if (!isAuthRunning) return;
-        setSuccessState(true);
-        speakText("บันทึกข้อมูลเรียบร้อยแล้ว ยินดีต้อนรับเพื่อนเอกครับ");
-        await sleep(1200);
+        setNoticeState(true);
+        await speakAndWait("บันทึกข้อมูลเรียบร้อยแล้ว ยินดีต้อนรับเพื่อนเอกครับ");
+        await sleep(2000);
         
-        // สแกนผ่านสำเร็จ ปิดกล้องสแกน แล้วเข้าสู่หน้าแดชบอร์ดหลัก Step 2
+        // ผ่านจริง ปิดกล้องสแกน เข้าแดชบอร์ด
         if (authStream) {
             authStream.getTracks().forEach(track => track.stop());
             authStream = null;
@@ -399,54 +442,36 @@
         startMainAppSession();
     }
 
-    function setSuccessState(isSuccess) {
+    function setNoticeState(isSuccess) {
         const guide = document.getElementById('face-guide');
         if (guide) {
             if (isSuccess) {
                 guide.classList.add('success-border');
+                guide.classList.remove('error-border');
             } else {
                 guide.classList.remove('success-border');
+                guide.classList.add('error-border');
             }
         }
     }
 
-    function runCountdown(seconds, text) {
+    // 🗣️ ฟังก์ชันให้เจพูดประโยคคำสั่ง และรอจนกว่าจะพูดจบจริงค่อยขยับไปสเต็ปต่อไป
+    function speakAndWait(text) {
         return new Promise(resolve => {
-            let count = seconds;
-            const countEl = document.getElementById('countdown-display');
-            const textEl = document.getElementById('instruction-text');
-            if (textEl) textEl.innerText = text;
-            if (countEl) countEl.innerText = count;
-
-            const timer = setInterval(() => {
-                if (!isAuthRunning) {
-                    clearInterval(timer);
-                    resolve();
-                    return;
-                }
-                count--;
-                if (count > 0) {
-                    if (countEl) countEl.innerText = count;
-                } else {
-                    clearInterval(timer);
-                    if (countEl) countEl.innerText = "";
-                    resolve();
-                }
-            }, 1000);
+            if (!isAuthRunning) { resolve(); return; }
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'th-TH';
+                utterance.rate = 0.95;
+                utterance.onend = () => resolve();
+                utterance.onerror = () => resolve();
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.warn("Speech synthesis skipped:", e);
+                resolve();
+            }
         });
-    }
-
-    function speakText(text) {
-        if (!isAuthRunning) return;
-        try {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'th-TH';
-            utterance.rate = 1.0;
-            window.speechSynthesis.speak(utterance);
-        } catch (e) {
-            console.warn("Speech synthesis skipped:", e);
-        }
     }
 
     function sleep(ms) {
@@ -502,7 +527,6 @@
 
             ws.onopen = () => {
                 let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
-                
                 const currentThaiTime = new Date().toLocaleString('th-TH', { 
                     timeZone: 'Asia/Bangkok',
                     dateStyle: 'full',
@@ -572,7 +596,6 @@ ${historySummaryText}
                     }
                 };
                 ws.send(JSON.stringify(setupMessage));
-
                 startKeepAlivePing();
             };
 
@@ -631,7 +654,7 @@ ${historySummaryText}
             };
         } catch (e) {
             statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เกิดข้อผิดพลาด:</strong> ${e.message}`;
-            stopSession();
+            resetToStep1();
         }
     }
 
@@ -909,33 +932,7 @@ ${historySummaryText}
         statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพจากกล้อง Tablet...`;
     }
 
-    function stopSession() {
-        isUserActiveSession = false;
-        isModelSpeaking = false;
-        if (speakingTimeout) clearTimeout(speakingTimeout);
-        if (pingInterval) {
-            clearInterval(pingInterval);
-            pingInterval = null;
-        }
-        stopSpeechRecognition();
-        if (mediaStream) {
-            mediaStream.getTracks().forEach(track => track.stop());
-            mediaStream = null;
-        }
-        if (ws) {
-            ws.close();
-            ws = null;
-        }
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-        }
-        step2.style.display = 'none';
-        stepFaceAuth.style.display = 'none';
-        step1.style.display = 'flex';
-    }
-
-    stopBtn.addEventListener('click', stopSession);
+    stopBtn.addEventListener('click', resetToStep1);
 </script>
 
 </body>
