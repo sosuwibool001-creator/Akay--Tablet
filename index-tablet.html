@@ -140,6 +140,7 @@
             margin-top: 12px;
             color: #1d1d1f;
             line-height: 1.4;
+            text-align: left;
         }
         .status-dot {
             height: 9px; width: 9px; background-color: var(--accent-green);
@@ -186,7 +187,7 @@
         </button>
     </div>
 
-    <!-- Step 1.2: Face Verification Screen with Real Presence Check -->
+    <!-- Step 1.2: Face Verification Screen with Real Presence Check (5 Seconds per step) -->
     <div id="stepFaceAuth">
         <div class="camera-container" style="position: relative; width: 100%; height: 380px; background: #000; border-radius: 16px; overflow: hidden; margin-bottom: 15px;">
             <video id="webcam-auth" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover;"></video>
@@ -205,11 +206,11 @@
         <button id="cancelAuthBtn" class="standard-btn stop-btn" style="width: 100%; padding: 10px;">❌ ยกเลิก</button>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลัก -->
+    <!-- Step 2: แดชบอร์ดหลัก (พร้อมปุ่มไมค์และช่องพิมพ์ข้อความ) -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 15px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J Tablet (<span id="userNameDisplay" style="color:var(--accent-green);">เพื่อนเอก (Ake)</span>)
+                Project-J Tablet (<span id="userNameDisplay" style="color:var(--accent-green); margin-left: 4px;">เพื่อนเอก (Ake)</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn" style="padding: 6px 12px; font-size: 12px;">⏹️ ออกจากระบบ</button>
         </div>
@@ -222,6 +223,7 @@
             <button id="clearMemBtn" class="standard-btn clear-btn" style="grid-column: span 2;">🧹 ล้างประวัติคุย</button>
         </div>
 
+        <!-- 🎙️ แถบปุ่มไมค์พูดคุย และช่องพิมพ์ข้อความที่เพิ่มกลับมา -->
         <div style="display: flex; gap: 6px; margin-bottom: 8px;">
             <button id="micToggleBtn" class="standard-btn" style="background-color: var(--accent-green); white-space: nowrap;">🎙️ เปิดไมค์ฟัง</button>
             <input type="text" id="textInput" placeholder="พิมพ์ข้อความหรือกดพูดคุยกับเจ..." style="flex: 1; padding: 10px 12px; font-size: 14px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
@@ -286,7 +288,19 @@
     let isMicActive = false;
     let isAuthRunning = false;
 
-    // 🔒 [บังคับล็อกหน้าแรก]
+    function saveToHistory(role, text) {
+        let history = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
+        const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
+        history.push({ role: role, text: text, time: nowThai });
+        if (history.length > 30) history.shift();
+        localStorage.setItem('akay_chat_history_tablet', JSON.stringify(history));
+    }
+
+    clearMemBtn.addEventListener('click', () => {
+        localStorage.removeItem('akay_chat_history_tablet');
+        alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
+    });
+
     function resetToStep1() {
         isAuthRunning = false;
         if (authStream) {
@@ -308,7 +322,6 @@
         resetToStep1();
     });
 
-    // 👤 กดปุ่มสแกนหน้าอย่างเป็นทางการ
     startAuthBtn.addEventListener('click', async () => {
         if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
             alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
@@ -338,7 +351,6 @@
         resetToStep1();
     });
 
-    // 🔍 ตรวจสอบว่ามีใบหน้าจริงอยู่หน้ากล้องไหม
     function checkFacePresence() {
         if (!webcamAuth || webcamAuth.readyState !== 4) return false;
         try {
@@ -364,7 +376,6 @@
         }
     }
 
-    // ⏱️ ปรับการนับถอยหลังพร้อมเช็กตัวตนแบบละเอียด
     function runStrictCountdown(seconds, text) {
         return new Promise(async (resolve) => {
             const countEl = document.getElementById('countdown-display');
@@ -394,14 +405,13 @@
         });
     }
 
-    // 🔄 ฟังก์ชันรันลำดับสเต็ปสแกนหน้า (ปรับเพิ่มเป็น 5 วินาที พร้อมเพิ่มเวลาหน่วงให้เจพูดจบ)
     async function startScanFlow() {
         await speakAndWait("สวัสดีครับ เจคือ AI ผู้ช่วยของคุณ วันนี้เจจะขออนุญาตบันทึกข้อมูลเพื่อความปลอดภัยครับ");
         
-        // สเต็ปที่ 1: วางใบหน้าในกรอบ (เพิ่มเป็น 5 วินาที)
+        // สเต็ป 1: 5 วินาที
         if (!isAuthRunning) return;
         await speakAndWait("ขั้นแรก กรุณาจัดวางใบหน้าให้อยู่ในกรอบรูปไข่ครับ");
-        let pass1 = await runStrictCountdown(5, "สเต็ป 1: กรุณาวางใบหน้าให้อยู่ในกรอบรูปไข่ (5s)");
+        let pass1 = await runStrictCountdown(5, "สเต็ป 1: กรุณาวางใบหน้าให้อยู่ในกรอบ (5s)");
         if (!pass1 || !isAuthRunning) { resetToStep1(); return; }
         
         setNoticeState(true);
@@ -409,7 +419,7 @@
         await sleep(1500);
         setNoticeState(false);
 
-        // สเต็ปที่ 2: กะพริบตา (เพิ่มเป็น 5 วินาที)
+        // สเต็ป 2: 5 วินาที
         if (!isAuthRunning) return;
         await speakAndWait("ต่อไป กรุณากะพริบตาช้าๆ หนึ่งครั้งครับ");
         let pass2 = await runStrictCountdown(5, "สเต็ป 2: กรุณากะพริบตาช้าๆ 1 ครั้ง (5s)");
@@ -420,7 +430,7 @@
         await sleep(1500);
         setNoticeState(false);
 
-        // สเต็ปที่ 3: หันซ้ายขวา (เพิ่มเป็น 5 วินาที)
+        // สเต็ป 3: 5 วินาที
         if (!isAuthRunning) return;
         await speakAndWait("สุดท้าย กรุณาค่อยๆ หันหน้าไปทางซ้ายและขวาเล็กน้อยครับ");
         let pass3 = await runStrictCountdown(5, "สเต็ป 3: กรุณาหันหน้าซ้ายและขวาเล็กน้อย (5s)");
@@ -430,7 +440,6 @@
         await speakAndWait("บันทึกข้อมูลเรียบร้อยแล้ว ยินดีต้อนรับเพื่อนเอกครับ");
         await sleep(2000);
         
-        // ผ่านจริง ปิดกล้องสแกน เข้าแดชบอร์ด
         if (authStream) {
             authStream.getTracks().forEach(track => track.stop());
             authStream = null;
@@ -455,7 +464,6 @@
         }
     }
 
-    // 🗣️ ฟังก์ชันให้เจพูดประโยคคำสั่ง และรอจนกว่าจะพูดจบจริงค่อยขยับไปสเต็ปต่อไป
     function speakAndWait(text) {
         return new Promise(resolve => {
             if (!isAuthRunning) { resolve(); return; }
