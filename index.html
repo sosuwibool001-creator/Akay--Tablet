@@ -423,8 +423,7 @@ const step1 = document.getElementById('step1');
     async function initCamera() {
         try {
             if (mediaStream) {
-                // หยุดเฉพาะแทร็กวิดีโอ ไม่ไปยุ่งกับสิทธิ์เสียง
-                mediaStream.getVideoTracks().forEach(track => track.stop());
+                mediaStream.getTracks().forEach(track => track.stop());
             }
 
             const constraints = {
@@ -433,15 +432,19 @@ const step1 = document.getElementById('step1');
                     height: { ideal: 720 },
                     facingMode: useFrontCamera ? "user" : "environment"
                 }, 
-                audio: false // 🛑 ปิดตรงนี้เป็น false ไม่ให้แย่งสิทธิ์ไมค์เด็ดขาด!
+                audio: { 
+                    echoCancellation: true, 
+                    noiseSuppression: true, 
+                    autoGainControl: true 
+                } 
             };
 
             mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
             video.srcObject = mediaStream;
         } catch (err) {
-            console.warn("ไม่สามารถเปิดกล้องได้: " + err.message);
+            console.warn("ไม่สามารถเปิดไมค์/กล้องได้: " + err.message);
             try {
-                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 video.srcObject = mediaStream;
             } catch (e) {
                 alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
