@@ -54,7 +54,7 @@ const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
 let pendingAudioVerifications = {};
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
+app.use(express.json({ limit: '20mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
@@ -223,10 +223,14 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
 
+        if (buffer.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid image buffer' });
+        }
+
         // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
         if (!isTablet) {
             const latestPath = path.join(DIR_UPLOADS, 'latest_home.jpg');
-            fs.writeFileSync(latestPath, buffer);
+            await fs.promises.writeFile(latestPath, buffer);
         }
 
         const now = new Date();
@@ -239,7 +243,7 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const snapshotFilename = `${snapshotPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
         const snapshotFilePath = path.join(snapshotDir, snapshotFilename);
 
-        fs.writeFileSync(snapshotFilePath, buffer);
+        await fs.promises.writeFile(snapshotFilePath, buffer);
 
         const previousBuffer = lastFrames[deviceKey];
         lastFrames[deviceKey] = buffer;
@@ -299,7 +303,7 @@ app.post('/api/snapshot/upload', async (req, res) => {
 
             const eventFilename = `${eventPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
             const eventFilePath = path.join(targetEventDir, eventFilename);
-            fs.writeFileSync(eventFilePath, buffer);
+            await fs.promises.writeFile(eventFilePath, buffer);
 
             const cloudUrl = await uploadToCloudStorage(buffer, eventFilename, bucketFolder);
             const alertImageSource = cloudUrl || eventFilePath;
@@ -349,6 +353,55 @@ app.post('/api/snapshot/upload', async (req, res) => {
     } catch (error) {
         console.error('Server error:', error);
         return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 👤 API Onboarding: สำหรับบันทึกรูปภาพคนใหม่แยกตามกลุ่ม (family / visitor)
+app.post('/api/onboard/capture', async (req, res) => {
+    try {
+        const { name, category, device, imageBase64 } = req.body;
+        if (!name || !imageBase64) {
+            return res.status(400).json({ success: false, message: 'Missing name or imageBase64' });
+        }
+
+        const isTablet = device === 'tablet';
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        if (buffer.length === 0) {
+            return res.status(400).json({ success: false, message: 'Invalid image buffer' });
+        }
+
+        let targetFolder;
+        let bucketFolder;
+        if (category === 'family') {
+            targetFolder = isTablet ? DIR_FAMILY_TABLET : DIR_FAMILY_PC;
+            bucketFolder = 'family_events';
+            if (!FAMILY_WHITELIST.includes(name)) {
+                FAMILY_WHITELIST.push(name);
+            }
+        } else {
+            targetFolder = isTablet ? DIR_VISITOR_TABLET : DIR_VISITOR_PC;
+            bucketFolder = 'visitor_events';
+            if (!VISITOR_WHITELIST.includes(name)) {
+                VISITOR_WHITELIST.push(name);
+            }
+        }
+
+        const timestamp = Date.now();
+        const filename = `onboard_${category}_${name}_${timestamp}.jpg`;
+        const filePath = path.join(targetFolder, filename);
+
+        await fs.promises.writeFile(filePath, buffer);
+        console.log(`✅ [Onboarding Saved]: บันทึกรูปของ ${name} (${category}) ลงโฟลเดอร์เรียบร้อยแล้ว`);
+
+        // อัปโหลดขึ้น Supabase Cloud Storage (ถ้าเชื่อมต่อไว้)
+        uploadToCloudStorage(buffer, filename, bucketFolder).catch(e => console.error("Cloud upload error:", e));
+
+        return res.json({ success: true, message: `บันทึกข้อมูล ${name} สำเร็จ`, filename: filename });
+    } catch (err) {
+        console.error('Onboard error:', err);
+        return res.status(500).json({ success: false, error: err.message });
     }
 });
 
