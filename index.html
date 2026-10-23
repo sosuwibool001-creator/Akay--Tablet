@@ -651,82 +651,93 @@ ${historySummaryText}
     }
 
     function startAutoVisionStream() {
-        if (autoVisionTimer) clearInterval(autoVisionTimer);
-        // ตั้งเวลาให้ระบบแคปและส่งภาพอัตโนมัติทุกๆ 20 วินาที
-        autoVisionTimer = setInterval(() => {
-            if (!video || video.readyState !== 4) return;
-            if (isModelSpeaking) return;
-            captureAndSendFrame(false);
-        }, 20000);        
+    if (autoVisionTimer) clearInterval(autoVisionTimer);
+    
+    // 1. ตั้งเวลาเป็น 10 วินาที (20000 มิลลิวินาที)
+    autoVisionTimer = setInterval(() => {
+        if (!video || video.readyState !== 4) {
+            console.warn("AutoVision: วิดีโอยังไม่พร้อม (readyState !== 4)");
+            return;
+        }
+        if (isModelSpeaking) {
+            console.log("AutoVision: ข้ามการแคปภาพเนื่องจาก AI กำลังพูดอยู่");
+            return;
+        }
+        captureAndSendFrame(false);
+    }, 10000);         
+}
+
+async function captureAndSendFrame(isManualTrigger = false) {
+    if (!video || video.readyState !== 4) return;
+    if (isUploadingSnapshot && !isManualTrigger) {
+        console.log("AutoVision: การอัปโหลดรอบก่อนหน้ายังไม่เสร็จ ข้ามรอบนี้");
+        return;
     }
 
-    async function captureAndSendFrame(isManualTrigger = false) {
-        if (!video || video.readyState !== 4) return;
-        if (isUploadingSnapshot && !isManualTrigger) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
 
-        const canvas = document.createElement('canvas');
-        canvas.width = 1280;
-        canvas.height = 720;
-        const ctx = canvas.getContext('2d');
+    ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
+    ctx.drawImage(video, 0, 0, 1280, 720);
+    ctx.filter = 'none';
 
-        ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
-        ctx.drawImage(video, 0, 0, 1280, 720);
-        ctx.filter = 'none';
+    const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+    canvas.width = 0; canvas.height = 0;
 
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-        canvas.width = 0; canvas.height = 0;
-
-        try {
-            isUploadingSnapshot = true;
-            const res = await fetch(`${SERVER_URL}/api/snapshot/upload`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    imageBase64: base64Image,
-                    device: 'pc' 
-                })
-            });
-            const data = await res.json();
-            
-            const nowTime = new Date().toLocaleTimeString('th-TH');
-            if (data.filteredAsMotion) {
-                audioStats.innerText = `📹 Smart Filter: 🚨 พบการเคลื่อนไหว บันทึกลง motion_events_pc (${nowTime})`;
-            } else {
-                audioStats.innerText = `📹 Smart Filter: 💤 สถานะปกติ บันทึกลง snapshots_pc (${nowTime})`;
-            }
-        } catch (err) {
-            console.warn("ไม่สามารถบันทึกภาพลงโฟลเดอร์หลังบ้านได้:", err.message);
-        } finally {
-            isUploadingSnapshot = false;
+    try {
+        isUploadingSnapshot = true;
+        const res = await fetch(`${SERVER_URL}/api/snapshot/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                imageBase64: base64Image,
+                device: 'pc' 
+            })
+        });
+        const data = await res.json();
+        
+        const nowTime = new Date().toLocaleTimeString('th-TH');
+        if (data.filteredAsMotion) {
+            audioStats.innerText = `📹 Smart Filter: 🚨 พบการเคลื่อนไหว บันทึกลง motion_events_pc (${nowTime})`;
+        } else {
+            audioStats.innerText = `📹 Smart Filter: 💤 สถานะปกติ บันทึกลง snapshots_pc (${nowTime})`;
         }
+    } catch (err) {
+        console.warn("ไม่สามารถบันทึกภาพลงโฟลเดอร์หลังบ้านได้:", err.message);
+    } finally {
+        // บังคับปลดล็อกตัวแปรเสมอ แม้จะเกิด Error เพื่อไม่ให้ค้างยาว
+        isUploadingSnapshot = false;
+    }
 
-        if (isManualTrigger) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const promptText = "ช่วยตรวจสอบภาพจากกล้องให้หน่อยครับ / Please check this image.";
+    if (isManualTrigger) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            const promptText = "ช่วยตรวจสอบภาพจากกล้องให้หน่อยครับ / Please check this image.";
 
-                const imageMessage = {
-                    clientContent: {
-                        turns: [{
-                            role: "user",
-                            parts: [
-                                { inlineData: { mimeType: "image/jpeg", data: base64Image.replace(/^data:image\/\w+;base64,/, '') } },
-                                { text: promptText }
-                            ]
-                        }],
-                        turnComplete: true
-                    }
-                };
-
-                try {
-                    ws.send(JSON.stringify(imageMessage));
-                } catch (wsErr) {
-                    console.error("WebSocket send error:", wsErr);
+            const imageMessage = {
+                clientContent: {
+                    turns: [{
+                        role: "user",
+                        parts: [
+                            { inlineData: { mimeType: "image/jpeg", data: base64Image.replace(/^data:image\/\w+;base64,/, '') } },
+                            { text: promptText }
+                        ]
+                    }],
+                    turnComplete: true
                 }
+            };
+
+            try {
+                ws.send(JSON.stringify(imageMessage));
+            } catch (wsErr) {
+                console.error("WebSocket send error:", wsErr);
             }
-            saveToHistory('user', '[ระบบสตรีมภาพให้เจช่วยตรวจ]');
-            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพจากกล้อง PC...`;
         }
+        saveToHistory('user', '[ระบบสตรีมภาพให้เจช่วยตรวจ]');
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพจากกล้อง PC...`;
     }
+}
 
     function startSpeechRecognition() {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
