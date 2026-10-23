@@ -54,7 +54,7 @@ const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
 let pendingAudioVerifications = {};
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
+app.use(express.json({ limit: '15mb' }));
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
@@ -117,7 +117,7 @@ app.get('/tablet', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// 📸 API 1: สำหรับให้กล้อง PC อัปเดตภาพล่าสุดเข้ามาเก็บไว้ในเซิร์ฟเวอร์
+// 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น latest_home.jpg ทันที
 app.post('/api/camera/upload-latest', (req, res) => {
     try {
         const { imageBase64 } = req.body;
@@ -129,34 +129,12 @@ app.post('/api/camera/upload-latest', (req, res) => {
         const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
 
         fs.writeFileSync(filePath, base64Data, 'base64');
-        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
-
         return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
     } catch (err) {
         console.error('Save image error:', err);
         return res.status(500).json({ success: false, message: err.message });
     }
 });
-
-// 📸 ฟังก์ชันส่งภาพจากกล้อง PC ขึ้นเซิร์ฟเวอร์อัตโนมัติทุกๆ 5 วินาที
-setInterval(async () => {
-    try {
-        // 1. ดึงภาพจากกล้อง PC (เปลี่ยนเป็นฟังก์ชันแคปเจอร์ภาพจริงของโค้ดเพื่อนเอก)
-        const currentImageBase64 = capturePCWebcamAsBase64(); 
-
-        if (!currentImageBase64) return;
-
-        // 2. ยิง API ส่งภาพขึ้นไปเก็บไว้บนเซิร์ฟเวอร์ Render
-        await axios.post('https://akay-tablet.onrender.com/api/camera/upload-latest', {
-            imageBase64: currentImageBase64
-        });
-        
-        console.log("📸 อัปเดตภาพล่าสุดจากกล้อง PC ขึ้นเซิร์ฟเวอร์สำเร็จ");
-    } catch (err) {
-        console.error("อัปเดตภาพไม่สำเร็จ:", err.message);
-    }
-}, 5000); // ทำงานทุกๆ 5 วินาที
-
 
 // 📸 API 2: สำหรับให้แท็บเล็ตดึงภาพล่าสุดจากกล้อง PC บ้านไปให้เจดู
 app.get('/api/camera/latest-image', (req, res) => {
@@ -363,6 +341,42 @@ app.post('/api/snapshot/upload', async (req, res) => {
     } catch (error) {
         console.error('Server error:', error);
         return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 👤 API Onboarding: สำหรับบันทึกรูปภาพคนใหม่แยกตามกลุ่ม
+app.post('/api/onboard/capture', async (req, res) => {
+    try {
+        const { name, category, device, imageBase64 } = req.body;
+        if (!name || !imageBase64) {
+            return res.status(400).json({ success: false, message: 'Missing name or imageBase64' });
+        }
+
+        const isTablet = device === 'tablet';
+        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+
+        let targetFolder;
+        let bucketFolder;
+        if (category === 'family') {
+            targetFolder = isTablet ? DIR_FAMILY_TABLET : DIR_FAMILY_PC;
+            bucketFolder = 'family_events';
+            if (!FAMILY_WHITELIST.includes(name)) FAMILY_WHITELIST.push(name);
+        } else {
+            targetFolder = isTablet ? DIR_VISITOR_TABLET : DIR_VISITOR_PC;
+            bucketFolder = 'visitor_events';
+            if (!VISITOR_WHITELIST.includes(name)) VISITOR_WHITELIST.push(name);
+        }
+
+        const filename = `onboard_${category}_${name}_${Date.now()}.jpg`;
+        const filePath = path.join(targetFolder, filename);
+
+        fs.writeFileSync(filePath, buffer);
+        uploadToCloudStorage(buffer, filename, bucketFolder).catch(e => console.error(e));
+
+        return res.json({ success: true, message: `บันทึกข้อมูล ${name} สำเร็จ` });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
     }
 });
 
