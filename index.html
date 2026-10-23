@@ -732,10 +732,7 @@ ${historySummaryText}
         if (!SpeechRecognition) return;
 
         if (recognition) {
-            try { 
-                recognition.onend = null; // ป้องกันการเรียก onend ซ้อน
-                recognition.stop(); 
-            } catch(e){}
+            try { recognition.stop(); } catch(e){}
         }
 
         recognition = new SpeechRecognition();
@@ -767,7 +764,6 @@ ${historySummaryText}
 
                 if (speechTimeout) clearTimeout(speechTimeout);
 
-                // ขยายเวลาหน่วงจาก 1.2 วินาที เป็น 2.5 วินาที เพื่อให้พูดประโยคยาวๆ ได้จบก่อนส่ง
                 speechTimeout = setTimeout(() => {
                     let finalTextToSend = speechBuffer.trim();
                     speechBuffer = "";
@@ -776,23 +772,21 @@ ${historySummaryText}
                         audioStats.innerText = `🚀 ส่งประโยคให้เจตอบ: "${finalTextToSend}"`;
                         sendTextDirectly(finalTextToSend);
                     }
-                }, 2500); 
+                }, 1200);
             }
         };
 
         recognition.onerror = (event) => {
-            // กรอง Error เล็กน้อยที่ไม่จำเป็นออก เพื่อไม่ให้ไมค์รวน
-            if (event.error !== 'no-speech' && isUserActiveSession) {
-                console.warn("Speech recognition error:", event.error);
+            if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
+                setTimeout(startSpeechRecognition, 500);
             }
         };
 
         recognition.onend = () => {
-            // หน่วงเวลาเพิ่มขึ้นตอนต่อไมค์ใหม่ ป้องกันลูปตัดต่อรัวๆ ทุก 3 วิ
             if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
                 setTimeout(() => {
                     try { recognition.start(); } catch(e){}
-                }, 1000); 
+                }, 300);
             }
         };
 
