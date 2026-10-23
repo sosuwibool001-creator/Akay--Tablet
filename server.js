@@ -54,7 +54,7 @@ const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
 let pendingAudioVerifications = {};
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
@@ -129,6 +129,8 @@ app.post('/api/camera/upload-latest', (req, res) => {
         const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
 
         fs.writeFileSync(filePath, base64Data, 'base64');
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
+
         return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
     } catch (err) {
         console.error('Save image error:', err);
@@ -220,6 +222,12 @@ app.post('/api/snapshot/upload', async (req, res) => {
 
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
+
+        // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
+        if (!isTablet) {
+            const latestPath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+            fs.writeFileSync(latestPath, buffer);
+        }
 
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -341,42 +349,6 @@ app.post('/api/snapshot/upload', async (req, res) => {
     } catch (error) {
         console.error('Server error:', error);
         return res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// 👤 API Onboarding: สำหรับบันทึกรูปภาพคนใหม่แยกตามกลุ่ม
-app.post('/api/onboard/capture', async (req, res) => {
-    try {
-        const { name, category, device, imageBase64 } = req.body;
-        if (!name || !imageBase64) {
-            return res.status(400).json({ success: false, message: 'Missing name or imageBase64' });
-        }
-
-        const isTablet = device === 'tablet';
-        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        let targetFolder;
-        let bucketFolder;
-        if (category === 'family') {
-            targetFolder = isTablet ? DIR_FAMILY_TABLET : DIR_FAMILY_PC;
-            bucketFolder = 'family_events';
-            if (!FAMILY_WHITELIST.includes(name)) FAMILY_WHITELIST.push(name);
-        } else {
-            targetFolder = isTablet ? DIR_VISITOR_TABLET : DIR_VISITOR_PC;
-            bucketFolder = 'visitor_events';
-            if (!VISITOR_WHITELIST.includes(name)) VISITOR_WHITELIST.push(name);
-        }
-
-        const filename = `onboard_${category}_${name}_${Date.now()}.jpg`;
-        const filePath = path.join(targetFolder, filename);
-
-        fs.writeFileSync(filePath, buffer);
-        uploadToCloudStorage(buffer, filename, bucketFolder).catch(e => console.error(e));
-
-        return res.json({ success: true, message: `บันทึกข้อมูล ${name} สำเร็จ` });
-    } catch (err) {
-        return res.status(500).json({ success: false, error: err.message });
     }
 });
 
