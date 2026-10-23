@@ -374,7 +374,7 @@
 
 <script>
     let BACKEND_API_KEY = ""; 
-    const SERVER_URL = "https://akay-tablet.onrender.com";
+    const SERVER_URL = "";
 
     async function initConfig() {
         try {
@@ -756,15 +756,12 @@ ${historySummaryText}
         }
 
         if (recognition) {
-            try { 
-                recognition.onend = null; // ป้องกันอีเวนต์ onend วิ่งซ้อน
-                recognition.stop(); 
-            } catch(e){}
+            try { recognition.stop(); } catch(e){}
         }
 
         recognition = new SpeechRecognition();
         recognition.lang = 'th-TH';
-        recognition.continuous = true; // เปิดต่อเนื่องเพื่อให้ผู้ใช้พูดคุยได้ราบรื่น
+        recognition.continuous = false; 
         recognition.interimResults = true;
 
         recognition.onstart = () => {
@@ -796,19 +793,18 @@ ${historySummaryText}
                 let spokenText = finalText.trim();
                 audioStats.innerText = `🚀 ส่งประโยคให้เจ: "${spokenText}"`;
                 sendTextDirectly(spokenText);
+                stopSpeechRecognition();
             }
         };
 
         recognition.onerror = (event) => {
             console.warn("Speech recognition error:", event.error);
+            stopSpeechRecognition();
         };
 
         recognition.onend = () => {
-            // เช็กให้แน่ใจว่าถ้าเซสชันยังเปิดอยู่ และไมค์ควรจะทำงาน ให้รีสตาร์ทอย่างนุ่มนวล
-            if (isMicActive && isUserActiveSession && !isModelSpeaking) {
-                setTimeout(() => {
-                    try { recognition.start(); } catch(e){}
-                }, 500);
+            if (isMicActive) {
+                stopSpeechRecognition();
             }
         };
 
@@ -816,16 +812,14 @@ ${historySummaryText}
             recognition.start();
         } catch(e) {
             console.error("Could not start recognition:", e);
+            stopSpeechRecognition();
         }
     }
 
     function stopSpeechRecognition() {
         isMicActive = false;
         if (recognition) {
-            try { 
-                recognition.onend = null; 
-                recognition.stop(); 
-            } catch(e){}
+            try { recognition.stop(); } catch(e){}
         }
         micToggleBtn.style.backgroundColor = 'var(--accent-green)';
         micToggleBtn.innerText = '🎙️ เปิดไมค์ฟัง';
