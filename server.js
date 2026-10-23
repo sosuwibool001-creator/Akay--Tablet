@@ -117,7 +117,7 @@ app.get('/tablet', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น latest_home.jpg ทันที
+// 📸 API 1: สำหรับให้กล้อง PC อัปเดตภาพล่าสุดเข้ามาเก็บไว้ในเซิร์ฟเวอร์
 app.post('/api/camera/upload-latest', (req, res) => {
     try {
         const { imageBase64 } = req.body;
@@ -137,6 +137,26 @@ app.post('/api/camera/upload-latest', (req, res) => {
         return res.status(500).json({ success: false, message: err.message });
     }
 });
+
+// 📸 ฟังก์ชันส่งภาพจากกล้อง PC ขึ้นเซิร์ฟเวอร์อัตโนมัติทุกๆ 5 วินาที
+setInterval(async () => {
+    try {
+        // 1. ดึงภาพจากกล้อง PC (เปลี่ยนเป็นฟังก์ชันแคปเจอร์ภาพจริงของโค้ดเพื่อนเอก)
+        const currentImageBase64 = capturePCWebcamAsBase64(); 
+
+        if (!currentImageBase64) return;
+
+        // 2. ยิง API ส่งภาพขึ้นไปเก็บไว้บนเซิร์ฟเวอร์ Render
+        await axios.post('https://akay-tablet.onrender.com/api/camera/upload-latest', {
+            imageBase64: currentImageBase64
+        });
+        
+        console.log("📸 อัปเดตภาพล่าสุดจากกล้อง PC ขึ้นเซิร์ฟเวอร์สำเร็จ");
+    } catch (err) {
+        console.error("อัปเดตภาพไม่สำเร็จ:", err.message);
+    }
+}, 5000); // ทำงานทุกๆ 5 วินาที
+
 
 // 📸 API 2: สำหรับให้แท็บเล็ตดึงภาพล่าสุดจากกล้อง PC บ้านไปให้เจดู
 app.get('/api/camera/latest-image', (req, res) => {
@@ -222,12 +242,6 @@ app.post('/api/snapshot/upload', async (req, res) => {
 
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
-
-        // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
-        if (!isTablet) {
-            const latestPath = path.join(DIR_UPLOADS, 'latest_home.jpg');
-            fs.writeFileSync(latestPath, buffer);
-        }
 
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
