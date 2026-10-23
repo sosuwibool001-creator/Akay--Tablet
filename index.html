@@ -201,7 +201,7 @@
         <video id="setupVideo" autoplay playsinline muted></video>
         
         <div class="input-group">
-            <input type="text" id="ownerNameInput" placeholder="ระบุชื่อเจ้าของเครื่อง (เช่น เพื่อนเอก)..." value="เพื่อนเอก">
+            <input type="text" id="ownerNameInput" placeholder="ระบุชื่อเจ้าของเครื่อง (เช่น เพื่อนเอก)..." value="เพื่อนเอก (Ake)">
             <button id="registerOwnerBtn" class="standard-btn" style="padding: 12px; font-size: 14px;">✅ ยืนยันสิทธิ์เจ้าของเครื่อง</button>
             <button id="cancelSetupBtn" class="standard-btn stop-btn" style="padding: 10px; font-size: 13px;">❌ ยกเลิก</button>
         </div>
@@ -297,7 +297,7 @@ let recognition = null;
 let isUserActiveSession = false;
 let isUploadingSnapshot = false;
 let useFrontCamera = true;
-let authenticatedUser = "เพื่อนเอก";
+let authenticatedUser = "เพื่อนเอก (Ake)";
 let currentSpeakerCategory = 'friend'; // 'friend', 'elder', 'junior', 'visitor', 'stranger'
 
 let isModelSpeaking = false;
@@ -488,29 +488,26 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับ ${authenticatedUser} เจพร้อมดูแลแล้วครับ (PC Mode) 🎙️🔊📹`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วนะ 🎙️🔊📹`;
             audioStats.innerText = `📹 Smart Auto-Vision Active (PC): ตรวจกรองและส่งภาพลงหลังบ้านทุก 20s`;
             
             const dynamicToneInstructions = `
-คุณคือ "เจ" (Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว ผู้ดูแลผู้สูงอายุ และระบบรักษาความปลอดภัยบ้าน
-ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser} (หมวดหมู่: ${currentSpeakerCategory})
+คุณคือ "เจ" (Project-J PC Guardian) คู่หูและผู้ช่วยอัจฉริยะส่วนตัว
+ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser} (หมวดหมู่: ${currentSpeakerCategory})
 เวลาปัจจุบัน: ${currentThaiTime}
 
 ${historySummaryText}
 
-[กฎสำคัญที่สุด - Dynamic Persona & Tone ตามผู้พูด]:
-1. **กรณีคุยกับเพื่อนเอก (${authenticatedUser})**: เจต้องคุยด้วยแบบเพื่อนสนิท เป็นกันเองสุดๆ ภาษาพูดสบายๆ ไม่ต้องใช้คำว่า "คุณ" และไม่ต้องลงท้ายด้วยคำว่า "ครับ" ทุกประโยค พูดคุยรับส่งกันเหมือนคู่หู
-2. **กรณีคุยกับคุณแม่ / ปู่ย่าตายาย (Elder)**: ใช้น้ำเสียงและภาษาที่สุภาพอย่างยิ่ง นอบน้อม ให้เกียรติสูงสุด มีคำว่า "ครับ", "คุณแม่", "คุณพ่อ" ทุกครั้งด้วยความอบอุ่น
-3. **กรณีคุยกับลูกหลาน/สมาชิกในครอบครัวรุ่นน้อง (Junior)**: ใช้ภาษาอบอุ่น เป็นมิตร สไตล์พี่ชายน้องสาวที่คอยช่วยเหลือดูแล
-4. **กรณีแขกหรือคนรู้จักใหม่ (Visitor)**: ใช้ภาษาเป็นมิตร สุภาพ ให้เกียรติในฐานะแขกผู้มาเยือน
-5. **กรณีคนแปลกหน้า (Stranger)**: สุภาพแต่รักษาระยะห่างเพื่อความปลอดภัยของพื้นที่ส่วนบุคคล
-
-[กฎการลงทะเบียนคนใหม่ผ่านคำสั่งเสียง (New User Onboarding)]:
-หากมีผู้ใช้พูดคำสั่งในลักษณะ: "เจ นี่เพื่อนเราชื่อ [ชื่อ]" หรือ "เจ นี่คุณแม่เราเอง" ให้ระบบเริ่มกระบวนการแคปภาพและบันทึกเสียงทันทีตามสเต็ปที่กำหนด
+[กฎ Dynamic Persona & Tone ตามผู้พูด]:
+1. **เมื่อคุยกับเพื่อนเอก (${authenticatedUser})**: พูดคุยด้วยโทนเสียงและภาษาแบบเพื่อนสนิท เป็นกันเอง สบายๆ **ห้ามใช้คำว่า "คุณ"** และ **ไม่ต้องพูดคำว่า "ครับ" ทุกประโยค** คุยกันแบบสบายๆ เหมือนเพื่อนคุยกัน
+2. **เมื่อคุยกับคุณแม่ / ปู่ย่าตายาย (Elder)**: ใช้น้ำเสียงสุภาพ นอบน้อม ให้เกียรติอย่างยิ่ง มีคำลงท้ายว่า "ครับ" หรือเรียก "คุณแม่/คุณพ่อ" ทุกครั้ง
+3. **เมื่อคุยกับลูกหลาน (Junior)**: ใช้ภาษาอบอุ่น เป็นมิตร เป็นกันเอง
+4. **เมื่อคุยกับแขก (Visitor)**: ใช้ภาษาสุภาพ เป็นมิตร ให้เกียรติผู้มาเยือน
+5. **เมื่อคุยกับคนแปลกหน้า (Stranger)**: สุภาพแต่รักษาระยะห่างเพื่อความปลอดภัย
 
 [Core Responsibilities]:
-1. Elderly Care & Safety Monitoring: วิเคราะห์ภาพสถานการณ์จากกล้องเพื่อเฝ้าระวังความปลอดภัย
-2. Search Tool Usage: เรียกใช้ googleSearch เมื่อต้องการข้อมูลสดๆ บนอินเทอร์เน็ต
+1. Care & Safety Monitoring: วิเคราะห์ภาพจากกล้องเพื่อดูแลความปลอดภัยในบ้าน
+2. Search Tool Usage: ค้นหาข้อมูลสดๆ เมื่อผู้ใช้สอบถามเรื่องข่าวสารหรือข้อมูลออนไลน์
 `;
 
             const setupMessage = {
@@ -607,14 +604,14 @@ function startKeepAlivePing() {
     }, 15000);
 }
 
-// 📸 1. ฟังก์ชันสตรีมและบันทึกภาพอัตโนมัติทุกๆ 20 วินาที
+// 📸 1. ฟังก์ชันสตรีมและบันทึกภาพอัตโนมัติทุกๆ 20 วินาทีเป๊ะ
 function startAutoVisionStream() {
     if (autoVisionTimer) clearInterval(autoVisionTimer);
     autoVisionTimer = setInterval(() => {
         if (!video || video.readyState !== 4) return;
         if (isModelSpeaking) return;
         captureAndSendFrame(false);
-    }, 20000); // ตั้งค่า 20 วินาทีเป๊ะ[cite: 1]
+    }, 20000); // 20 วินาที
 }
 
 async function captureAndSendFrame(isManualTrigger = false) {
@@ -734,12 +731,13 @@ async function startOnboardingProcess(personName, category) {
     }, 4000);
 }
 
+// 🎙️ 4. ระบบเปิดไมค์รับฟังเสียงต่อเนื่องแบบไม่ตัดต่อ
 function startSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
     if (recognition) {
-        try { recognition.stop(); } catch(e){}
+        try { recognition.onend = null; recognition.stop(); } catch(e){}
     }
 
     recognition = new SpeechRecognition();
@@ -776,7 +774,6 @@ function startSpeechRecognition() {
                 speechBuffer = "";
 
                 if (finalTextToSend && !isModelSpeaking) {
-                    // ตรวจสอบคีย์เวิร์ด Onboarding ก่อนส่งให้ AI หลัก
                     if (checkOnboardingTrigger(finalTextToSend)) {
                         return;
                     }
@@ -788,17 +785,18 @@ function startSpeechRecognition() {
         }
     };
 
-    recognition.onerror = () => {
-        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
-            setTimeout(startSpeechRecognition, 500);
+    recognition.onerror = (event) => {
+        if (event.error !== 'no-speech' && isUserActiveSession) {
+            console.warn("Speech recognition error:", event.error);
         }
     };
 
     recognition.onend = () => {
-        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
+        // ให้ต่อไมค์กลับทันทีอย่างนุ่มนวลถ้าเซสชันยังเปิดอยู่
+        if (isUserActiveSession && !isModelSpeaking) {
             setTimeout(() => {
                 try { recognition.start(); } catch(e){}
-            }, 300);
+            }, 200);
         }
     };
 
@@ -812,16 +810,52 @@ async function sendTextDirectly(text, isSystemCommand = false) {
     if (isModelSpeaking && !isSystemCommand) return;
 
     const lowerText = text.toLowerCase();
-    if (lowerText.includes("กล้องหลัง") || lowerText.includes("back camera")) {
+    if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง") || lowerText.includes("back camera")) {
         useFrontCamera = false;
         initCamera();
-    } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("front camera")) {
+    } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("ใช้กล้องหน้า") || lowerText.includes("front camera")) {
         useFrontCamera = true;
         initCamera();
     }
 
     if (!isSystemCommand) saveToHistory('user', text);
     statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
+
+    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || 
+                              lowerText.includes("ดูกล้อง") || lowerText.includes("ถืออะไร") || 
+                              lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || 
+                              lowerText.includes("ล่าสุด") || lowerText.includes("ดูหน่อย") ||
+                              lowerText.includes("มองเห็น") || lowerText.includes("มีอะไร");
+
+    if (isAskingForVision && video && video.readyState === 4) {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1280; canvas.height = 720;
+            const ctx = canvas.getContext('2d');
+            ctx.filter = 'brightness(1.4) contrast(1.2) saturate(1.1)';
+            ctx.drawImage(video, 0, 0, 1280, 720);
+            ctx.filter = 'none';
+
+            const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+            canvas.width = 0; canvas.height = 0;
+
+            ws.send(JSON.stringify({
+                clientContent: {
+                    turns: [{
+                        role: "user",
+                        parts: [
+                            { inlineData: { mimeType: "image/jpeg", data: base64Image } },
+                            { text: text }
+                        ]
+                    }],
+                    turnComplete: true
+                }
+            }));
+            return;
+        } catch (err) {
+            console.warn("ไม่สามารถดึงภาพสดได้:", err);
+        }
+    }
 
     const textMessage = {
         clientContent: {
@@ -833,13 +867,34 @@ async function sendTextDirectly(text, isSystemCommand = false) {
         }
     };
     ws.send(JSON.stringify(textMessage));
+
+    if (window.stuckTimeout) clearTimeout(window.stuckTimeout);
+    window.stuckTimeout = setTimeout(() => {
+        if (statusText.innerHTML.includes("เจกำลังประมวลผล")) {
+            isModelSpeaking = false;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมคุยต่อแล้วครับ!`;
+            audioStats.innerText = `🎙️ Project-J Live: พร้อมรับฟังเสียงประโยคถัดไป`;
+            if (isUserActiveSession && recognition) {
+                try { recognition.start(); } catch(e){}
+            }
+        }
+    }, 7000);
 }
 
 function playAudioChunk(base64Data) {
     if (!audioContext) return;
     
+    if (window.stuckTimeout) {
+        clearTimeout(window.stuckTimeout);
+        window.stuckTimeout = null;
+    }
+
     isModelSpeaking = true;
-    if (speakingTimeout) clearTimeout(speakingTimeout);
+    if (speakingTimeout) {
+        clearTimeout(speakingTimeout);
+        speakingTimeout = null;
+    }
+
     if (recognition) {
         try { recognition.stop(); } catch(e) {}
     }
@@ -874,7 +929,7 @@ function playAudioChunk(base64Data) {
 
     speakingTimeout = setTimeout(() => {
         isModelSpeaking = false;
-        audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
+        audioStats.innerText = `🎙️ Project-J Live: เจพูดจบสนิทแล้ว พร้อมรับฟังเสียง`;
         if (isUserActiveSession && recognition) {
             try { recognition.start(); } catch(e) {}
         }
