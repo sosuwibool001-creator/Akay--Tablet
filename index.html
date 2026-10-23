@@ -652,12 +652,11 @@ ${historySummaryText}
 
     function startAutoVisionStream() {
         if (autoVisionTimer) clearInterval(autoVisionTimer);
-        // ตั้งเวลาให้ระบบแคปและส่งภาพอัตโนมัติทุกๆ 10 วินาที
         autoVisionTimer = setInterval(() => {
             if (!video || video.readyState !== 4) return;
             if (isModelSpeaking) return;
             captureAndSendFrame(false);
-        }, 10000);        
+        }, 20000);        
     }
 
     async function captureAndSendFrame(isManualTrigger = false) {
