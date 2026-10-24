@@ -118,6 +118,7 @@ app.get('/tablet', (req, res) => {
 });
 
 // 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น latest_home.jpg ทันที
+// 📸 API เฉพาะกิจ: บันทึกภาพสด On-Demand ลง latest_home.jpg เฉพาะเวลาแท็บเล็ตสั่งขอดูภาพ
 app.post('/api/camera/upload-latest', (req, res) => {
     try {
         const { imageBase64 } = req.body;
@@ -128,8 +129,9 @@ app.post('/api/camera/upload-latest', (req, res) => {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
 
+        // บันทึกเฉพาะเมื่อถูกสะกิดสั่งถ่ายภาพสดเท่านั้น
         fs.writeFileSync(filePath, base64Data, 'base64');
-        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 บันทึกภาพสด Real-time ลง latest_home.jpg เรียบร้อยแล้ว`);
 
         return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
     } catch (err) {
@@ -210,6 +212,7 @@ async function sendTelegramAlertWithPhoto(imageInput, caption) {
     }
 }
 
+       // 📦 API หลัก: สำหรับรับภาพสตรีมเบื้องหลังทุก 10 วิ เก็บลง Snapshot 24 ชม.
 app.post('/api/snapshot/upload', async (req, res) => {
     try {
         const { imageBase64, device, recognizedName, isFamily } = req.body;
@@ -223,11 +226,8 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
 
-        // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
-        if (!isTablet) {
-            const latestPath = path.join(DIR_UPLOADS, 'latest_home.jpg');
-            fs.writeFileSync(latestPath, buffer);
-        }
+        // ❌ ตัดโค้ด fs.writeFileSync(latestPath, buffer) ตรงนี้ออกอย่างเด็ดขาด!
+        // เพื่อไม่ให้สตรีม 10 วิ เข้ามาเซฟทับไฟล์ latest_home.jpg
 
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -239,7 +239,10 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const snapshotFilename = `${snapshotPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
         const snapshotFilePath = path.join(snapshotDir, snapshotFilename);
 
+        // ✅ บันทึกลงโฟลเดอร์ snapshots_pc / snapshots_tablet 24h เท่านั้น
         fs.writeFileSync(snapshotFilePath, buffer);
+
+        // ... (โค้ดส่วนเช็ก Motion และ Telegram Alert ด้านล่างคงไว้ตามปกติ)
 
         const previousBuffer = lastFrames[deviceKey];
         lastFrames[deviceKey] = buffer;
@@ -369,5 +372,3 @@ app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
     console.log(`[Architecture] Multi-View Routes & Supabase Cloud Storage Active 🟢📱💻`);
 });
-
-//server เวอชั่นแท๊ปเล็ตเรียกดูกล้องคอมได้ 24/10/69
