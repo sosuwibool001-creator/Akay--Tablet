@@ -832,7 +832,7 @@ ${historySummaryText}
 
     const lowerText = text.toLowerCase();
     
-    // 1. ตรวจสอบคำสั่งสลับกล้องแท็บเล็ต
+    // 1. ควบคุมการสลับกล้องแท็บเล็ต (ถ้ามีคำสั่ง)
     if (lowerText.includes("กล้องหลัง") || lowerText.includes("back camera")) {
         useFrontCamera = false;
         initCamera();
@@ -842,14 +842,14 @@ ${historySummaryText}
     }
 
     saveToHistory('user', text);
-    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผลภาพและเสียง...</strong>`;
+    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
-    // 2. เช็กว่าถามถึง "กล้องในบ้าน / กล้องคอม / คุณแม่" หรือไม่?
+    // 2. เช็กคีย์เวิร์ดให้ชัดเจนว่าต้องการดู "กล้องคอม / กล้องที่บ้าน / แม่"
     const isAskingAboutHomePC = lowerText.includes("คอม") || lowerText.includes("หน้าคอม") || 
                                 lowerText.includes("กล้องบ้าน") || lowerText.includes("กล้องที่บ้าน") || 
                                 lowerText.includes("แม่") || lowerText.includes("คุณแม่");
 
-    const isAskingForGeneralVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || 
+    const isAskingForTabletVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || 
                                      lowerText.includes("ถืออะไร") || lowerText.includes("มองเห็น") || 
                                      lowerText.includes("เช็ก") || lowerText.includes("ดูหน่อย");
 
@@ -858,17 +858,11 @@ ${historySummaryText}
 
     try {
         if (isAskingAboutHomePC) {
-            // 🎯 กรณีถามถึงกล้องคอม/บ้าน: บังคับดึงจากโฟลเดอร์กลางบนเซิร์ฟเวอร์ (เติม timestamp กันแคช)
-            statusText.innerHTML = `<span class="status-dot"></span><strong>🏠 เจ:</strong> กำลังดึงภาพสดจากกล้อง PC ในบ้าน...`;
+            // บังคับดึงจากโฟลเดอร์กลางของคอม (ผ่านเซิร์ฟเวอร์) เท่านั้น ห้ามยุ่งกับกล้องแท็บเล็ต
+            statusText.innerHTML = `<span class="status-dot"></span><strong>🏠 เจ:</strong> กำลังดึงภาพล่าสุดจากกล้อง PC บ้าน...`;
             base64ImageToSend = await fetchLatestHomeCameraFrame();
-            
-            if (!base64ImageToSend) {
-                console.warn("ไม่พบภาพจากกล้อง PC บ้าน สลับไปใช้ภาพแท็บเล็ตแทน");
-            }
-        } 
-        
-        // 🎯 กรณีไม่ได้ถามถึงกล้องคอม แต่ถามถึงสิ่งที่เห็นตรงหน้าแท็บเล็ต
-        if (!base64ImageToSend && isAskingForGeneralVision && video && video.readyState === 4) {
+        } else if (isAskingForTabletVision && video && video.readyState === 4) {
+            // ถ้าไม่ได้ถามถึงคอม แต่ถามภาพทั่วไป ถึงจะดึงจากกล้องแท็บเล็ต
             const canvas = document.createElement('canvas');
             canvas.width = 1280; canvas.height = 720;
             const ctx = canvas.getContext('2d');
@@ -880,7 +874,7 @@ ${historySummaryText}
             canvas.width = 0; canvas.height = 0;
         }
     } catch (err) {
-        console.warn("ดึงภาพประกอบไม่สำเร็จ:", err);
+        console.warn("ดึงภาพไม่สำเร็จ:", err);
     }
 
     if (base64ImageToSend) {
