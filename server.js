@@ -1,4 +1,4 @@
-// server_stable_ondemand.js - Project-J Smart Guardian Server (Stable Snapshot & On-Demand)
+// server_7_cloud_ready.js - Project-J Smart Guardian Server (Supabase Cloud Storage Integrated)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -31,7 +31,7 @@ const DIR_FAMILY_PC = path.join(__dirname, 'family_events_pc');
 const DIR_FAMILY_TABLET = path.join(__dirname, 'family_events_tablet');
 const DIR_VISITOR_PC = path.join(__dirname, 'visitor_events_pc');
 const DIR_VISITOR_TABLET = path.join(__dirname, 'visitor_events_tablet');
-const DIR_UPLOADS = path.join(__dirname, 'uploads'); // โฟลเดอร์เก็บภาพเฉพาะกิจสำหรับ On-Demand
+const DIR_UPLOADS = path.join(__dirname, 'uploads');
 
 const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
 
@@ -53,11 +53,8 @@ const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
 
 let pendingAudioVerifications = {};
 
-// ⚡ ตัวแปรจัดการธงคำขอภาพสด (Real-time On-Demand Request Flag)
-let pendingCameraRequest = false;
-
 app.use(cors());
-app.use(express.json({ limit: '10mb' })); // ใช้ขนาด 10mb มาตรฐานเสถียรตาม server001
+app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
@@ -120,36 +117,7 @@ app.get('/tablet', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// ⚡ API สำหรับระบบ On-Demand (ขอภาพสดจากแท็บเล็ตไปหา PC)
-app.post('/api/camera/request-live', (req, res) => {
-    pendingCameraRequest = true;
-    console.log('[Camera] แท็บเล็ตส่งคำขอภาพสด (Real-time) ไปยัง PC แล้ว ⚡');
-    return res.json({ success: true, message: 'Requested live capture' });
-});
-
-app.get('/api/camera/check-request', (req, res) => {
-    const requested = pendingCameraRequest;
-    if (requested) {
-        pendingCameraRequest = false; // รีเซ็ตธงทันทีเมื่อ PC รับทราบ
-    }
-    return res.json({ requested: requested });
-});
-
-app.post('/api/camera/clear', (req, res) => {
-    try {
-        const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
-        if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-        }
-        lastFrames.pc = null;
-        console.log('[Camera] เคลียร์ภาพล่าสุดออกจากระบบเรียบร้อยแล้ว 🧹');
-        return res.json({ success: true });
-    } catch (e) {
-        return res.status(500).json({ success: false, message: e.message });
-    }
-});
-
-// รับภาพสดเฉพาะกิจจาก PC มาเก็บไว้ที่ latest_home.jpg
+// 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น latest_home.jpg ทันที
 app.post('/api/camera/upload-latest', (req, res) => {
     try {
         const { imageBase64 } = req.body;
@@ -161,7 +129,7 @@ app.post('/api/camera/upload-latest', (req, res) => {
         const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
 
         fs.writeFileSync(filePath, base64Data, 'base64');
-        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 บันทึกภาพสด (Real-time) ลง latest_home.jpg สำเร็จ`);
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
 
         return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
     } catch (err) {
@@ -170,18 +138,10 @@ app.post('/api/camera/upload-latest', (req, res) => {
     }
 });
 
-// ให้แท็บเล็ตดึงภาพจาก latest_home.jpg พร้อมเช็กอายุภาพ (25 วินาที)
+// 📸 API 2: สำหรับให้แท็บเล็ตดึงภาพล่าสุดจากกล้อง PC บ้านไปให้เจดู
 app.get('/api/camera/latest-image', (req, res) => {
     const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
     if (fs.existsSync(filePath)) {
-        const stats = fs.statSync(filePath);
-        const fileAgeMs = Date.now() - stats.mtimeMs;
-        
-        if (fileAgeMs > 25000) {
-            try { fs.unlinkSync(filePath); } catch(e) {}
-            return res.status(404).json({ success: false, message: 'กล้องฝั่งคอมปิดการทำงานหรือไม่ได้อัปเดตภาพ' });
-        }
-
         const imageBuffer = fs.readFileSync(filePath);
         const base64Image = imageBuffer.toString('base64');
         return res.json({ success: true, imageBase64: base64Image });
@@ -190,7 +150,7 @@ app.get('/api/camera/latest-image', (req, res) => {
     }
 });
 
-// เปิด Static Routes เผื่อเรียกดูไฟล์แบบ Local
+// เปิด Static Routes สำหรับเรียกดูไฟล์ผ่าน URL
 app.use('/uploads', express.static(DIR_UPLOADS));
 app.use('/snapshots_pc', express.static(DIR_PC));
 app.use('/snapshots_tablet', express.static(DIR_TABLET));
@@ -250,7 +210,6 @@ async function sendTelegramAlertWithPhoto(imageInput, caption) {
     }
 }
 
-// 📦 API หลักสำหรับรับภาพสตรีมเบื้องหลังทุก 10 วิ ไปบันทึกเก็บสะสมลง Snapshot 24 ชม. อย่างเสถียร
 app.post('/api/snapshot/upload', async (req, res) => {
     try {
         const { imageBase64, device, recognizedName, isFamily } = req.body;
@@ -264,6 +223,12 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
 
+        // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
+        if (!isTablet) {
+            const latestPath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+            fs.writeFileSync(latestPath, buffer);
+        }
+
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
         const timeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
@@ -274,7 +239,6 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const snapshotFilename = `${snapshotPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
         const snapshotFilePath = path.join(snapshotDir, snapshotFilename);
 
-        // บันทึกลงฐานข้อมูล Snapshot 24 ชม. โดยตรง ไม่ไปกวนไฟล์ latest_home.jpg
         fs.writeFileSync(snapshotFilePath, buffer);
 
         const previousBuffer = lastFrames[deviceKey];
@@ -403,5 +367,5 @@ app.post('/api/verify/response', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-    console.log(`[Architecture] Stable Snapshot DB & On-Demand Live Active 🟢📱💻`);
+    console.log(`[Architecture] Multi-View Routes & Supabase Cloud Storage Active 🟢📱💻`);
 });
