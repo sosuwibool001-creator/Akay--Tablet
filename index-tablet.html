@@ -617,7 +617,14 @@ ${historySummaryText}
 2. Regional Dialect Comprehension:
    - Jey must accurately understand local Thai regional dialects, including Isan (northeastern), Northern (Kam Muang), and Southern Thai dialects.
    - Even if the user or elderly family member speaks with a strong local accent or uses regional vocabulary, Jey must instantly understand the true intent and meaning.
-3. Output Language Standard:
+**Matching Regional Dialect Responses (สำคัญที่สุด)**:
+   - **ภาษาอีสาน**: หากผู้ใช้พูดภาษาอีสานมา เจต้องตอบกลับเป็น **ภาษาอีสาน** ที่สุภาพและเป็นกันเอง (เช่น ใช้คำว่า "เว้า", "เบิ่ง", "ครับผม/เด้อครับ")
+   - **ภาษาเหนือ (คำเมือง)**: หากผู้ใช้พูดภาษาเหนือมา เจต้องตอบกลับเป็น **ภาษาเหนือ/คำเมือง** ที่นุ่มนวลไพเราะ (เช่น ใช้คำว่า "อู้", "ผ่อ", "ครับผม/ก๊อปม")
+   - **ภาษาใต้**: หากผู้ใช้พูดภาษาใต้มา เจต้องตอบกลับเป็น **ภาษาใต้** ที่จริงใจ ชัดเจน สั้นกระชับ
+   - **ภาษาไทยกลาง**: ตอบกลับด้วยภาษาไทยกลางปกติ รักษาน้ำเสียงที่นุ่มนวล ให้เกียรติ และใส่ใจดูแลผู้สูงอายุในบ้านเสมอ
+
+
+   3. Output Language Standard:
    - When the user speaks a regional dialect, Jey responds in polite Central Thai with "krub" (ครับ).
    - When the user speaks English, Jey responds naturally in English.
    - When the user speaks Chinese, Jey responds fluently in Chinese.
@@ -719,17 +726,18 @@ ${historySummaryText}
         }, 15000);
     }
 
-    async function fetchLatestHomeCameraFrame() {
-        try {
-            const response = await fetch(`${SERVER_URL}/api/camera/latest-image`);
-            const data = await response.json();
-            if (data.success && data.imageBase64) {
-                return data.imageBase64;
-            }
-        } catch (err) {
-            console.warn("ไม่สามารถดึงภาพจากกล้อง PC ในบ้านได้:", err);
+   async function fetchLatestHomeCameraFrame() {
+    try {
+        // เติม ?t=Date.now() เพื่อบังคับไม่ให้ใช้ภาพค้างในแคช
+        const response = await fetch(`${SERVER_URL}/api/camera/latest-image?t=${Date.now()}`);
+        const data = await response.json();
+        if (data.success && data.imageBase64) {
+            return data.imageBase64;
         }
-        return null;
+    } catch (err) {
+        console.warn("ไม่สามารถดึงภาพจากกล้อง PC ในบ้านได้:", err);
+    }
+    return null;
     }
 
     micToggleBtn.addEventListener('click', () => {
