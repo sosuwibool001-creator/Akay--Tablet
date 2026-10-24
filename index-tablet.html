@@ -542,26 +542,33 @@
     });
 
     async function initCamera() {
+    try {
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+        }
+
+        const constraints = {
+            video: { 
+                width: { ideal: 1280 }, 
+                height: { ideal: 720 },
+                facingMode: useFrontCamera ? "user" : { exact: "environment" } // ถ้าเปิดกล้องหลังให้ลองใช้ exact หรือสลับเป็นสภาพแวดล้อม
+            }, 
+            audio: false
+        };
+
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = mediaStream;
+    } catch (err) {
+        console.warn("ไม่สามารถเปิดกล้องด้วย facingMode ระบุได้ ลองเปิดแบบปกติ: " + err.message);
         try {
-            if (mediaStream) {
-                mediaStream.getTracks().forEach(track => track.stop());
-            }
-
-            const constraints = {
-                video: { 
-                    width: { ideal: 1280 }, 
-                    height: { ideal: 720 },
-                    facingMode: useFrontCamera ? "user" : "environment"
-                }, 
-                audio: false
-            };
-
-            mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+            // สำรองกรณีกล้องหลังแบบระบุเป๊ะๆ ไม่รองรับ ให้เปิดกล้องแบบปกติแทน
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             video.srcObject = mediaStream;
-        } catch (err) {
-            console.warn("ไม่สามารถเปิดกล้องได้: " + err.message);
+        } catch (e) {
+            alert("ไม่สามารถเปิดกล้องได้: " + e.message);
         }
     }
+}
 
     async function switchCamera() {
         useFrontCamera = !useFrontCamera;
