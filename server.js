@@ -369,3 +369,5 @@ app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
     console.log(`[Architecture] Multi-View Routes & Supabase Cloud Storage Active 🟢📱💻`);
 });
+
+//server เวอชั่นแท๊ปเล็ตเรียกดูกล้องคอมได้ 24/10/69
