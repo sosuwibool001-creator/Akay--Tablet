@@ -118,7 +118,6 @@ app.get('/tablet', (req, res) => {
 });
 
 // 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น latest_home.jpg ทันที
-// 📸 API เฉพาะกิจ: บันทึกภาพสด On-Demand ลง latest_home.jpg เฉพาะเวลาแท็บเล็ตสั่งขอดูภาพ
 app.post('/api/camera/upload-latest', (req, res) => {
     try {
         const { imageBase64 } = req.body;
@@ -129,9 +128,8 @@ app.post('/api/camera/upload-latest', (req, res) => {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
 
-        // บันทึกเฉพาะเมื่อถูกสะกิดสั่งถ่ายภาพสดเท่านั้น
         fs.writeFileSync(filePath, base64Data, 'base64');
-        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 บันทึกภาพสด Real-time ลง latest_home.jpg เรียบร้อยแล้ว`);
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
 
         return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
     } catch (err) {
@@ -212,8 +210,6 @@ async function sendTelegramAlertWithPhoto(imageInput, caption) {
     }
 }
 
-       // 📦 API หลัก: สำหรับรับภาพสตรีมเบื้องหลังทุก 10 วิ เก็บลง Snapshot 24 ชม.
-// 📦 API หลัก: สำหรับรับภาพสตรีมเบื้องหลังทุก 10 วิ ไปบันทึกเก็บสะสมลง Snapshot 24 ชม.
 app.post('/api/snapshot/upload', async (req, res) => {
     try {
         const { imageBase64, device, recognizedName, isFamily } = req.body;
@@ -227,20 +223,23 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
 
+        // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
+        if (!isTablet) {
+            const latestPath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+            fs.writeFileSync(latestPath, buffer);
+        }
+
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
         const timeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
         const timestamp = Date.now();
 
-        // กำหนดโฟลเดอร์และชื่อไฟล์สำหรับเก็บ Snapshot 24 ชม.
         const snapshotDir = isTablet ? DIR_TABLET : DIR_PC;
         const snapshotPrefix = isTablet ? 'tablet_' : 'pc_';
         const snapshotFilename = `${snapshotPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
         const snapshotFilePath = path.join(snapshotDir, snapshotFilename);
 
-        // ✅ จุดสำคัญ: บันทึกรูปลงโฟลเดอร์ snapshots_pc / snapshots_tablet ทุกๆ รอบ 10 วินาที
         fs.writeFileSync(snapshotFilePath, buffer);
-        console.log(`[Snapshot 24h] บันทึกภาพสำเร็จ: ${snapshotFilename}`);
 
         const previousBuffer = lastFrames[deviceKey];
         lastFrames[deviceKey] = buffer;
@@ -305,7 +304,37 @@ app.post('/api/snapshot/upload', async (req, res) => {
             const cloudUrl = await uploadToCloudStorage(buffer, eventFilename, bucketFolder);
             const alertImageSource = cloudUrl || eventFilePath;
 
-            // ... (ระบบ Telegram Alert คงไว้ตามเดิม)
+            if (personCategory === 'stranger') {
+                const sessionId = `verify_${deviceKey}_${timestamp}`;
+                pendingAudioVerifications[sessionId] = {
+                    imagePath: alertImageSource,
+                    deviceKey: deviceKey,
+                    status: 'waiting_for_voice'
+                };
+
+                setTimeout(async () => {
+                    if (pendingAudioVerifications[sessionId] && pendingAudioVerifications[sessionId].status === 'waiting_for_voice') {
+                        delete pendingAudioVerifications[sessionId];
+                        const nowTime = Date.now();
+                        if (nowTime - lastTelegramAlertTime[deviceKey] > TELEGRAM_ALERT_COOLDOWN) {
+                            lastTelegramAlertTime[deviceKey] = nowTime;
+                            await sendTelegramAlertWithPhoto(
+                                alertImageSource, 
+                                `🚨 *แจ้งเตือนด่วน! พบผู้บุกรุก (ไม่ตอบชื่อยืนยันตัวตน)*\nตรวจสอบพบที่อุปกรณ์: *${deviceKey.toUpperCase()}* ❌`
+                            );
+                        }
+                    }
+                }, 12000);
+            } else {
+                const nowTime = Date.now();
+                if (nowTime - lastTelegramAlertTime[deviceKey] > TELEGRAM_ALERT_COOLDOWN) {
+                    lastTelegramAlertTime[deviceKey] = nowTime;
+                    let alertCaption = personCategory === 'family' 
+                        ? `🏠 *แจ้งเตือนครอบครัว Project-J*\nพบบุคคลในครอบครัว: *คุณ ${recognizedName || 'สมาชิก'}* 🟢`
+                        : `🎴 *แจ้งเตือนคนรู้จัก / แขก*\nพบคุณ *${recognizedName}* 🔵`;
+                    await sendTelegramAlertWithPhoto(alertImageSource, alertCaption);
+                }
+            }
         }
 
         return res.status(200).json({
@@ -318,7 +347,7 @@ app.post('/api/snapshot/upload', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Snapshot upload error:', error);
+        console.error('Server error:', error);
         return res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -340,3 +369,5 @@ app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
     console.log(`[Architecture] Multi-View Routes & Supabase Cloud Storage Active 🟢📱💻`);
 });
+
+//server เวอชั่นแท๊ปเล็ตเรียกดูกล้องคอมได้ 24/10/69
