@@ -53,6 +53,9 @@ const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
 
 let pendingAudioVerifications = {};
 
+// ⚡ ตัวแปรจัดการธงคำขอภาพสด (Real-time On-Demand Request Flag)
+let pendingCameraRequest = false;
+
 app.use(cors());
 app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
 app.use(express.static(__dirname));
@@ -117,7 +120,38 @@ app.get('/tablet', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น latest_home.jpg ทันที
+// ⚡ API 1.1: ให้แท็บเล็ตเรียกเพื่อส่งสัญญาณไปสะกิด PC ขอภาพสด
+app.post('/api/camera/request-live', (req, res) => {
+    pendingCameraRequest = true;
+    console.log('[Camera] แท็บเล็ตส่งคำขอภาพสด (Real-time) ไปยัง PC แล้ว ⚡');
+    return res.json({ success: true, message: 'Requested live capture' });
+});
+
+// 💻 API 1.2: ให้ PC คอยเช็ก (Polling) ว่ามีคำขอภาพสดเข้ามาไหม
+app.get('/api/camera/check-request', (req, res) => {
+    const requested = pendingCameraRequest;
+    if (requested) {
+        pendingCameraRequest = false; // รีเซ็ตธงทันทีเมื่อ PC รับทราบ
+    }
+    return res.json({ requested: requested });
+});
+
+// 🗑️ API 1.3: เคลียร์ภาพล่าสุดทิ้งเมื่อปิดระบบ (ป้องกันภาพค้าง)
+app.post('/api/camera/clear', (req, res) => {
+    try {
+        const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+        }
+        lastFrames.pc = null;
+        console.log('[Camera] เคลียร์ภาพล่าสุดออกจากระบบเรียบร้อยแล้ว 🧹');
+        return res.json({ success: true });
+    } catch (e) {
+        return res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+// 📸 API 2.1: สำหรับรับภาพสด (On-Demand) จากกล้อง PC มาบันทึกทับเป็น latest_home.jpg
 app.post('/api/camera/upload-latest', (req, res) => {
     try {
         const { imageBase64 } = req.body;
@@ -129,7 +163,7 @@ app.post('/api/camera/upload-latest', (req, res) => {
         const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
 
         fs.writeFileSync(filePath, base64Data, 'base64');
-        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 บันทึกภาพสด (Real-time) ลง latest_home.jpg เรียบร้อยแล้ว`);
 
         return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
     } catch (err) {
@@ -138,10 +172,19 @@ app.post('/api/camera/upload-latest', (req, res) => {
     }
 });
 
-// 📸 API 2: สำหรับให้แท็บเล็ตดึงภาพล่าสุดจากกล้อง PC บ้านไปให้เจดู
+// 📸 API 2.2: สำหรับให้แท็บเล็ตดึงภาพจาก latest_home.jpg (พร้อมเช็กอายุภาพป้องกันภาพเก่าเกิน 25 วินาที)
 app.get('/api/camera/latest-image', (req, res) => {
     const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
     if (fs.existsSync(filePath)) {
+        const stats = fs.statSync(filePath);
+        const fileAgeMs = Date.now() - stats.mtimeMs;
+        
+        // ถ้าภาพเก่าเกิน 25 วินาที ถือว่าระบบคอมปิดไปแล้ว ให้ลบทิ้งและแจ้งสถานะ
+        if (fileAgeMs > 25000) {
+            try { fs.unlinkSync(filePath); } catch(e) {}
+            return res.status(404).json({ success: false, message: 'กล้องฝั่งคอมปิดการทำงานหรือไม่ได้อัปเดตภาพ' });
+        }
+
         const imageBuffer = fs.readFileSync(filePath);
         const base64Image = imageBuffer.toString('base64');
         return res.json({ success: true, imageBase64: base64Image });
@@ -210,6 +253,7 @@ async function sendTelegramAlertWithPhoto(imageInput, caption) {
     }
 }
 
+// 📦 API สำหรับรับภาพสตรีมเบื้องหลังทุก 10 วิ ไปเก็บลง Database ย้อนหลัง 24 ชม.
 app.post('/api/snapshot/upload', async (req, res) => {
     try {
         const { imageBase64, device, recognizedName, isFamily } = req.body;
@@ -223,12 +267,6 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
 
-        // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
-        if (!isTablet) {
-            const latestPath = path.join(DIR_UPLOADS, 'latest_home.jpg');
-            fs.writeFileSync(latestPath, buffer);
-        }
-
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
         const timeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
@@ -239,6 +277,7 @@ app.post('/api/snapshot/upload', async (req, res) => {
         const snapshotFilename = `${snapshotPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
         const snapshotFilePath = path.join(snapshotDir, snapshotFilename);
 
+        // บันทึกลงโฟลเดอร์ Database 24 ชม. ปกติ (ไม่ทับไฟล์ latest_home.jpg แล้ว)
         fs.writeFileSync(snapshotFilePath, buffer);
 
         const previousBuffer = lastFrames[deviceKey];
@@ -367,5 +406,5 @@ app.post('/api/verify/response', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-    console.log(`[Architecture] Multi-View Routes & Supabase Cloud Storage Active 🟢📱💻`);
+    console.log(`[Architecture] On-Demand Live Snapshot & 24h Database Active 🟢📱💻`);
 });
