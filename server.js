@@ -9,7 +9,7 @@ const FormData = require('form-data');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = process.env.PORT || 3000; 
+const PORT = process.env.PORT || 3000;
 
 // ตั้งค่าการเชื่อมต่อ Supabase Cloud Storage (ดึงค่าจาก Environment Variables บน Render)
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
@@ -119,33 +119,23 @@ app.get('/tablet', (req, res) => {
 });
 
 // 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น latest_home.jpg ทันที
-// 📸 API รับภาพสดเฉพาะกิจสำหรับส่งให้แท็บเล็ตดู
-app.post('/api/camera/upload-latest', async (req, res) => {
+app.post('/api/camera/upload-latest', (req, res) => {
     try {
         const { imageBase64 } = req.body;
         if (!imageBase64) {
-            return res.status(400).json({ success: false, message: 'No image data provided' });
+            return res.status(400).json({ success: false, message: 'Missing imageBase64' });
         }
 
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        const inputBuffer = Buffer.from(base64Data, 'base64');
+        const filePath = path.join(DIR_UPLOADS, 'latest_home.jpg');
 
-        // 🔄 ใช้ sharp เพื่อกลับภาพซ้าย-ขวา (Flop / Horizontal Flip) เฉพาะภาพที่จะส่งให้แท็บเล็ต
-        const flippedBuffer = await sharp(inputBuffer)
-            .flop() // คำสั่งกลับภาพซ้ายไปขวา (Horizontal Flip)
-            .jpeg({ quality: 55 }) // กำหนดขนาด Full HD ความชัด 0.55 ตามที่เราตั้งไว้
-            .toBuffer();
+        fs.writeFileSync(filePath, base64Data, 'base64');
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพล่าสุดจากกล้อง PC บ้านเรียบร้อยแล้ว`);
 
-        // บันทึกลงไฟล์ latest_home.jpg ที่กลับข้างเรียบร้อยแล้ว
-        const latestPath = path.join(__dirname, 'uploads', 'latest_home.jpg');
-        fs.writeFileSync(latestPath, flippedBuffer);
-
-        console.log('[Live Tablet] กลับภาพซ้าย-ขวาและบันทึก latest_home.jpg เรียบร้อยแล้ว');
-
-        return res.status(200).json({ success: true, message: 'Latest image uploaded & flipped successfully' });
-    } catch (error) {
-        console.error('Upload latest error:', error);
-        return res.status(500).json({ success: false, message: error.message });
+        return res.json({ success: true, url: '/uploads/latest_home.jpg', timestamp: Date.now() });
+    } catch (err) {
+        console.error('Save image error:', err);
+        return res.status(500).json({ success: false, message: err.message });
     }
 });
 
