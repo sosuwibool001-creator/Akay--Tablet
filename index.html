@@ -665,15 +665,15 @@ ${historySummaryText}
         if (isUploadingSnapshot && !isManualTrigger) return;
 
         const canvas = document.createElement('canvas');
-        canvas.width = 1280;
-        canvas.height = 720;
+        canvas.width = 1920;
+        canvas.height = 1080;
         const ctx = canvas.getContext('2d');
 
         ctx.filter = 'brightness(1.0) contrast(1.2) saturate(1.1)';
-        ctx.drawImage(video, 0, 0, 1280, 720);
+        ctx.drawImage(video, 0, 0, 1920, 1080);
         ctx.filter = 'none';
 
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+        const base64Image = canvas.toDataURL('image/jpeg', 0.55);
         canvas.width = 0; canvas.height = 0;
 
         try {
@@ -849,15 +849,15 @@ ${historySummaryText}
                 
                 if (video && video.readyState === 4) {
                     const canvas = document.createElement('canvas');
-                    canvas.width = 1280;
-                    canvas.height = 720;
+                    canvas.width = 1920;
+                    canvas.height = 1080;
                     const ctx = canvas.getContext('2d');
                     
                     ctx.filter = 'brightness(1.0) contrast(1.2) saturate(1.1)';
-                    ctx.drawImage(video, 0, 0, 1280, 720);
+                    ctx.drawImage(video, 0, 0, 1920, 1080);
                     ctx.filter = 'none';
 
-                    const base64Image = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                    const base64Image = canvas.toDataURL('image/jpeg', 0.55).split(',')[1];
                     canvas.width = 0; canvas.height = 0;
 
                     ws.send(JSON.stringify({
@@ -1027,3 +1027,5 @@ ${historySummaryText}
 
 </body>
 </html>
+
+//โค้ดคอม บันทึกภาพล่าสุด และส่งให้แท็บเล็ตดูได้
