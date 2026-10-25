@@ -9,7 +9,7 @@ const FormData = require('form-data');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; 
 
 // ตั้งค่าการเชื่อมต่อ Supabase Cloud Storage (ดึงค่าจาก Environment Variables บน Render)
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
