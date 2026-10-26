@@ -225,15 +225,26 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
     }
 });
 
-// 📸 API ดึงภาพล่าสุดของกล้องแต่ละตัวไปแสดงผล
+// 📸 API ดึงภาพล่าสุดของกล้องแต่ละตัวไปแสดงผล (รองรับ Fallback ป้องกัน 404)
 app.get('/api/camera/latest/:cameraId', (req, res) => {
-    const { cameraId } = req.params;
-    const filePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
-    if (fs.existsSync(filePath)) {
-        const imageBuffer = fs.readFileSync(filePath);
-        return res.json({ success: true, imageBase64: imageBuffer.toString('base64') });
-    } else {
-        return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId}` });
+    try {
+        const { cameraId } = req.params;
+        const filePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
+        
+        if (fs.existsSync(filePath)) {
+            const imageBuffer = fs.readFileSync(filePath);
+            return res.json({ success: true, imageBase64: imageBuffer.toString('base64') });
+        } else {
+            // ถ้ายังไม่มีภาพเฉพาะของกล้องนี้ ให้ดึงภาพกลาง (realtime_home.jpg) หรือภาพของกล้องตัวหลักมาแสดงแทนชั่วคราว
+            const fallbackPath = path.join(DIR_UPLOADS, 'realtime_home.jpg');
+            if (fs.existsSync(fallbackPath)) {
+                const fallbackBuffer = fs.readFileSync(fallbackPath);
+                return res.json({ success: true, imageBase64: fallbackBuffer.toString('base64') });
+            }
+            return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId}` });
+        }
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
     }
 });
 
