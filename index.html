@@ -172,10 +172,9 @@
 <body>
 
 <div class="container">
-    <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">PC Master</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Voice Registration Mode)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Multi-Camera View)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -193,7 +192,6 @@
         </button>
     </div>
 
-    <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก (First-Time Setup) -->
     <div id="stepSetup">
         <div class="logo-box" style="font-size: 24px;">🛠️ ลงทะเบียนเจ้าของเครื่องครั้งแรก</div>
         <div class="subtitle">สวัสดีครับ เจระบบรักษาความปลอดภัยพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรและใช่เจ้าของเครื่องตัวจริงหรือไม่ครับ?</div>
@@ -207,7 +205,6 @@
         </div>
     </div>
 
-    <!-- Step 1.5: สแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ (ครั้งถัดไป) -->
     <div id="stepAuth">
         <div class="logo-box" style="font-size: 26px;">🤖 กำลังตรวจสอบสิทธิ์เจ้าของเครื่อง...</div>
         <div class="subtitle" id="authStatusText">กำลังสแกนใบหน้าเทียบกับแฟ้มข้อมูลเจ้าของระบบ...</div>
@@ -215,7 +212,6 @@
         <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 15px;">❌ ยกเลิก</button>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลัก -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
@@ -224,10 +220,7 @@
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
 
-        <!-- ช่องแสดงภาพจากกล้องเว็บแคม (สำหรับกล้องหลัก/หน้าคอม) -->
         <video id="webcam" autoplay playsinline muted style="display: block;"></video>
-
-        <!-- 📷 แท็กภาพสำหรับแสดงผลกล้อง IP Camera ในวงแลน (เช่น กล้องหน้าบ้าน camera002) -->
         <img id="ipCameraView" style="display: none;" alt="IP Camera View">
 
         <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
@@ -243,7 +236,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (PC Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Voice Registration Ready: พร้อมบันทึกเสียงสมาชิกด้วยคำสั่งเสียง</div>
+            <div id="audioStats" class="debug-stats">📹 Multi-Camera Ready: สั่งสลับกล้องด้วยเสียงได้ทันที</div>
         </div>
     </div>
 </div>
@@ -298,7 +291,7 @@ let authStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null; 
-let ipCameraPollInterval = null; // ตัวแปรดึงภาพ IP Camera ต่อเนื่อง
+let ipCameraPollInterval = null; 
 let recognition = null;
 let isUserActiveSession = false;
 let useFrontCamera = true;
@@ -312,7 +305,6 @@ let speechTimeout = null;
 let isVoiceRegistrationMode = false;
 let targetRegistrationName = "";
 
-// กำหนดรหัสกล้องเริ่มต้น
 let currentCameraId = "camera001"; 
 
 function saveToHistory(role, text) {
@@ -466,7 +458,6 @@ async function switchCamera() {
 
 switchCamBtn.addEventListener('click', switchCamera);
 
-// 🔄 ฟังก์ชันสลับการแสดงผลหน้าจอระหว่างกล้องคอมและกล้อง IP Camera
 function switchCameraView(targetCamId) {
     currentCameraId = targetCamId;
 
@@ -476,17 +467,14 @@ function switchCameraView(targetCamId) {
     }
 
     if (currentCameraId === "camera001") {
-        // ใช้กล้องคอมพิวเตอร์ (Webcam)
         video.style.display = "block";
         ipCameraView.style.display = "none";
         statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> กำลังใช้งานกล้องหน้าคอม (camera001)`;
     } else {
-        // ใช้กล้อง IP Camera ในวงแลน (เช่น camera002 กล้องหน้าบ้าน)
         video.style.display = "none";
         ipCameraView.style.display = "block";
         statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> กำลังเชื่อมต่อกล้อง ${currentCameraId}...`;
 
-        // ดึงภาพทันทีและตั้งลูปดึงภาพสดทุกๆ 2 วินาที
         fetchIpCameraLatestFrame();
         ipCameraPollInterval = setInterval(fetchIpCameraLatestFrame, 2000);
     }
@@ -535,8 +523,8 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (Voice Registration Mode) 🎙️🔊📹`;
-            audioStats.innerText = `📹 Voice Registration Active: พร้อมรับคำสั่งเสียงบันทึกโปรไฟล์`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
+            audioStats.innerText = `📹 Multi-Camera Active: พร้อมสลับแสดงภาพกล้องเรียลไทม์`;
             
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
@@ -545,12 +533,6 @@ async function startMainAppSession() {
 เวลาปัจจุบัน: ${currentThaiTime}
 
 ${historySummaryText}
-
-[กฎสำคัญ - Voice Profile Registration (ระบบบันทึกเสียงรายบุคคลด้วยคำสั่งเสียง)]:
-1. หากผู้ใช้งานพูดคำสั่งเกี่ยวกับการบันทึกเสียง เช่น "บันทึกเสียง", "เพิ่มเสียงสมาชิก", "จำเสียงคุณแม่" หรือระบุชื่อบุคคลเพื่อบันทึกเสียงตัวอย่าง:
-   - ให้เจตอบรับด้วยความยินดีทันที และแจ้งให้ผู้ใช้พูดประโยคสั้นๆ เพื่อเก็บตัวอย่างเสียง (เช่น "ได้ครับเพื่อนเอก รบกวนคุณ [ชื่อ] พูดประโยคสั้นๆ เพื่อให้เจบันทึกเสียงตัวอย่างได้เลยครับ")
-   - พร้อมกันนี้ให้ส่งข้อความพิเศษในคำตอบกลับมาด้วยรูปแบบ [START_VOICE_REGISTRATION:ชื่อบุคคล] เพื่อให้ระบบฝั่ง Client เริ่มจับเสียงไมค์บันทึกทันที
-2. รักษาโทนเสียงที่สุภาพ เป็นกันเอง ใช้คำว่า "ครับ" เสมอ
 `;
 
             const setupMessage = {
@@ -603,14 +585,6 @@ ${historySummaryText}
                     if (responseText) {
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
-                        
-                        if (responseText.includes("[START_VOICE_REGISTRATION:")) {
-                            const match = responseText.match(/\[START_VOICE_REGISTRATION:(.*?)\]/);
-                            if (match && match[1]) {
-                                targetRegistrationName = match[1].trim();
-                                triggerVoiceSampleRecording(targetRegistrationName);
-                            }
-                        }
                     }
                 }
             } catch (e) {
@@ -644,65 +618,6 @@ function startKeepAlivePing() {
             ws.send(JSON.stringify({ clientContent: { turns: [], turnComplete: false } }));
         }
     }, 15000);
-}
-
-async function triggerVoiceSampleRecording(personName) {
-    if (isVoiceRegistrationMode) return;
-    isVoiceRegistrationMode = true;
-
-    audioStats.innerText = `🎙️ กำลังบันทึกเสียงตัวอย่างของ [${personName}] (พูดประโยคสั้นๆ 4 วินาที)...`;
-    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>🎙️ บันทึกเสียง:</strong> กรุณาพูดประโยคตัวอย่างสำหรับ ${personName}...`;
-
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
-        let audioChunks = [];
-
-        mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                audioChunks.push(event.data);
-            }
-        };
-
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-            const reader = new FileReader();
-            reader.readAsDataURL(audioBlob);
-            reader.onloadend = async () => {
-                const base64Audio = reader.result;
-
-                try {
-                    const res = await fetch(`${SERVER_URL}/api/voice/register-sample`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ personName: personName, audioBase64: base64Audio })
-                    });
-                    const data = await res.json();
-
-                    if (data.success) {
-                        audioStats.innerText = `✅ บันทึกเสียงของ [${personName}] สำเร็จเรียบร้อยแล้วครับ!`;
-                        statusText.innerHTML = `<span class="status-dot"></span><strong>✅ สำเร็จ:</strong> บันทึกโปรไฟล์เสียงของ ${personName} เรียบร้อย`;
-                    } else {
-                        audioStats.innerText = `❌ บันทึกเสียงไม่สำเร็จ: ${data.message}`;
-                    }
-                } catch (err) {
-                    console.error("Upload voice sample error:", err);
-                    audioStats.innerText = `❌ เกิดข้อผิดพลาดในการอัปโหลดเสียง`;
-                }
-
-                stream.getTracks().forEach(track => track.stop());
-                isVoiceRegistrationMode = false;
-            };
-        };
-
-        mediaRecorder.start();
-        setTimeout(() => { mediaRecorder.stop(); }, 4000);
-
-    } catch (err) {
-        console.error("Microphone access error:", err);
-        audioStats.innerText = `❌ ไม่สามารถเข้าถึงไมโครโฟนเพื่อบันทึกเสียงได้`;
-        isVoiceRegistrationMode = false;
-    }
 }
 
 function startRemoteCaptureListener() {
@@ -799,7 +714,7 @@ function startSpeechRecognition() {
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
-        if (isModelSpeaking || isVoiceRegistrationMode) return;
+        if (isModelSpeaking) return;
 
         let interimText = '';
         let currentChunk = '';
@@ -841,7 +756,7 @@ function startSpeechRecognition() {
     };
 
     recognition.onend = () => {
-        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking && !isVoiceRegistrationMode) {
+        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
             setTimeout(() => {
                 try { recognition.start(); } catch(e){}
             }, 300);
@@ -857,7 +772,6 @@ async function sendTextDirectly(text) {
    
     const lowerText = text.toLowerCase();
     
-    // 📹 ดักจับคำสั่งเสียงเพื่อสลับมุมมองกล้องจริง
     if (lowerText.includes("กล้องหน้าบ้าน") || lowerText.includes("camera002")) {
         switchCameraView("camera002");
     } else if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
@@ -968,7 +882,7 @@ function playAudioChunk(base64Data) {
     speakingTimeout = setTimeout(() => {
         isModelSpeaking = false;
         audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
-        if (isUserActiveSession && recognition && !isVoiceRegistrationMode) {
+        if (isUserActiveSession && recognition) {
             try { recognition.start(); } catch(e) {}
         }
     }, remainingTime);
