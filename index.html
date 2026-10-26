@@ -124,7 +124,7 @@
 
         #step2 { display: none; text-align: left; width: 100%; }
 
-        video {
+        video, img#ipCameraView {
             width: 100%;
             max-height: 480px; 
             border-radius: 18px;
@@ -224,7 +224,11 @@
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
 
-        <video id="webcam" autoplay playsinline muted></video>
+        <!-- ช่องแสดงภาพจากกล้องเว็บแคม (สำหรับกล้องหลัก/หน้าคอม) -->
+        <video id="webcam" autoplay playsinline muted style="display: block;"></video>
+
+        <!-- 📷 แท็กภาพสำหรับแสดงผลกล้อง IP Camera ในวงแลน (เช่น กล้องหน้าบ้าน camera002) -->
+        <img id="ipCameraView" style="display: none;" alt="IP Camera View">
 
         <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
             <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ (Manual)</button>
@@ -276,6 +280,7 @@ const authStatusText = document.getElementById('authStatusText');
 const userNameDisplay = document.getElementById('userNameDisplay');
 
 const video = document.getElementById('webcam');
+const ipCameraView = document.getElementById('ipCameraView');
 const stopBtn = document.getElementById('stopBtn');
 const snapBtn = document.getElementById('snapBtn');
 const switchCamBtn = document.getElementById('switchCamBtn');
@@ -293,6 +298,7 @@ let authStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null; 
+let ipCameraPollInterval = null; // ตัวแปรดึงภาพ IP Camera ต่อเนื่อง
 let recognition = null;
 let isUserActiveSession = false;
 let useFrontCamera = true;
@@ -303,9 +309,11 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
-// ตัวแปรควบคุมโหมดบันทึกเสียงรายบุคคล
 let isVoiceRegistrationMode = false;
 let targetRegistrationName = "";
+
+// กำหนดรหัสกล้องเริ่มต้น
+let currentCameraId = "camera001"; 
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -458,6 +466,45 @@ async function switchCamera() {
 
 switchCamBtn.addEventListener('click', switchCamera);
 
+// 🔄 ฟังก์ชันสลับการแสดงผลหน้าจอระหว่างกล้องคอมและกล้อง IP Camera
+function switchCameraView(targetCamId) {
+    currentCameraId = targetCamId;
+
+    if (ipCameraPollInterval) {
+        clearInterval(ipCameraPollInterval);
+        ipCameraPollInterval = null;
+    }
+
+    if (currentCameraId === "camera001") {
+        // ใช้กล้องคอมพิวเตอร์ (Webcam)
+        video.style.display = "block";
+        ipCameraView.style.display = "none";
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> กำลังใช้งานกล้องหน้าคอม (camera001)`;
+    } else {
+        // ใช้กล้อง IP Camera ในวงแลน (เช่น camera002 กล้องหน้าบ้าน)
+        video.style.display = "none";
+        ipCameraView.style.display = "block";
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> กำลังเชื่อมต่อกล้อง ${currentCameraId}...`;
+
+        // ดึงภาพทันทีและตั้งลูปดึงภาพสดทุกๆ 2 วินาที
+        fetchIpCameraLatestFrame();
+        ipCameraPollInterval = setInterval(fetchIpCameraLatestFrame, 2000);
+    }
+}
+
+async function fetchIpCameraLatestFrame() {
+    try {
+        const res = await fetch(`${SERVER_URL}/api/camera/latest/${currentCameraId}`);
+        const data = await res.json();
+        if (data.success && data.imageBase64) {
+            ipCameraView.src = `data:image/jpeg;base64,${data.imageBase64}`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>📹 มุมมอง:</strong> กำลังแสดงภาพสดจาก ${currentCameraId}`;
+        }
+    } catch (err) {
+        console.warn("ยังไม่ได้รับภาพจากกล้อง:", err);
+    }
+}
+
 async function startMainAppSession() {
     isUserActiveSession = true;
 
@@ -557,22 +604,12 @@ ${historySummaryText}
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
                         
-                        // ตรวจจับคำสั่งพิเศษจากเจเพื่อเริ่มโหมดบันทึกเสียงรายบุคคล
                         if (responseText.includes("[START_VOICE_REGISTRATION:")) {
                             const match = responseText.match(/\[START_VOICE_REGISTRATION:(.*?)\]/);
                             if (match && match[1]) {
                                 targetRegistrationName = match[1].trim();
                                 triggerVoiceSampleRecording(targetRegistrationName);
                             }
-                        }
-
-                        const lowerText = responseText.toLowerCase();
-                        if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง") || lowerText.includes("back camera")) && useFrontCamera) {
-                            useFrontCamera = false;
-                            initCamera();
-                        } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง") || lowerText.includes("front camera")) && !useFrontCamera) {
-                            useFrontCamera = true;
-                            initCamera();
                         }
                     }
                 }
@@ -609,7 +646,6 @@ function startKeepAlivePing() {
     }, 15000);
 }
 
-// 🎙️ [NEW] ฟังก์ชันบันทึกเสียงตัวอย่างจากไมโครโฟนสดๆ เมื่อเจสั่งเปิดโหมดลงทะเบียนเสียง
 async function triggerVoiceSampleRecording(personName) {
     if (isVoiceRegistrationMode) return;
     isVoiceRegistrationMode = true;
@@ -636,7 +672,6 @@ async function triggerVoiceSampleRecording(personName) {
                 const base64Audio = reader.result;
 
                 try {
-                    // ส่งข้อมูลเสียงไปยัง Server เพื่อบันทึกเก็บไว้
                     const res = await fetch(`${SERVER_URL}/api/voice/register-sample`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -655,18 +690,13 @@ async function triggerVoiceSampleRecording(personName) {
                     audioStats.innerText = `❌ เกิดข้อผิดพลาดในการอัปโหลดเสียง`;
                 }
 
-                // ปิด Stream และคืนค่าสถานะ
                 stream.getTracks().forEach(track => track.stop());
                 isVoiceRegistrationMode = false;
             };
         };
 
         mediaRecorder.start();
-
-        // บันทึกเสียงต่อเนื่องเป็นเวลา 4 วินาทีพอดี
-        setTimeout(() => {
-            mediaRecorder.stop();
-        }, 4000);
+        setTimeout(() => { mediaRecorder.stop(); }, 4000);
 
     } catch (err) {
         console.error("Microphone access error:", err);
@@ -675,12 +705,11 @@ async function triggerVoiceSampleRecording(personName) {
     }
 }
 
-// 📡 ระบบคอยดักฟังคำขอ On-Demand จากแท็บเล็ต พร้อมเคลียร์สถานะอัตโนมัติ
 function startRemoteCaptureListener() {
     if (remoteCheckInterval) clearInterval(remoteCheckInterval);
     
     remoteCheckInterval = setInterval(async () => {
-        if (!isUserActiveSession || !video || video.readyState !== 4) return;
+        if (!isUserActiveSession) return;
 
         try {
             const res = await fetch(`${SERVER_URL}/api/camera/check-request`);
@@ -690,29 +719,30 @@ function startRemoteCaptureListener() {
                 console.log("📥 ได้รับคำขอภาพสดจากแท็บเล็ต กำลังแคปส่ง...");
                 await captureAndSendFrame(false);
                 await fetch(`${SERVER_URL}/api/camera/clear-request`, { method: 'POST' });
-                console.log("✅ แคปภาพและเคลียร์สถานะเรียบร้อย พร้อมรับคำขอรอบถัดไป");
+                console.log("✅ แคปภาพและเคลียร์สถานะเรียบร้อย");
             }
         } catch (err) {}
     }, 2000);
 }
 
-// กำหนดตัวแปรเก็บรหัสกล้องปัจจุบันของหน้านี้ (เช่น camera001 หรือ camera002)
-let currentCameraId = "camera002"; // ตั้งค่าเริ่มต้นเป็นกล้องหน้าบ้าน หรือกล้องหลัก
-
 async function captureAndSendFrame(isManualTrigger = false) {
-    if (!video || video.readyState !== 4) return;
+    let base64Image = "";
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 1920;
-    canvas.height = 1080;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, 1920, 1080);
+    if (currentCameraId === "camera001" && video.readyState === 4) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1920;
+        canvas.height = 1080;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, 1920, 1080);
+        base64Image = canvas.toDataURL('image/jpeg', 0.55);
+        canvas.width = 0; canvas.height = 0;
+    } else if (ipCameraView.src) {
+        base64Image = ipCameraView.src;
+    }
 
-    const base64Image = canvas.toDataURL('image/jpeg', 0.55);
-    canvas.width = 0; canvas.height = 0;
+    if (!base64Image) return;
 
     try {
-        // 🔄 ปรับให้ส่งแยกตามรหัสกล้อง (Multi-Camera API)
         const res = await fetch(`${SERVER_URL}/api/camera/upload/${currentCameraId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -769,7 +799,7 @@ function startSpeechRecognition() {
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
-        if (isModelSpeaking || isVoiceRegistrationMode) return; // หากกำลังอัดเสียงตัวอยู่ ให้ข้ามการฟังแชทชั่วคราว
+        if (isModelSpeaking || isVoiceRegistrationMode) return;
 
         let interimText = '';
         let currentChunk = '';
@@ -818,9 +848,7 @@ function startSpeechRecognition() {
         }
     };
 
-    try {
-        recognition.start();
-    } catch(e) {}
+    try { recognition.start(); } catch(e) {}
 }
 
 async function sendTextDirectly(text) {
@@ -829,13 +857,11 @@ async function sendTextDirectly(text) {
    
     const lowerText = text.toLowerCase();
     
-    // 📹 เพิ่มการรองรับคำสั่งเสียงเรียกกล้องแต่ละตัว
+    // 📹 ดักจับคำสั่งเสียงเพื่อสลับมุมมองกล้องจริง
     if (lowerText.includes("กล้องหน้าบ้าน") || lowerText.includes("camera002")) {
-        currentCameraId = "camera002";
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> กำลังเรียกภาพจากกล้องหน้าบ้าน (camera002)...`;
+        switchCameraView("camera002");
     } else if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
-        currentCameraId = "camera001";
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> กำลังเรียกภาพจากกล้องหน้าคอม (camera001)...`;
+        switchCameraView("camera001");
     }
 
     saveToHistory('user', text);
@@ -849,24 +875,27 @@ async function sendTextDirectly(text) {
 
     if (isAskingForVision) {
         try {
-            if (video && video.readyState === 4) {
+            let base64ImageFull = "";
+            if (currentCameraId === "camera001" && video.readyState === 4) {
                 const canvas = document.createElement('canvas');
                 canvas.width = 1280;
                 canvas.height = 720;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(video, 0, 0, 1280, 720);
+                base64ImageFull = canvas.toDataURL('image/jpeg', 0.8);
+                canvas.width = 0; canvas.height = 0;
+            } else if (ipCameraView.src) {
+                base64ImageFull = ipCameraView.src;
+            }
 
-                const base64ImageFull = canvas.toDataURL('image/jpeg', 0.8);
+            if (base64ImageFull) {
                 const base64DataOnly = base64ImageFull.replace(/^data:image\/\w+;base64,/, '');
 
-                // 🔄 เปลี่ยนให้ใช้รหัสกล้องปัจจุบันตามระบบ Multi-Camera เช่นกัน
                 await fetch(`${SERVER_URL}/api/camera/upload/${currentCameraId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ imageBase64: base64ImageFull })
-            });
-
-                canvas.width = 0; canvas.height = 0;
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageBase64: base64ImageFull })
+                });
 
                 ws.send(JSON.stringify({
                     clientContent: {
@@ -973,6 +1002,7 @@ function stopSession() {
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
+    if (ipCameraPollInterval) { clearInterval(ipCameraPollInterval); ipCameraPollInterval = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
