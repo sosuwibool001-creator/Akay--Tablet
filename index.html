@@ -175,7 +175,7 @@
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">PC Master</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - On-Demand Request Mode)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Voice Registration Mode)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -239,7 +239,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (PC Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 On-Demand Request Mode: พร้อมตอบสนองคำขอภาพสดจากระบบ</div>
+            <div id="audioStats" class="debug-stats">📹 Voice Registration Ready: พร้อมบันทึกเสียงสมาชิกด้วยคำสั่งเสียง</div>
         </div>
     </div>
 </div>
@@ -292,7 +292,7 @@ let mediaStream = null;
 let authStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
-let remoteCheckInterval = null; // ตัวเช็กคำขอจากแท็บเล็ต
+let remoteCheckInterval = null; 
 let recognition = null;
 let isUserActiveSession = false;
 let useFrontCamera = true;
@@ -302,6 +302,10 @@ let isModelSpeaking = false;
 let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
+
+// ตัวแปรควบคุมโหมดบันทึกเสียงรายบุคคล
+let isVoiceRegistrationMode = false;
+let targetRegistrationName = "";
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -484,24 +488,22 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (On-Demand Mode) 🎙️🔊📹`;
-            audioStats.innerText = `📹 On-Demand Request Mode: พร้อมอัปเดตไฟล์ realtime_home.jpg ตามคำขอ`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (Voice Registration Mode) 🎙️🔊📹`;
+            audioStats.innerText = `📹 Voice Registration Active: พร้อมรับคำสั่งเสียงบันทึกโปรไฟล์`;
             
             const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
 
 ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
 
 ${historySummaryText}
 
-[กฎสำคัญที่สุด - Multilingual & Language Detection (3 Languages)]:
-1. เจต้องรองรับการฟัง พูด และสื่อสารได้ 3 ภาษาหลัก ได้แก่ **ภาษาไทย (Thai)**, **ภาษาอังกฤษ (English)** และ **ภาษาจีน (Chinese)**
-2. ให้ตรวจจับภาษาจากเสียงพูดหรือข้อความของผู้ใช้งานโดยอัตโนมัติ (Automatic Language Detection):
-   - หากผู้ใช้พูดภาษาไทย -> เจต้องตอบกลับด้วยภาษาไทย
-   - หากผู้ใช้พูดภาษาอังกฤษ -> เจต้องตอบกลับด้วยภาษาอังกฤษอย่างเป็นธรรมชาติ
-   - หากผู้ใช้พูดภาษาจีน -> เจต้องตอบกลับด้วยภาษาจีนอย่างคล่องแคล่ว
-รักษาน้ำเสียงที่นุ่มนวล ให้เกียรติ และใส่ใจดูแลผู้สูงอายุในบ้านเสมอ
+[กฎสำคัญ - Voice Profile Registration (ระบบบันทึกเสียงรายบุคคลด้วยคำสั่งเสียง)]:
+1. หากผู้ใช้งานพูดคำสั่งเกี่ยวกับการบันทึกเสียง เช่น "บันทึกเสียง", "เพิ่มเสียงสมาชิก", "จำเสียงคุณแม่" หรือระบุชื่อบุคคลเพื่อบันทึกเสียงตัวอย่าง:
+   - ให้เจตอบรับด้วยความยินดีทันที และแจ้งให้ผู้ใช้พูดประโยคสั้นๆ เพื่อเก็บตัวอย่างเสียง (เช่น "ได้ครับเพื่อนเอก รบกวนคุณ [ชื่อ] พูดประโยคสั้นๆ เพื่อให้เจบันทึกเสียงตัวอย่างได้เลยครับ")
+   - พร้อมกันนี้ให้ส่งข้อความพิเศษในคำตอบกลับมาด้วยรูปแบบ [START_VOICE_REGISTRATION:ชื่อบุคคล] เพื่อให้ระบบฝั่ง Client เริ่มจับเสียงไมค์บันทึกทันที
+2. รักษาโทนเสียงที่สุภาพ เป็นกันเอง ใช้คำว่า "ครับ" เสมอ
 `;
 
             const setupMessage = {
@@ -527,7 +529,7 @@ ${historySummaryText}
 
             startSpeechRecognition();
             startKeepAlivePing();
-            startRemoteCaptureListener(); // เริ่มต้นเปิดระบบรอรับคำขอจากแท็บเล็ตและเคลียร์สถานะอัตโนมัติ
+            startRemoteCaptureListener(); 
         };
 
         ws.onmessage = async (event) => {
@@ -555,6 +557,15 @@ ${historySummaryText}
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
                         
+                        // ตรวจจับคำสั่งพิเศษจากเจเพื่อเริ่มโหมดบันทึกเสียงรายบุคคล
+                        if (responseText.includes("[START_VOICE_REGISTRATION:")) {
+                            const match = responseText.match(/\[START_VOICE_REGISTRATION:(.*?)\]/);
+                            if (match && match[1]) {
+                                targetRegistrationName = match[1].trim();
+                                triggerVoiceSampleRecording(targetRegistrationName);
+                            }
+                        }
+
                         const lowerText = responseText.toLowerCase();
                         if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง") || lowerText.includes("back camera")) && useFrontCamera) {
                             useFrontCamera = false;
@@ -598,6 +609,72 @@ function startKeepAlivePing() {
     }, 15000);
 }
 
+// 🎙️ [NEW] ฟังก์ชันบันทึกเสียงตัวอย่างจากไมโครโฟนสดๆ เมื่อเจสั่งเปิดโหมดลงทะเบียนเสียง
+async function triggerVoiceSampleRecording(personName) {
+    if (isVoiceRegistrationMode) return;
+    isVoiceRegistrationMode = true;
+
+    audioStats.innerText = `🎙️ กำลังบันทึกเสียงตัวอย่างของ [${personName}] (พูดประโยคสั้นๆ 4 วินาที)...`;
+    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>🎙️ บันทึกเสียง:</strong> กรุณาพูดประโยคตัวอย่างสำหรับ ${personName}...`;
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        let audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+
+        mediaRecorder.onstop = async () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const reader = new FileReader();
+            reader.readAsDataURL(audioBlob);
+            reader.onloadend = async () => {
+                const base64Audio = reader.result;
+
+                try {
+                    // ส่งข้อมูลเสียงไปยัง Server เพื่อบันทึกเก็บไว้
+                    const res = await fetch(`${SERVER_URL}/api/voice/register-sample`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ personName: personName, audioBase64: base64Audio })
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        audioStats.innerText = `✅ บันทึกเสียงของ [${personName}] สำเร็จเรียบร้อยแล้วครับ!`;
+                        statusText.innerHTML = `<span class="status-dot"></span><strong>✅ สำเร็จ:</strong> บันทึกโปรไฟล์เสียงของ ${personName} เรียบร้อย`;
+                    } else {
+                        audioStats.innerText = `❌ บันทึกเสียงไม่สำเร็จ: ${data.message}`;
+                    }
+                } catch (err) {
+                    console.error("Upload voice sample error:", err);
+                    audioStats.innerText = `❌ เกิดข้อผิดพลาดในการอัปโหลดเสียง`;
+                }
+
+                // ปิด Stream และคืนค่าสถานะ
+                stream.getTracks().forEach(track => track.stop());
+                isVoiceRegistrationMode = false;
+            };
+        };
+
+        mediaRecorder.start();
+
+        // บันทึกเสียงต่อเนื่องเป็นเวลา 4 วินาทีพอดี
+        setTimeout(() => {
+            mediaRecorder.stop();
+        }, 4000);
+
+    } catch (err) {
+        console.error("Microphone access error:", err);
+        audioStats.innerText = `❌ ไม่สามารถเข้าถึงไมโครโฟนเพื่อบันทึกเสียงได้`;
+        isVoiceRegistrationMode = false;
+    }
+}
+
 // 📡 ระบบคอยดักฟังคำขอ On-Demand จากแท็บเล็ต พร้อมเคลียร์สถานะอัตโนมัติ
 function startRemoteCaptureListener() {
     if (remoteCheckInterval) clearInterval(remoteCheckInterval);
@@ -609,18 +686,13 @@ function startRemoteCaptureListener() {
             const res = await fetch(`${SERVER_URL}/api/camera/check-request`);
             const data = await res.json();
 
-            // หากฝั่งแท็บเล็ตส่งสัญญาณขอภาพเข้ามา
             if (data && data.requested) {
                 console.log("📥 ได้รับคำขอภาพสดจากแท็บเล็ต กำลังแคปส่ง...");
                 await captureAndSendFrame(false);
-                
-                // 🧹 ยิงเคลียร์ค่าสถานะทันทีหลังจากแคปและอัปโหลดภาพเสร็จ
                 await fetch(`${SERVER_URL}/api/camera/clear-request`, { method: 'POST' });
                 console.log("✅ แคปภาพและเคลียร์สถานะเรียบร้อย พร้อมรับคำขอรอบถัดไป");
             }
-        } catch (err) {
-            // ป้องกัน Error log รบกวนเวลาเชื่อมต่อ
-        }
+        } catch (err) {}
     }, 2000);
 }
 
@@ -694,7 +766,7 @@ function startSpeechRecognition() {
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
-        if (isModelSpeaking) return;
+        if (isModelSpeaking || isVoiceRegistrationMode) return; // หากกำลังอัดเสียงตัวอยู่ ให้ข้ามการฟังแชทชั่วคราว
 
         let interimText = '';
         let currentChunk = '';
@@ -736,7 +808,7 @@ function startSpeechRecognition() {
     };
 
     recognition.onend = () => {
-        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
+        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking && !isVoiceRegistrationMode) {
             setTimeout(() => {
                 try { recognition.start(); } catch(e){}
             }, 300);
@@ -861,7 +933,7 @@ function playAudioChunk(base64Data) {
     speakingTimeout = setTimeout(() => {
         isModelSpeaking = false;
         audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
-        if (isUserActiveSession && recognition) {
+        if (isUserActiveSession && recognition && !isVoiceRegistrationMode) {
             try { recognition.start(); } catch(e) {}
         }
     }, remainingTime);
