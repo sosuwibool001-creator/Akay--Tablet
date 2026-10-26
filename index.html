@@ -696,7 +696,9 @@ function startRemoteCaptureListener() {
     }, 2000);
 }
 
-// 📸 ฟังก์ชันแคปภาพสดและอัปโหลดทับเป็น realtime_home.jpg บนเซิร์ฟเวอร์
+// กำหนดตัวแปรเก็บรหัสกล้องปัจจุบันของหน้านี้ (เช่น camera001 หรือ camera002)
+let currentCameraId = "camera002"; // ตั้งค่าเริ่มต้นเป็นกล้องหน้าบ้าน หรือกล้องหลัก
+
 async function captureAndSendFrame(isManualTrigger = false) {
     if (!video || video.readyState !== 4) return;
 
@@ -710,7 +712,8 @@ async function captureAndSendFrame(isManualTrigger = false) {
     canvas.width = 0; canvas.height = 0;
 
     try {
-        const res = await fetch(`${SERVER_URL}/api/camera/upload-latest`, {
+        // 🔄 ปรับให้ส่งแยกตามรหัสกล้อง (Multi-Camera API)
+        const res = await fetch(`${SERVER_URL}/api/camera/upload/${currentCameraId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ imageBase64: base64Image })
@@ -718,7 +721,7 @@ async function captureAndSendFrame(isManualTrigger = false) {
         const data = await res.json();
         
         if (data.success) {
-            audioStats.innerText = `📹 อัปเดตภาพสด [realtime_home.jpg] สำเร็จ (${new Date().toLocaleTimeString('th-TH')})`;
+            audioStats.innerText = `📹 อัปเดตภาพสด [${currentCameraId}] สำเร็จ (${new Date().toLocaleTimeString('th-TH')})`;
         }
     } catch (err) {
         console.warn("ไม่สามารถอัปเดตภาพสดไปยังเซิร์ฟเวอร์ได้:", err.message);
@@ -726,7 +729,7 @@ async function captureAndSendFrame(isManualTrigger = false) {
 
     if (isManualTrigger) {
         if (ws && ws.readyState === WebSocket.OPEN) {
-            const promptText = "ช่วยตรวจสอบภาพจากกล้อง realtime_home.jpg ให้หน่อยครับ / Please check this live image.";
+            const promptText = `ช่วยตรวจสอบภาพจากกล้อง ${currentCameraId} ให้หน่อยครับ / Please check this live image.`;
 
             const imageMessage = {
                 clientContent: {
@@ -748,7 +751,7 @@ async function captureAndSendFrame(isManualTrigger = false) {
             }
         }
         saveToHistory('user', '[กดส่งภาพสดให้เจตรวจสอบ]');
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพสดจากกล้อง PC...`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพสดจากกล้อง ${currentCameraId}...`;
     }
 }
 
@@ -823,14 +826,16 @@ function startSpeechRecognition() {
 async function sendTextDirectly(text) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     if (isModelSpeaking) return;
-
+   
     const lowerText = text.toLowerCase();
-    if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง") || lowerText.includes("back camera")) {
-        useFrontCamera = false;
-        initCamera();
-    } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("ใช้กล้องหน้า") || lowerText.includes("front camera")) {
-        useFrontCamera = true;
-        initCamera();
+    
+    // 📹 เพิ่มการรองรับคำสั่งเสียงเรียกกล้องแต่ละตัว
+    if (lowerText.includes("กล้องหน้าบ้าน") || lowerText.includes("camera002")) {
+        currentCameraId = "camera002";
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> กำลังเรียกภาพจากกล้องหน้าบ้าน (camera002)...`;
+    } else if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
+        currentCameraId = "camera001";
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> กำลังเรียกภาพจากกล้องหน้าคอม (camera001)...`;
     }
 
     saveToHistory('user', text);
