@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project-J - จัดการระบบกล้องวงจรปิด</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Kanit', sans-serif; }
+        .card-custom { background-color: #1e293b; border: 1px solid #334155; border-radius: 12px; }
+        .table-custom { color: #f8fafc; }
+        .table-custom th { background-color: #334155; color: #38bdf8; }
+        .table-custom td { vertical-align: middle; }
+    </style>
+</head>
+<body class="p-4">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>📹 ระบบจัดการกล้องวงจรปิด (Project-J Multi-Camera)</h2>
+            <a href="/" class="btn btn-outline-light">กลับหน้าหลัก</a>
+        </div>
+
+        <div class="row">
+            <!-- ฟอร์มเพิ่ม/แก้ไขกล้อง -->
+            <div class="col-md-4 mb-4">
+                <div class="card card-custom p-3">
+                    <h4 class="text-info mb-3" id="formTitle">➕ เพิ่ม/แก้ไขข้อมูลกล้อง</h4>
+                    <form id="cameraForm">
+                        <div class="mb-3">
+                            <label class="form-label">รหัสกล้อง (Camera ID)</label>
+                            <input type="text" id="cameraId" class="form-control bg-dark text-white border-secondary" placeholder="เช่น camera003" required>
+                            <small class="text-muted">โปรดตั้งรหัสเรียงกัน เช่น camera001, camera002...</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">ชื่อเรียกกล้อง (Camera Name)</label>
+                            <input type="text" id="cameraName" class="form-control bg-dark text-white border-secondary" placeholder="เช่น กล้องห้องนอน" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">IP Address ของกล้อง</label>
+                            <input type="text" id="cameraIp" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 192.168.188.140" required>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success flex-grow-1" id="btnSubmit">บันทึกกล้อง</button>
+                            <button type="button" class="btn btn-secondary d-none" id="btnCancelEdit" onclick="resetForm()">ยกเลิก</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ตารางแสดงรายการกล้องในระบบ -->
+            <div class="col-md-8">
+                <div class="card card-custom p-3">
+                    <h4 class="text-warning mb-3">📋 รายการกล้องทั้งหมดในระบบ</h4>
+                    <div class="table-responsive">
+                        <table class="table table-custom table-hover">
+                            <thead>
+                                <tr>
+                                    <th>รหัส (ID)</th>
+                                    <th>ชื่อเรียก</th>
+                                    <th>IP Address</th>
+                                    <th class="text-center">การจัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cameraTableBody">
+                                <tr><td colspan="4" class="text-center">กำลังโหลดข้อมูลกล้อง...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let currentCameras = {};
+
+        // โหลดรายการกล้องทั้งหมดมาแสดงในตาราง
+        async function loadCameras() {
+            try {
+                const res = await fetch(`${API_BASE}/api/cameras/list`);
+                const data = await res.json();
+                const tbody = document.getElementById('cameraTableBody');
+                tbody.innerHTML = '';
+
+                if (data.success && data.cameras) {
+                    currentCameras = data.cameras;
+                    const keys = Object.keys(data.cameras);
+                    if (keys.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center">ยังไม่มีกล้องในระบบ</td></tr>';
+                        return;
+                    }
+
+                    keys.forEach(key => {
+                        const cam = data.cameras[key];
+                        tbody.innerHTML += `
+                            <tr>
+                                <td><b class="text-info">${key}</b></td>
+                                <td>${cam.name}</td>
+                                <td><code>${cam.ip}</code></td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-warning me-1" onclick="editCamera('${key}')">✏️ แก้ไข</button>
+                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteCamera('${key}', '${cam.name}')">🗑️ ลบ</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+            } catch (err) {
+                console.error('Error loading cameras:', err);
+            }
+        }
+
+        // โหลดข้อมูลกล้องขึ้นฟอร์มเพื่อแก้ไข
+        function editCamera(key) {
+            const cam = currentCameras[key];
+            if (!cam) return;
+
+            document.getElementById('formTitle').innerText = '✏️ แก้ไขข้อมูลกล้อง';
+            document.getElementById('cameraId').value = key;
+            document.getElementById('cameraId').readOnly = true; // ล็อก ID ไว้ ห้ามแก้ ID เดิม
+            document.getElementById('cameraName').value = cam.name;
+            document.getElementById('cameraIp').value = cam.ip;
+            
+            document.getElementById('btnSubmit').innerText = 'อัปเดตข้อมูล';
+            document.getElementById('btnCancelEdit').classList.remove('d-none');
+        }
+
+        // รีเซ็ตฟอร์มกลับเป็นโหมดเพิ่มกล้องปกติ
+        function resetForm() {
+            document.getElementById('formTitle').innerText = '➕ เพิ่ม/แก้ไขข้อมูลกล้อง';
+            document.getElementById('cameraForm').reset();
+            document.getElementById('cameraId').readOnly = false;
+            document.getElementById('btnSubmit').innerText = 'บันทึกกล้อง';
+            document.getElementById('btnCancelEdit').classList.add('d-none');
+        }
+
+        // สั่งลบกล้องออกจากระบบ
+        async function deleteCamera(key, name) {
+            if (!confirm(`คุณต้องการลบกล้อง "${name}" (${key}) ออกจากระบบใช่หรือไม่?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/cameras/delete/${key}`, {
+                    method: 'DELETE'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`ลบกล้อง ${name} เรียบร้อยแล้วครับ`);
+                    resetForm();
+                    loadCameras();
+                } else {
+                    alert('เกิดข้อผิดพลาด: ' + data.message);
+                }
+            } catch (err) {
+                alert('ไม่สามารถลบกล้องได้');
+            }
+        }
+
+        // กดบันทึก/อัปเดตกล้อง
+        document.getElementById('cameraForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const cameraId = document.getElementById('cameraId').value.trim();
+            const name = document.getElementById('cameraName').value.trim();
+            const ip = document.getElementById('cameraIp').value.trim();
+
+            try {
+                const res = await fetch(`${API_BASE}/api/cameras/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cameraId, name, ip })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    alert(`บันทึกข้อมูลกล้อง ${name} (${cameraId}) เรียบร้อยครับ!`);
+                    resetForm();
+                    loadCameras();
+                } else {
+                    alert('เกิดข้อผิดพลาด: ' + data.message);
+                }
+            } catch (err) {
+                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+            }
+        });
+
+        loadCameras();
+    </script>
+</body>
+</html>
