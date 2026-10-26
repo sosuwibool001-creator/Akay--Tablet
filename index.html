@@ -175,7 +175,7 @@
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">PC Master</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Voice Registration Mode)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Security Guard Mode)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -239,7 +239,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (PC Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Voice Registration Ready: พร้อมบันทึกเสียงสมาชิกด้วยคำสั่งเสียง</div>
+            <div id="audioStats" class="debug-stats">🛡️ Security Guard Ready: พร้อมรับคำสั่ง "ดูแลบ้าน" หรือ "ออกไปธุระ"</div>
         </div>
     </div>
 </div>
@@ -306,6 +306,15 @@ let speechTimeout = null;
 // ตัวแปรควบคุมโหมดบันทึกเสียงรายบุคคล
 let isVoiceRegistrationMode = false;
 let targetRegistrationName = "";
+
+// 🛡️ [NEW] ตัวแปรควบคุมโหมดดูแลบ้าน (Security Guard Mode) และ Whitelist รายชื่อ
+let isSecurityGuardActive = false;
+let motionDetectionInterval = null;
+let securityVerificationTimer = null;
+let previousSecurityFrameData = null;
+
+const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother", "เอก"];
+const VISITOR_WHITELIST = ["คุณน้า", "ช่างไฟ", "เพื่อนบ้าน", "Guest"];
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -488,22 +497,25 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (Voice Registration Mode) 🎙️🔊📹`;
-            audioStats.innerText = `📹 Voice Registration Active: พร้อมรับคำสั่งเสียงบันทึกโปรไฟล์`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (Security Guard Active) 🎙️🔊📹`;
+            audioStats.innerText = `🛡️ Security Guard Ready: สั่งงาน "ดูแลบ้าน" หรือ "ออกไปธุระ" เพื่อเปิดระบบเฝ้าระวัง`;
             
             const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
+คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัย
 
 ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
 
 ${historySummaryText}
 
-[กฎสำคัญ - Voice Profile Registration (ระบบบันทึกเสียงรายบุคคลด้วยคำสั่งเสียง)]:
-1. หากผู้ใช้งานพูดคำสั่งเกี่ยวกับการบันทึกเสียง เช่น "บันทึกเสียง", "เพิ่มเสียงสมาชิก", "จำเสียงคุณแม่" หรือระบุชื่อบุคคลเพื่อบันทึกเสียงตัวอย่าง:
-   - ให้เจตอบรับด้วยความยินดีทันที และแจ้งให้ผู้ใช้พูดประโยคสั้นๆ เพื่อเก็บตัวอย่างเสียง (เช่น "ได้ครับเพื่อนเอก รบกวนคุณ [ชื่อ] พูดประโยคสั้นๆ เพื่อให้เจบันทึกเสียงตัวอย่างได้เลยครับ")
-   - พร้อมกันนี้ให้ส่งข้อความพิเศษในคำตอบกลับมาด้วยรูปแบบ [START_VOICE_REGISTRATION:ชื่อบุคคล] เพื่อให้ระบบฝั่ง Client เริ่มจับเสียงไมค์บันทึกทันที
-2. รักษาโทนเสียงที่สุภาพ เป็นกันเอง ใช้คำว่า "ครับ" เสมอ
+[กฎสำคัญ - Voice Profile Registration]:
+1. หากผู้ใช้งานพูดคำสั่งเกี่ยวกับการบันทึกเสียง เช่น "บันทึกเสียง", "เพิ่มเสียงสมาชิก", "จำเสียงคุณแม่":
+   - ให้เจตอบรับด้วยความยินดีทันที และส่งข้อความพิเศษในคำตอบกลับมาด้วยรูปแบบ [START_VOICE_REGISTRATION:ชื่อบุคคล]
+
+[กฎสำคัญ - โหมดดูแลบ้าน (Security Guard Mode)]:
+1. หากผู้ใช้งานพูดคำสั่ง เช่น "ดูแลบ้าน", "เปิดโหมดดูแลบ้าน", หรือ "เจเราจะออกไปธุระแล้วนะ" ให้เจตอบรับด้วยความมั่นใจ (เช่น "รับทราบครับเพื่อนเอก เปิดโหมดดูแลบ้านเรียบร้อย เจจะเฝ้าระวังให้เองครับ") และส่งโค้ดพิเศษ [ACTIVATE_SECURITY_MODE] กลับมาด้วยในคำตอบ
+2. หากผู้ใช้งานบอกว่า "กลับมาแล้ว" หรือ "ปิดโหมดดูแลบ้าน" ให้เจตอบรับและส่งโค้ดพิเศษ [DEACTIVE_SECURITY_MODE] กลับมาด้วยในคำตอบ
+3. รักษาโทนเสียงที่สุภาพ เป็นกันเอง ใช้คำว่า "ครับ" เสมอ
 `;
 
             const setupMessage = {
@@ -557,7 +569,7 @@ ${historySummaryText}
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
                         
-                        // ตรวจจับคำสั่งพิเศษจากเจเพื่อเริ่มโหมดบันทึกเสียงรายบุคคล
+                        // ตรวจจับคำสั่งพิเศษบันทึกเสียง
                         if (responseText.includes("[START_VOICE_REGISTRATION:")) {
                             const match = responseText.match(/\[START_VOICE_REGISTRATION:(.*?)\]/);
                             if (match && match[1]) {
@@ -566,11 +578,18 @@ ${historySummaryText}
                             }
                         }
 
+                        // 🛡️ ตรวจจับคำสั่งเปิด/ปิดโหมดดูแลบ้านผ่านเสียงเจ
+                        if (responseText.includes("[ACTIVATE_SECURITY_MODE]")) {
+                            toggleSecurityGuardMode(true);
+                        } else if (responseText.includes("[DEACTIVE_SECURITY_MODE]")) {
+                            toggleSecurityGuardMode(false);
+                        }
+
                         const lowerText = responseText.toLowerCase();
-                        if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง") || lowerText.includes("back camera")) && useFrontCamera) {
+                        if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) && useFrontCamera) {
                             useFrontCamera = false;
                             initCamera();
-                        } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง") || lowerText.includes("front camera")) && !useFrontCamera) {
+                        } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง")) && !useFrontCamera) {
                             useFrontCamera = true;
                             initCamera();
                         }
@@ -600,6 +619,155 @@ ${historySummaryText}
     }
 }
 
+// 🛡️ [NEW] ฟังก์ชันเปิด/ปิดโหมดดูแลบ้าน
+function toggleSecurityGuardMode(enable) {
+    isSecurityGuardActive = enable;
+    if (enable) {
+        statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-red);"></span><strong>🚨 โหมดดูแลบ้าน (Security Guard):</strong> เปิดใช้งานแล้ว เจกำลังเฝ้าระวังครับ!`;
+        audioStats.innerText = `🛡️ Security Guard Active: ตรวจจับการเคลื่อนไหวและผู้บุกรุก`;
+        startMotionDetectionLoop();
+    } else {
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ปิดโหมดดูแลบ้านแล้ว กลับสู่โหมดปกติครับ`;
+        audioStats.innerText = `🛡️ Security Guard Deactivated`;
+        if (motionDetectionInterval) clearInterval(motionDetectionInterval);
+        if (securityVerificationTimer) {
+            clearTimeout(securityVerificationTimer);
+            securityVerificationTimer = null;
+        }
+    }
+}
+
+// 🛡️ [NEW] ลูปตรวจจับการเคลื่อนไหว (ทุก 2 วินาที เฉพาะตอนเปิดโหมดดูแลบ้าน)
+function startMotionDetectionLoop() {
+    if (motionDetectionInterval) clearInterval(motionDetectionInterval);
+
+    motionDetectionInterval = setInterval(() => {
+        if (!isSecurityGuardActive || !video || video.readyState !== 4 || isModelSpeaking) return;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 360;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, 640, 360);
+
+        const currentFrame = ctx.getImageData(0, 0, 640, 360).data;
+        canvas.width = 0; canvas.height = 0;
+
+        if (previousSecurityFrameData) {
+            let diffPixels = 0;
+            const sampleStep = 30;
+            let totalSamples = 0;
+
+            for (let i = 0; i < currentFrame.length; i += (4 * sampleStep)) {
+                totalSamples++;
+                const rDiff = Math.abs(currentFrame[i] - previousSecurityFrameData[i]);
+                const gDiff = Math.abs(currentFrame[i+1] - previousSecurityFrameData[i+1]);
+                const bDiff = Math.abs(currentFrame[i+2] - previousSecurityFrameData[i+2]);
+                
+                if ((rDiff + gDiff + bDiff) / 3 > 40) {
+                    diffPixels++;
+                }
+            }
+
+            const motionRatio = diffPixels / totalSamples;
+
+            // ตรวจพบการเคลื่อนไหวเกิน 25% และยังไม่มีการจับเวลาค้างอยู่
+            if (motionRatio > 0.25 && !securityVerificationTimer) {
+                console.log("🚨 ตรวจพบการเคลื่อนไหวในโหมดดูแลบ้าน!");
+                triggerSecurityChallenge();
+            }
+        }
+
+        previousSecurityFrameData = currentFrame;
+    }, 2000);
+}
+
+// 🛡️ [NEW] ทักทายขอการยืนยันตัวตน และเริ่มนับถอยหลัง 10 วินาที
+function triggerSecurityChallenge() {
+    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>⚠️ ตรวจพบการเคลื่อนไหว:</strong> กำลังทักทายเพื่อยืนยันตัวตน...`;
+    
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        const challengeMessage = {
+            clientContent: {
+                turns: [{
+                    role: "user",
+                    parts: [{ 
+                        text: "[ระบบอัตโนมัติความปลอดภัย]: ตรวจพบการเคลื่อนไหวในโหมดดูแลบ้าน ให้เจส่งเสียงทักทายและถามทันทีด้วยน้ำเสียงจริงจังว่า: 'สวัสดีครับ เจเองครับ ไม่ทราบว่าผู้ที่อยู่หน้าจอชื่ออะไรครับ?'" 
+                    }]
+                }],
+                turnComplete: true
+            }
+        };
+        ws.send(JSON.stringify(challengeMessage));
+    }
+
+    // นับถอยหลัง 10 วินาที: ถ้าไม่มีใครตอบหรือตอบไม่ถูก Whitelist จะแคปภาพส่ง Telegram
+    securityVerificationTimer = setTimeout(async () => {
+        console.warn("⏰ ครบ 10 วินาที ไม่มีผู้ตอบรับชื่อที่ถูกต้อง! กำลังแคปภาพส่ง Telegram...");
+        await captureAndSendSecurityAlert();
+        securityVerificationTimer = null;
+    }, 10000);
+}
+
+// 🛡️ [NEW] ฟังก์ชันเช็กชื่อกับฐานข้อมูลครอบครัวและเพื่อน (Whitelist)
+function checkPersonIdentity(spokenText) {
+    if (!isSecurityGuardActive || !securityVerificationTimer) return false;
+
+    const lowerText = spokenText.toLowerCase();
+
+    const isFamilyOrFriend = FAMILY_WHITELIST.some(name => lowerText.includes(name.toLowerCase())) ||
+                             VISITOR_WHITELIST.some(name => lowerText.includes(name.toLowerCase()));
+
+    if (isFamilyOrFriend) {
+        console.log(`✅ ตรวจพบคนในครอบครัว/คนคุ้นเคย: "${spokenText}" -> ยกเลิกการแจ้งเตือนภัย`);
+        
+        // ยกเลิกการนับเวลา 10 วินาทีทันที!
+        clearTimeout(securityVerificationTimer);
+        securityVerificationTimer = null;
+
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🟢 ยืนยันตัวตนสำเร็จ:</strong> ยินดีต้อนรับครับ (${spokenText})`;
+        audioStats.innerText = `🛡️ Security Check Passed: ยกเลิกการส่ง Telegram`;
+
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            sendTextDirectly(`ยินดีต้อนรับครับคุณ${spokenText} ระบบปลอดภัยครับ`);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+// 🛡️ [NEW] แคปภาพ `security_home.jpg` ส่งหลังบ้านยิงเข้า Telegram
+async function captureAndSendSecurityAlert() {
+    if (!video || video.readyState !== 4) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, 1280, 720);
+
+    const base64Image = canvas.toDataURL('image/jpeg', 0.85);
+    canvas.width = 0; canvas.height = 0;
+
+    try {
+        statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-red);"></span><strong>🚨 แจ้งเตือนภัย:</strong> ไม่มีการตอบรับชื่อ บันทึกภาพและส่ง Telegram แล้ว!`;
+        
+        const res = await fetch(`${SERVER_URL}/api/security/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: base64Image })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            audioStats.innerText = `🚨 Security Alert Sent: ส่งภาพแจ้งเตือนเข้า Telegram สำเร็จ`;
+        }
+    } catch (err) {
+        console.error("Failed to send security alert:", err);
+    }
+}
+
 function startKeepAlivePing() {
     if (pingInterval) clearInterval(pingInterval);
     pingInterval = setInterval(() => {
@@ -609,7 +777,7 @@ function startKeepAlivePing() {
     }, 15000);
 }
 
-// 🎙️ [NEW] ฟังก์ชันบันทึกเสียงตัวอย่างจากไมโครโฟนสดๆ เมื่อเจสั่งเปิดโหมดลงทะเบียนเสียง
+// 🎙️ บันทึกเสียงตัวอย่างรายบุคคล
 async function triggerVoiceSampleRecording(personName) {
     if (isVoiceRegistrationMode) return;
     isVoiceRegistrationMode = true;
@@ -623,9 +791,7 @@ async function triggerVoiceSampleRecording(personName) {
         let audioChunks = [];
 
         mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                audioChunks.push(event.data);
-            }
+            if (event.data.size > 0) audioChunks.push(event.data);
         };
 
         mediaRecorder.onstop = async () => {
@@ -634,69 +800,47 @@ async function triggerVoiceSampleRecording(personName) {
             reader.readAsDataURL(audioBlob);
             reader.onloadend = async () => {
                 const base64Audio = reader.result;
-
                 try {
-                    // ส่งข้อมูลเสียงไปยัง Server เพื่อบันทึกเก็บไว้
                     const res = await fetch(`${SERVER_URL}/api/voice/register-sample`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ personName: personName, audioBase64: base64Audio })
                     });
                     const data = await res.json();
-
                     if (data.success) {
-                        audioStats.innerText = `✅ บันทึกเสียงของ [${personName}] สำเร็จเรียบร้อยแล้วครับ!`;
-                        statusText.innerHTML = `<span class="status-dot"></span><strong>✅ สำเร็จ:</strong> บันทึกโปรไฟล์เสียงของ ${personName} เรียบร้อย`;
-                    } else {
-                        audioStats.innerText = `❌ บันทึกเสียงไม่สำเร็จ: ${data.message}`;
+                        audioStats.innerText = `✅ บันทึกเสียงของ [${personName}] สำเร็จ!`;
+                        if (!FAMILY_WHITELIST.includes(personName)) FAMILY_WHITELIST.push(personName);
                     }
                 } catch (err) {
                     console.error("Upload voice sample error:", err);
-                    audioStats.innerText = `❌ เกิดข้อผิดพลาดในการอัปโหลดเสียง`;
                 }
-
-                // ปิด Stream และคืนค่าสถานะ
                 stream.getTracks().forEach(track => track.stop());
                 isVoiceRegistrationMode = false;
             };
         };
 
         mediaRecorder.start();
-
-        // บันทึกเสียงต่อเนื่องเป็นเวลา 4 วินาทีพอดี
-        setTimeout(() => {
-            mediaRecorder.stop();
-        }, 4000);
-
+        setTimeout(() => { mediaRecorder.stop(); }, 4000);
     } catch (err) {
-        console.error("Microphone access error:", err);
-        audioStats.innerText = `❌ ไม่สามารถเข้าถึงไมโครโฟนเพื่อบันทึกเสียงได้`;
         isVoiceRegistrationMode = false;
     }
 }
 
-// 📡 ระบบคอยดักฟังคำขอ On-Demand จากแท็บเล็ต พร้อมเคลียร์สถานะอัตโนมัติ
 function startRemoteCaptureListener() {
     if (remoteCheckInterval) clearInterval(remoteCheckInterval);
-    
     remoteCheckInterval = setInterval(async () => {
         if (!isUserActiveSession || !video || video.readyState !== 4) return;
-
         try {
             const res = await fetch(`${SERVER_URL}/api/camera/check-request`);
             const data = await res.json();
-
             if (data && data.requested) {
-                console.log("📥 ได้รับคำขอภาพสดจากแท็บเล็ต กำลังแคปส่ง...");
                 await captureAndSendFrame(false);
                 await fetch(`${SERVER_URL}/api/camera/clear-request`, { method: 'POST' });
-                console.log("✅ แคปภาพและเคลียร์สถานะเรียบร้อย พร้อมรับคำขอรอบถัดไป");
             }
         } catch (err) {}
     }, 2000);
 }
 
-// 📸 ฟังก์ชันแคปภาพสดและอัปโหลดทับเป็น realtime_home.jpg บนเซิร์ฟเวอร์
 async function captureAndSendFrame(isManualTrigger = false) {
     if (!video || video.readyState !== 4) return;
 
@@ -710,24 +854,16 @@ async function captureAndSendFrame(isManualTrigger = false) {
     canvas.width = 0; canvas.height = 0;
 
     try {
-        const res = await fetch(`${SERVER_URL}/api/camera/upload-latest`, {
+        await fetch(`${SERVER_URL}/api/camera/upload-latest`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ imageBase64: base64Image })
         });
-        const data = await res.json();
-        
-        if (data.success) {
-            audioStats.innerText = `📹 อัปเดตภาพสด [realtime_home.jpg] สำเร็จ (${new Date().toLocaleTimeString('th-TH')})`;
-        }
-    } catch (err) {
-        console.warn("ไม่สามารถอัปเดตภาพสดไปยังเซิร์ฟเวอร์ได้:", err.message);
-    }
+    } catch (err) {}
 
     if (isManualTrigger) {
         if (ws && ws.readyState === WebSocket.OPEN) {
             const promptText = "ช่วยตรวจสอบภาพจากกล้อง realtime_home.jpg ให้หน่อยครับ / Please check this live image.";
-
             const imageMessage = {
                 clientContent: {
                     turns: [{
@@ -740,12 +876,7 @@ async function captureAndSendFrame(isManualTrigger = false) {
                     turnComplete: true
                 }
             };
-
-            try {
-                ws.send(JSON.stringify(imageMessage));
-            } catch (wsErr) {
-                console.error("WebSocket send error:", wsErr);
-            }
+            ws.send(JSON.stringify(imageMessage));
         }
         saveToHistory('user', '[กดส่งภาพสดให้เจตรวจสอบ]');
         statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพสดจากกล้อง PC...`;
@@ -766,7 +897,7 @@ function startSpeechRecognition() {
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
-        if (isModelSpeaking || isVoiceRegistrationMode) return; // หากกำลังอัดเสียงตัวอยู่ ให้ข้ามการฟังแชทชั่วคราว
+        if (isModelSpeaking || isVoiceRegistrationMode) return;
 
         let interimText = '';
         let currentChunk = '';
@@ -824,11 +955,17 @@ async function sendTextDirectly(text) {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     if (isModelSpeaking) return;
 
+    // 🛡️ [NEW] ถ้าอยู่ในช่วงเวลานับถอยหลัง 10 วินาที ให้เอาเสียงที่พูดมาเช็ก Whitelist ก่อนทันที
+    if (securityVerificationTimer) {
+        const isVerified = checkPersonIdentity(text);
+        if (isVerified) return; // ถ้าเป็นคนในครอบครัวหรือเพื่อน ให้จบกระบวนการ ไม่ส่ง Telegram
+    }
+
     const lowerText = text.toLowerCase();
-    if (lowerText.includes("กล้องหลัง") || lowerText.includes("ใช้กล้องหลัง") || lowerText.includes("back camera")) {
+    if (lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง")) {
         useFrontCamera = false;
         initCamera();
-    } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("ใช้กล้องหน้า") || lowerText.includes("front camera")) {
+    } else if (lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง")) {
         useFrontCamera = true;
         initCamera();
     }
@@ -839,8 +976,7 @@ async function sendTextDirectly(text) {
     const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || 
                               lowerText.includes("ดูกล้อง") || lowerText.includes("ถืออะไร") || 
                               lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || 
-                              lowerText.includes("ล่าสุด") || lowerText.includes("ดูหน่อย") ||
-                              lowerText.includes("มองเห็น") || lowerText.includes("มีอะไร");
+                              lowerText.includes("ล่าสุด") || lowerText.includes("ดูหน่อย");
 
     if (isAskingForVision) {
         try {
@@ -849,36 +985,9 @@ async function sendTextDirectly(text) {
                 canvas.width = 1280;
                 canvas.height = 720;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0, 1280, 720);
-
-                const base64ImageFull = canvas.toDataURL('image/jpeg', 0.8);
-                const base64DataOnly = base64ImageFull.replace(/^data:image\/\w+;base64,/, '');
-
-                await fetch(`${SERVER_URL}/api/camera/upload-latest`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageBase64: base64ImageFull })
-                });
-
                 canvas.width = 0; canvas.height = 0;
-
-                ws.send(JSON.stringify({
-                    clientContent: {
-                        turns: [{
-                            role: "user",
-                            parts: [
-                                { inlineData: { mimeType: "image/jpeg", data: base64DataOnly } },
-                                { text: text }
-                            ]
-                        }],
-                        turnComplete: true
-                    }
-                }));
-                return;
             }
-        } catch (err) {
-            console.warn("ไม่สามารถดึงภาพสดไปวิเคราะห์ได้:", err);
-        }
+        } catch (err) {}
     }
 
     const textMessage = {
@@ -973,6 +1082,8 @@ function stopSession() {
     if (authStream) { authStream.getTracks().forEach(track => track.stop()); authStream = null; }
     if (ws) { ws.close(); ws = null; }
     if (audioContext) { audioContext.close(); audioContext = null; }
+    if (motionDetectionInterval) { clearInterval(motionDetectionInterval); motionDetectionInterval = null; }
+    if (securityVerificationTimer) { clearTimeout(securityVerificationTimer); securityVerificationTimer = null; }
     
     step2.style.display = 'none';
     stepAuth.style.display = 'none';
