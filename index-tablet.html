@@ -285,7 +285,7 @@
     <div class="auth-card">
         <div id="step1">
             <div class="logo-box">Project-J <span style="font-size: 12px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px;">Gemini Plus</span></div>
-            <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (Tablet Edition - On-Demand)</div>
+            <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (Tablet Edition - Voice Registration)</div>
             
             <div class="input-group">
                 <select id="voiceSelect">
@@ -337,8 +337,8 @@
         </div>
 
         <div class="status-panel glass-card" id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (On-Demand Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 On-Demand Active: พร้อมส่งสัญญาณสะกิดขอภาพจากกล้อง PC บ้านทันที</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (Voice Registration Mode)...</div>
+            <div id="audioStats" class="debug-stats">📹 Voice Registration Active: พร้อมรับคำสั่งเสียงบันทึกโปรไฟล์</div>
         </div>
 
         <div class="bottom-controls">
@@ -414,6 +414,10 @@
     let isModelSpeaking = false;
     let speakingTimeout = null;
     let isMicActive = false;
+
+    // ตัวแปรควบคุมโหมดบันทึกเสียงรายบุคคล
+    let isVoiceRegistrationMode = false;
+    let targetRegistrationName = "";
 
     function saveToHistory(role, text) {
         let history = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
@@ -586,8 +590,8 @@
                     ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                     : "ไม่มีประวัติคุยเก่า";
 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (On-Demand Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-                audioStats.innerText = `📹 Full-Screen Live: พร้อมเชื่อมต่อและส่งสัญญาณสะกิดขอภาพจากกล้อง PC บ้าน`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (Voice Registration Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
+                audioStats.innerText = `📹 Voice Registration Active: พร้อมรับคำสั่งเสียงบันทึกโปรไฟล์`;
                 
                 const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Tablet Gemini Plus) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
@@ -597,13 +601,11 @@
 
 ${historySummaryText}
 
-[กฎสำคัญที่สุด - Multilingual & Language Detection (3 Languages)]:
-1. เจต้องรองรับการฟัง พูด และสื่อสารได้ 3 ภาษาหลัก ได้แก่ **ภาษาไทย (Thai)**, **ภาษาอังกฤษ (English)** และ **ภาษาจีน (Chinese)**
-2. ให้ตรวจจับภาษาจากเสียงพูดหรือข้อความของผู้ใช้งานโดยอัตโนมัติ (Automatic Language Detection):
-   - หากผู้ใช้พูดภาษาไทย -> เจต้องตอบกลับด้วยภาษาไทย
-   - หากผู้ใช้พูดภาษาอังกฤษ -> เจต้องตอบกลับด้วยภาษาอังกฤษอย่างเป็นธรรมชาติ
-   - หากผู้ใช้พูดภาษาจีน -> เจต้องตอบกลับด้วยภาษาจีนอย่างคล่องแคล่ว
-รักษาน้ำเสียงที่นุ่มนวล ให้เกียรติ และใส่ใจดูแลผู้สูงอายุในบ้านเสมอ
+[กฎสำคัญ - Voice Profile Registration (ระบบบันทึกเสียงรายบุคคลด้วยคำสั่งเสียง)]:
+1. หากผู้ใช้งานพูดคำสั่งเกี่ยวกับการบันทึกเสียง เช่น "บันทึกเสียง", "เพิ่มเสียงสมาชิก", "จำเสียงคุณแม่" หรือระบุชื่อบุคคลเพื่อบันทึกเสียงตัวอย่าง:
+   - ให้เจตอบรับด้วยความยินดีทันที และแจ้งให้ผู้ใช้พูดประโยคสั้นๆ เพื่อเก็บตัวอย่างเสียง (เช่น "ได้ครับเพื่อนเอก รบกวนคุณ [ชื่อ] พูดประโยคสั้นๆ เพื่อให้เจบันทึกเสียงตัวอย่างได้เลยครับ")
+   - พร้อมกันนี้ให้ส่งข้อความพิเศษในคำตอบกลับมาด้วยรูปแบบ [START_VOICE_REGISTRATION:ชื่อบุคคล] เพื่อให้ระบบฝั่ง Client เริ่มจับเสียงไมค์บันทึกทันที
+2. รักษาโทนเสียงที่สุภาพ เป็นกันเอง ใช้คำว่า "ครับ" เสมอ
 `;
 
                 const setupMessage = {
@@ -654,6 +656,15 @@ ${historySummaryText}
                             saveToHistory('model', responseText);
                             statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
                             
+                            // ตรวจจับคำสั่งพิเศษจากเจเพื่อเริ่มโหมดบันทึกเสียงรายบุคคล
+                            if (responseText.includes("[START_VOICE_REGISTRATION:")) {
+                                const match = responseText.match(/\[START_VOICE_REGISTRATION:(.*?)\]/);
+                                if (match && match[1]) {
+                                    targetRegistrationName = match[1].trim();
+                                    triggerVoiceSampleRecording(targetRegistrationName);
+                                }
+                            }
+
                             const lowerText = responseText.toLowerCase();
                             if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง") || lowerText.includes("back camera")) && useFrontCamera) {
                                 useFrontCamera = false;
@@ -697,6 +708,73 @@ ${historySummaryText}
         }, 15000);
     }
 
+    // 🎙️ [NEW] ฟังก์ชันบันทึกเสียงตัวอย่างจากไมโครโฟนแท็บเล็ตสดๆ เมื่อเจสั่งเปิดโหมดลงทะเบียนเสียง
+    async function triggerVoiceSampleRecording(personName) {
+        if (isVoiceRegistrationMode) return;
+        isVoiceRegistrationMode = true;
+
+        if (isMicActive) {
+            stopSpeechRecognition();
+        }
+
+        audioStats.innerText = `🎙️ กำลังบันทึกเสียงตัวอย่างของ [${personName}] (พูดประโยคสั้นๆ 4 วินาที)...`;
+        statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>🎙️ บันทึกเสียง:</strong> กรุณาพูดประโยคตัวอย่างสำหรับ ${personName}...`;
+
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream);
+            let audioChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    const base64Audio = reader.result;
+
+                    try {
+                        const res = await fetch(`${SERVER_URL}/api/voice/register-sample`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ personName: personName, audioBase64: base64Audio })
+                        });
+                        const data = await res.json();
+
+                        if (data.success) {
+                            audioStats.innerText = `✅ บันทึกเสียงของ [${personName}] สำเร็จเรียบร้อยแล้วครับ!`;
+                            statusText.innerHTML = `<span class="status-dot"></span><strong>✅ สำเร็จ:</strong> บันทึกโปรไฟล์เสียงของ ${personName} เรียบร้อย`;
+                        } else {
+                            audioStats.innerText = `❌ บันทึกเสียงไม่สำเร็จ: ${data.message}`;
+                        }
+                    } catch (err) {
+                        console.error("Upload voice sample error:", err);
+                        audioStats.innerText = `❌ เกิดข้อผิดพลาดในการอัปโหลดเสียง`;
+                    }
+
+                    stream.getTracks().forEach(track => track.stop());
+                    isVoiceRegistrationMode = false;
+                };
+            };
+
+            mediaRecorder.start();
+
+            setTimeout(() => {
+                mediaRecorder.stop();
+            }, 4000);
+
+        } catch (err) {
+            console.error("Microphone access error:", err);
+            audioStats.innerText = `❌ ไม่สามารถเข้าถึงไมโครโฟนเพื่อบันทึกเสียงได้`;
+            isVoiceRegistrationMode = false;
+        }
+    }
+
     // 📸 ฟังก์ชันดึงภาพล่าสุด [realtime_home.jpg] จากกล้องคอมพิวเตอร์ผ่านเซิร์ฟเวอร์
     async function fetchLatestHomeCameraFrame() {
         try {
@@ -720,6 +798,8 @@ ${historySummaryText}
     });
 
     function startSpeechRecognition() {
+        if (isVoiceRegistrationMode) return;
+
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
             alert("เบราว์เซอร์นี้ไม่รองรับการแปลงเสียงพูดเป็นข้อความครับ");
@@ -814,7 +894,6 @@ ${historySummaryText}
         saveToHistory('user', text);
         statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
-        // ตรวจสอบว่าผู้ใช้ต้องการดูภาพจากกล้อง PC บ้าน หรือดูภาพจากกล้องแท็บเล็ต
         const isAskingAboutHomePC = lowerText.includes("คอม") || lowerText.includes("หน้าคอม") || 
                                     lowerText.includes("กล้องบ้าน") || lowerText.includes("กล้องที่บ้าน") || 
                                     lowerText.includes("แม่") || lowerText.includes("คุณแม่") ||
@@ -831,13 +910,9 @@ ${historySummaryText}
             if (isAskingAboutHomePC) {
                 statusText.innerHTML = `<span class="status-dot"></span><strong>🏠 เจ:</strong> กำลังส่งสัญญาณสะกิดขอภาพสดจากกล้อง PC บ้าน...`;
                 
-                // 🚀 ยิงสัญญาณ POST สะกิดคอมพิวเตอร์ให้แคปภาพเดี๋ยวนี้
                 await fetch(`${SERVER_URL}/api/camera/request-capture`, { method: 'POST' });
-                
-                // รอ 1.2 วินาทีให้คอมพิวเตอร์แคปภาพและอัปโหลดเสร็จ
                 await new Promise(resolve => setTimeout(resolve, 1200));
 
-                // ดึงภาพ realtime_home.jpg ล่าสุดมาใช้งาน
                 base64ImageToSend = await fetchLatestHomeCameraFrame();
             } else if (isAskingForVision && video && video.readyState === 4) {
                 const canvas = document.createElement('canvas');
@@ -948,7 +1023,6 @@ ${historySummaryText}
         textInput.value = "";
     }
 
-    // 📸 เมื่อกดปุ่ม "ตรวจภาพ" ให้สั่งขอภาพจากกล้องบ้านแบบ On-Demand ทันที
     snapBtn.addEventListener('click', () => {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             alert("ระบบเฝ้าระวังยังไม่ได้เชื่อมต่อครับ!");
