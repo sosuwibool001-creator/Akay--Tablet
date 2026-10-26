@@ -527,7 +527,7 @@ ${historySummaryText}
 
             startSpeechRecognition();
             startKeepAlivePing();
-            startRemoteCaptureListener(); // เริ่มต้นเปิดระบบรอรับคำขอจากแท็บเล็ต
+            startRemoteCaptureListener(); // เริ่มต้นเปิดระบบรอรับคำขอจากแท็บเล็ตและเคลียร์สถานะอัตโนมัติ
         };
 
         ws.onmessage = async (event) => {
@@ -598,11 +598,10 @@ function startKeepAlivePing() {
     }, 15000);
 }
 
-// 📡 ระบบคอยดักฟังคำขอ On-Demand จากแท็บเล็ต (เช็กสถานะการขอภาพ)
+// 📡 ระบบคอยดักฟังคำขอ On-Demand จากแท็บเล็ต พร้อมเคลียร์สถานะอัตโนมัติ
 function startRemoteCaptureListener() {
     if (remoteCheckInterval) clearInterval(remoteCheckInterval);
     
-    // วนเช็กสัญญาณขอภาพจากฝั่งแท็บเล็ตทุกๆ 3 วินาที (เบามากๆ ไม่เปลืองทรัพยากร)
     remoteCheckInterval = setInterval(async () => {
         if (!isUserActiveSession || !video || video.readyState !== 4) return;
 
@@ -610,18 +609,19 @@ function startRemoteCaptureListener() {
             const res = await fetch(`${SERVER_URL}/api/camera/check-request`);
             const data = await res.json();
 
-            // หากฝั่งแท็บเล็ตมีการกดขอภาพเข้ามา คอมพิวเตอร์จะแคปภาพทันที
+            // หากฝั่งแท็บเล็ตส่งสัญญาณขอภาพเข้ามา
             if (data && data.requested) {
                 console.log("📥 ได้รับคำขอภาพสดจากแท็บเล็ต กำลังแคปส่ง...");
                 await captureAndSendFrame(false);
                 
-                // แจ้ง Server ว่าจัดการแคปภาพเสร็จเรียบร้อยแล้ว
+                // 🧹 ยิงเคลียร์ค่าสถานะทันทีหลังจากแคปและอัปโหลดภาพเสร็จ
                 await fetch(`${SERVER_URL}/api/camera/clear-request`, { method: 'POST' });
+                console.log("✅ แคปภาพและเคลียร์สถานะเรียบร้อย พร้อมรับคำขอรอบถัดไป");
             }
         } catch (err) {
-            // ป้องกัน Error log รบกวนเวลาเน็ตหลุดชั่วคราว
+            // ป้องกัน Error log รบกวนเวลาเชื่อมต่อ
         }
-    }, 3000);
+    }, 2000);
 }
 
 // 📸 ฟังก์ชันแคปภาพสดและอัปโหลดทับเป็น realtime_home.jpg บนเซิร์ฟเวอร์
