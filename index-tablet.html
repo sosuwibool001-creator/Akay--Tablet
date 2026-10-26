@@ -775,10 +775,10 @@ ${historySummaryText}
         }
     }
 
-    // 📸 ฟังก์ชันดึงภาพล่าสุด [realtime_home.jpg] จากกล้องคอมพิวเตอร์ผ่านเซิร์ฟเวอร์
+    // 📸 ฟังก์ชันดึงภาพล่าสุดจากกล้องคอมพิวเตอร์ผ่านเซิร์ฟเวอร์ (ปรับให้ตรงกับ Multi-Camera API)
     async function fetchLatestHomeCameraFrame() {
         try {
-            const response = await fetch(`${SERVER_URL}/api/camera/latest-image?t=${Date.now()}`);
+            const response = await fetch(`${SERVER_URL}/api/camera/latest/camera001?t=${Date.now()}`);
             const data = await response.json();
             if (data.success && data.imageBase64) {
                 return data.imageBase64;
