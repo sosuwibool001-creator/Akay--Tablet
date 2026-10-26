@@ -1,4 +1,4 @@
-// server_on_demand_guardian_with_voice.js - Project-J Smart Guardian Server (On-Demand & Voice Registration)
+// server_on_demand_guardian_with_voice.js - Project-J Smart Guardian Server (Multi-Camera Support)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -24,46 +24,115 @@ if (SUPABASE_URL && SUPABASE_KEY) {
 }
 
 // โฟลเดอร์สำรองบนเครื่อง (Local Fallback Directories)
-const DIR_PC = path.join(__dirname, 'snapshots_pc');
-const DIR_TABLET = path.join(__dirname, 'snapshots_tablet');
-const DIR_MOTION_PC = path.join(__dirname, 'motion_events_pc');
-const DIR_MOTION_TABLET = path.join(__dirname, 'motion_events_tablet');
-const DIR_FAMILY_PC = path.join(__dirname, 'family_events_pc');
-const DIR_FAMILY_TABLET = path.join(__dirname, 'family_events_tablet');
-const DIR_VISITOR_PC = path.join(__dirname, 'visitor_events_pc');
-const DIR_VISITOR_TABLET = path.join(__dirname, 'visitor_events_tablet');
+const DIR_CAMERAS = path.join(__dirname, 'cameras_storage');
 const DIR_UPLOADS = path.join(__dirname, 'uploads');
-const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles'); // โฟลเดอร์เก็บเสียงตัวอย่างรายบุคคล
+const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles'); 
 
 const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
+const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
 
 [
-    DIR_PC, DIR_TABLET, 
-    DIR_MOTION_PC, DIR_MOTION_TABLET, 
-    DIR_FAMILY_PC, DIR_FAMILY_TABLET, 
-    DIR_VISITOR_PC, DIR_VISITOR_TABLET,
-    DIR_UPLOADS, DIR_VOICE_PROFILES
+    DIR_CAMERAS, DIR_UPLOADS, DIR_VOICE_PROFILES
 ].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
     }
 });
 
-const lastFrames = { pc: null, tablet: null };
-const lastTelegramAlertTime = { pc: 0, tablet: 0 };
+// โหลดหรือสร้างค่าตั้งค่ากล้องเริ่มต้น (Default Cameras)
+let camerasConfig = {};
+if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
+    try {
+        camerasConfig = JSON.parse(fs.readFileSync(CAMERAS_CONFIG_PATH, 'utf8'));
+    } catch (e) {
+        camerasConfig = {};
+    }
+} else {
+    // กำหนดกล้องเริ่มต้นตามที่เพื่อนเอกต้องการ
+    camerasConfig = {
+        "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", active: true },
+        "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.188.140", active: true }
+    };
+    fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
+}
+
+// สร้างโฟลเดอร์ย่อยสำหรับเก็บภาพของแต่ละกล้องอัตโนมัติ
+Object.keys(camerasConfig).forEach(camId => {
+    const camDir = path.join(DIR_CAMERAS, camId);
+    if (!fs.existsSync(camDir)) {
+        fs.mkdirSync(camDir, { recursive: true });
+    }
+});
+
+const lastFrames = {};
+const lastTelegramAlertTime = {};
 const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
 
-// ตัวแปรเก็บสถานะคำขอภาพด่วนจากแท็บเล็ต (On-Demand Signaling State)
 let cameraRequestState = { requested: false };
-
 let pendingAudioVerifications = {};
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพและเสียง Base64 ขนาดใหญ่
+app.use(express.json({ limit: '15mb' })); 
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
 const VISITOR_WHITELIST = ["คุณน้า", "ช่างไฟ", "เพื่อนบ้าน", "Guest"];
+
+// 📷 API จัดการกล้อง: ดึงรายชื่อกล้องทั้งหมด
+app.get('/api/cameras/list', (req, res) => {
+    return res.json({ success: true, cameras: camerasConfig });
+});
+
+// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่ (เช่น camera003, camera004...)
+app.post('/api/cameras/save', (req, res) => {
+    try {
+        const { cameraId, name, ip } = req.body;
+        if (!cameraId || !name) {
+            return res.status(400).json({ success: false, message: 'Camera ID and Name are required' });
+        }
+
+        camerasConfig[cameraId] = {
+            name: name,
+            ip: ip || 'DHCP/Unknown',
+            active: true,
+            updatedAt: new Date().toISOString()
+        };
+
+        fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
+
+        // สร้างโฟลเดอร์รองรับภาพของกล้องใหม่ทันที
+        const camDir = path.join(DIR_CAMERAS, cameraId);
+        if (!fs.existsSync(camDir)) {
+            fs.mkdirSync(camDir, { recursive: true });
+        }
+
+        console.log(`[Multi-Camera] บันทึก/อัปเดตกล้องสำเร็จ -> [${cameraId}] ${name} (${ip})`);
+        return res.json({ success: true, message: `บันทึกกล้อง ${cameraId} (${name}) เรียบร้อยครับ`, cameras: camerasConfig });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 📷 API จัดการกล้อง: ลบกล้องออกจากระบบ
+app.delete('/api/cameras/delete/:cameraId', (req, res) => {
+    try {
+        const { cameraId } = req.params;
+        if (!camerasConfig[cameraId]) {
+            return res.status(404).json({ success: false, message: 'ไม่พบกล้องนี้ในระบบ' });
+        }
+
+        const deletedName = camerasConfig[cameraId].name;
+        delete camerasConfig[cameraId];
+
+        // บันทึกการเปลี่ยนแปลงลงไฟล์ config
+        fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
+
+        console.log(`[Multi-Camera] ลบกล้องสำเร็จ -> [${cameraId}] ${deletedName}`);
+        return res.json({ success: true, message: `ลบกล้อง ${deletedName} เรียบร้อยแล้วครับ`, cameras: camerasConfig });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 // 🔍 API ตรวจสอบว่าระบบมีเจ้าของเครื่องลงทะเบียนไว้หรือยัง
 app.get('/api/owner/check', (req, res) => {
@@ -78,7 +147,7 @@ app.get('/api/owner/check', (req, res) => {
     return res.json({ registered: false });
 });
 
-// 👤 API บันทึกเจ้าของเครื่องตัวจริงครั้งแรก (First-Time Owner Registration)
+// 👤 API บันทึกเจ้าของเครื่องตัวจริงครั้งแรก
 app.post('/api/owner/register', (req, res) => {
     try {
         const { ownerName, imageBase64 } = req.body;
@@ -113,57 +182,70 @@ app.get('/api/config/apikey', (req, res) => {
     res.json({ apiKey: apiKey });
 });
 
-// 🖥️ แยกเส้นทางหน้าจอหลัก (PC / Desktop) และหน้าจอแท็บเล็ตชัดเจน
+// 🖥️ เส้นทางหน้าจอหลัก (PC / Desktop) และหน้าจอแท็บเล็ต
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/cameras', (req, res) => {
+    res.sendFile(path.join(__dirname, 'cameras-manager.html'));
 });
 
 app.get('/tablet', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// 📸 API 1: สำหรับรับภาพล่าสุดจากกล้อง PC และบันทึกทับเป็น realtime_home.jpg ทันที
-app.post('/api/camera/upload-latest', (req, res) => {
+// 📸 API 4: รองรับการรับภาพสดแยกตามรหัสกล้อง (เช่น /api/camera/upload/camera001)
+app.post('/api/camera/upload/:cameraId', (req, res) => {
     try {
+        const { cameraId } = req.params;
         const { imageBase64 } = req.body;
+
         if (!imageBase64) {
             return res.status(400).json({ success: false, message: 'Missing imageBase64' });
         }
 
+        const camMeta = camerasConfig[cameraId] || { name: cameraId };
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        const filePath = path.join(DIR_UPLOADS, 'realtime_home.jpg');
+        
+        // บันทึกภาพล่าสุดของกล้องนั้นๆ
+        const latestCamPath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
+        fs.writeFileSync(latestCamPath, base64Data, 'base64');
 
-        fs.writeFileSync(filePath, base64Data, 'base64');
-        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพสด [realtime_home.jpg] จากกล้อง PC บ้านเรียบร้อยแล้ว`);
+        // ถ้ารู้จักว่าเป็นกล้องหลักตัวแรก ให้อัปเดตเป็น realtime_home.jpg เผื่อหน้าเว็บเดิมเรียกใช้
+        if (cameraId === 'camera001' || cameraId === 'camera002') {
+            fs.writeFileSync(path.join(DIR_UPLOADS, 'realtime_home.jpg'), base64Data, 'base64');
+        }
 
-        return res.json({ success: true, url: '/uploads/realtime_home.jpg', timestamp: Date.now() });
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพสดจาก [${cameraId}: ${camMeta.name}] สำเร็จ`);
+        return res.json({ success: true, url: `/uploads/realtime_${cameraId}.jpg`, timestamp: Date.now() });
     } catch (err) {
-        console.error('Save image error:', err);
+        console.error('Save camera image error:', err);
         return res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// 📸 API 2: สำหรับให้แท็บเล็ตดึงภาพสดล่าสุด (realtime_home.jpg) จากกล้อง PC บ้านไปให้เจดู
-app.get('/api/camera/latest-image', (req, res) => {
-    const filePath = path.join(DIR_UPLOADS, 'realtime_home.jpg');
+// 📸 API ดึงภาพล่าสุดของกล้องแต่ละตัวไปแสดงผล
+app.get('/api/camera/latest/:cameraId', (req, res) => {
+    const { cameraId } = req.params;
+    const filePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     if (fs.existsSync(filePath)) {
         const imageBuffer = fs.readFileSync(filePath);
-        const base64Image = imageBuffer.toString('base64');
-        return res.json({ success: true, imageBase64: base64Image });
+        return res.json({ success: true, imageBase64: imageBuffer.toString('base64') });
     } else {
-        return res.status(404).json({ success: false, message: 'ยังไม่มีภาพสดบันทึกในระบบ' });
+        return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId}` });
     }
 });
 
-// 📡 API 3: ระบบส่งสัญญาณ On-Demand (Signaling) ระหว่างแท็บเล็ตและคอมพิวเตอร์
+// 📡 API ส่งสัญญาณ On-Demand ระหว่างแท็บเล็ตและคอมพิวเตอร์
 app.get('/api/camera/check-request', (req, res) => {
     return res.json(cameraRequestState);
 });
 
 app.post('/api/camera/request-capture', (req, res) => {
     cameraRequestState.requested = true;
-    console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📥 แท็บเล็ตส่งสัญญาณขอภาพสดจากกล้อง PC แล้ว!`);
-    return res.json({ success: true, message: 'Request sent to PC' });
+    console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📥 แท็บเล็ตส่งสัญญาณขอภาพสดจากกล้องบ้านแล้ว!`);
+    return res.json({ success: true, message: 'Request sent' });
 });
 
 app.post('/api/camera/clear-request', (req, res) => {
@@ -171,7 +253,7 @@ app.post('/api/camera/clear-request', (req, res) => {
     return res.json({ success: true });
 });
 
-// 🎙️ [NEW] API สำหรับบันทึกเสียงตัวอย่างรายบุคคล (Voice Profile Registration)
+// 🎙️ API บันทึกเสียงตัวอย่างรายบุคคล
 app.post('/api/voice/register-sample', (req, res) => {
     try {
         const { personName, audioBase64 } = req.body;
@@ -186,25 +268,20 @@ app.post('/api/voice/register-sample', (req, res) => {
 
         const base64Data = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
         const audioBuffer = Buffer.from(base64Data, 'base64');
-        
         const filename = `sample_${Date.now()}.wav`;
-        const filePath = path.join(personDir, filename);
+        fs.writeFileSync(path.join(personDir, filename), audioBuffer);
 
-        fs.writeFileSync(filePath, audioBuffer);
-        console.log(`🎙️ [Voice Registration]: บันทึกเสียงตัวอย่างของสมาชิก [${personName}] สำเร็จแล้ว`);
-
+        console.log(`🎙️ [Voice Registration]: บันทึกเสียงตัวอย่างของ [${personName}] สำเร็จ`);
         if (!FAMILY_WHITELIST.includes(personName) && !VISITOR_WHITELIST.includes(personName)) {
             FAMILY_WHITELIST.push(personName);
         }
 
         return res.json({ success: true, message: `บันทึกเสียงของ ${personName} เรียบร้อยครับ` });
     } catch (err) {
-        console.error('Voice register error:', err);
         return res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// 🎙️ [NEW] API ดึงรายชื่อโปรไฟล์เสียงทั้งหมดที่มีการบันทึกไว้
 app.get('/api/voice/profiles', (req, res) => {
     try {
         if (!fs.existsSync(DIR_VOICE_PROFILES)) {
@@ -219,36 +296,21 @@ app.get('/api/voice/profiles', (req, res) => {
     }
 });
 
-// เปิด Static Routes สำหรับเรียกดูไฟล์ผ่าน URL
+// เปิด Static Routes
 app.use('/uploads', express.static(DIR_UPLOADS));
-app.use('/snapshots_pc', express.static(DIR_PC));
-app.use('/snapshots_tablet', express.static(DIR_TABLET));
-app.use('/motion_events_pc', express.static(DIR_MOTION_PC));
-app.use('/motion_events_tablet', express.static(DIR_MOTION_TABLET));
-app.use('/family_events_pc', express.static(DIR_FAMILY_PC));
-app.use('/family_events_tablet', express.static(DIR_FAMILY_TABLET));
-app.use('/visitor_events_pc', express.static(DIR_VISITOR_PC));
-app.use('/visitor_events_tablet', express.static(DIR_VISITOR_TABLET));
+app.use('/cameras_storage', express.static(DIR_CAMERAS));
 app.use('/voice_profiles', express.static(DIR_VOICE_PROFILES));
 
-// ☁️ ฟังก์ชันอัปโหลดภาพขึ้น Supabase Cloud Storage
 async function uploadToCloudStorage(buffer, filename, folderType) {
     if (!supabase) return null;
     try {
         const filePath = `${folderType}/${filename}`;
         const { error } = await supabase.storage
             .from('project-j-events')
-            .upload(filePath, buffer, {
-                contentType: 'image/jpeg',
-                upsert: true
-            });
+            .upload(filePath, buffer, { contentType: 'image/jpeg', upsert: true });
 
         if (error) throw error;
-
-        const { data: publicUrlData } = supabase.storage
-            .from('project-j-events')
-            .getPublicUrl(filePath);
-
+        const { data: publicUrlData } = supabase.storage.from('project-j-events').getPublicUrl(filePath);
         return publicUrlData.publicUrl;
     } catch (err) {
         console.error('[Cloud Storage Error]:', err.message);
@@ -280,39 +342,34 @@ async function sendTelegramAlertWithPhoto(imageInput, caption) {
     }
 }
 
-app.post('/api/snapshot/upload', async (req, res) => {
+// 📸 API หลักสำหรับรับ Snapshot และแยกแยะตามกล้อง (cameraId)
+app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     try {
-        const { imageBase64, device, recognizedName, isFamily } = req.body;
+        const { cameraId } = req.params;
+        const { imageBase64, recognizedName, isFamily } = req.body;
+        
         if (!imageBase64) {
             return res.status(400).json({ success: false, message: 'No image data provided' });
         }
 
-        const isTablet = device === 'tablet';
-        const deviceKey = isTablet ? 'tablet' : 'pc';
-
+        const camMeta = camerasConfig[cameraId] || { name: cameraId };
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
-
-        // หากมาจาก PC ให้บันทึกทับเป็นภาพล่าสุดสำหรับให้แท็บเล็ตดึงไปใช้ได้ทันที
-        if (!isTablet) {
-            const latestPath = path.join(DIR_UPLOADS, 'realtime_home.jpg');
-            fs.writeFileSync(latestPath, buffer);
-        }
 
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
         const timeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
         const timestamp = Date.now();
 
-        const snapshotDir = isTablet ? DIR_TABLET : DIR_PC;
-        const snapshotPrefix = isTablet ? 'tablet_' : 'pc_';
-        const snapshotFilename = `${snapshotPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
-        const snapshotFilePath = path.join(snapshotDir, snapshotFilename);
+        const camDir = path.join(DIR_CAMERAS, cameraId);
+        if (!fs.existsSync(camDir)) fs.mkdirSync(camDir, { recursive: true });
 
+        const snapshotFilename = `${cameraId}_${dateStr}_${timeStr}_${timestamp}.jpg`;
+        const snapshotFilePath = path.join(camDir, snapshotFilename);
         fs.writeFileSync(snapshotFilePath, buffer);
 
-        const previousBuffer = lastFrames[deviceKey];
-        lastFrames[deviceKey] = buffer;
+        const previousBuffer = lastFrames[cameraId];
+        lastFrames[cameraId] = buffer;
 
         let hasImportantMotion = false;
         if (previousBuffer) {
@@ -328,9 +385,7 @@ app.post('/api/snapshot/upload', async (req, res) => {
             hasImportantMotion = (diffCount / totalSamples) > 0.35;
         }
 
-        let eventFolderType = 'snapshots_24h';
-        let personCategory = 'none'; 
-
+        let personCategory = 'stranger';
         let isConfirmedFamily = isFamily;
         let isConfirmedVisitor = false;
 
@@ -342,66 +397,38 @@ app.post('/api/snapshot/upload', async (req, res) => {
             }
         }
 
+        if (isConfirmedFamily) personCategory = 'family';
+        else if (isConfirmedVisitor) personCategory = 'visitor';
+
         if (hasImportantMotion || recognizedName) {
-            let targetEventDir;
-            let eventPrefix;
-            let bucketFolder = 'motion_events';
+            const cloudUrl = await uploadToCloudStorage(buffer, snapshotFilename, cameraId);
+            const alertImageSource = cloudUrl || snapshotFilePath;
 
-            if (isConfirmedFamily) {
-                personCategory = 'family';
-                targetEventDir = isTablet ? DIR_FAMILY_TABLET : DIR_FAMILY_PC;
-                eventPrefix = isTablet ? 'family_tablet_' : 'family_pc_';
-                eventFolderType = 'family_events';
-                bucketFolder = 'family_events';
-            } else if (isConfirmedVisitor) {
-                personCategory = 'visitor';
-                targetEventDir = isTablet ? DIR_VISITOR_TABLET : DIR_VISITOR_PC;
-                eventPrefix = isTablet ? 'visitor_tablet_' : 'visitor_pc_';
-                eventFolderType = 'visitor_events';
-                bucketFolder = 'visitor_events';
-            } else {
-                personCategory = 'stranger';
-                targetEventDir = isTablet ? DIR_MOTION_TABLET : DIR_MOTION_PC;
-                eventPrefix = isTablet ? 'tablet_motion_' : 'pc_motion_';
-                eventFolderType = 'motion_events';
-                bucketFolder = 'motion_events';
-            }
-
-            const eventFilename = `${eventPrefix}${dateStr}_${timeStr}_${timestamp}.jpg`;
-            const eventFilePath = path.join(targetEventDir, eventFilename);
-            fs.writeFileSync(eventFilePath, buffer);
-
-            const cloudUrl = await uploadToCloudStorage(buffer, eventFilename, bucketFolder);
-            const alertImageSource = cloudUrl || eventFilePath;
+            const nowTime = Date.now();
+            if (!lastTelegramAlertTime[cameraId]) lastTelegramAlertTime[cameraId] = 0;
 
             if (personCategory === 'stranger') {
-                const sessionId = `verify_${deviceKey}_${timestamp}`;
-                pendingAudioVerifications[sessionId] = {
-                    imagePath: alertImageSource,
-                    deviceKey: deviceKey,
-                    status: 'waiting_for_voice'
-                };
+                const sessionId = `verify_${cameraId}_${timestamp}`;
+                pendingAudioVerifications[sessionId] = { imagePath: alertImageSource, cameraId, status: 'waiting' };
 
                 setTimeout(async () => {
-                    if (pendingAudioVerifications[sessionId] && pendingAudioVerifications[sessionId].status === 'waiting_for_voice') {
+                    if (pendingAudioVerifications[sessionId]) {
                         delete pendingAudioVerifications[sessionId];
-                        const nowTime = Date.now();
-                        if (nowTime - lastTelegramAlertTime[deviceKey] > TELEGRAM_ALERT_COOLDOWN) {
-                            lastTelegramAlertTime[deviceKey] = nowTime;
+                        if (nowTime - lastTelegramAlertTime[cameraId] > TELEGRAM_ALERT_COOLDOWN) {
+                            lastTelegramAlertTime[cameraId] = nowTime;
                             await sendTelegramAlertWithPhoto(
                                 alertImageSource, 
-                                `🚨 *แจ้งเตือนด่วน! พบผู้บุกรุก (ไม่ตอบชื่อยืนยันตัวตน)*\nตรวจสอบพบที่อุปกรณ์: *${deviceKey.toUpperCase()}* ❌`
+                                `🚨 *แจ้งเตือนด่วน! พบผู้บุกรุก*\nกล้อง: *[${cameraId}] ${camMeta.name}* (IP: ${camMeta.ip}) ❌`
                             );
                         }
                     }
                 }, 12000);
             } else {
-                const nowTime = Date.now();
-                if (nowTime - lastTelegramAlertTime[deviceKey] > TELEGRAM_ALERT_COOLDOWN) {
-                    lastTelegramAlertTime[deviceKey] = nowTime;
+                if (nowTime - lastTelegramAlertTime[cameraId] > TELEGRAM_ALERT_COOLDOWN) {
+                    lastTelegramAlertTime[cameraId] = nowTime;
                     let alertCaption = personCategory === 'family' 
-                        ? `🏠 *แจ้งเตือนครอบครัว Project-J*\nพบบุคคลในครอบครัว: *คุณ ${recognizedName || 'สมาชิก'}* 🟢`
-                        : `🎴 *แจ้งเตือนคนรู้จัก / แขก*\nพบคุณ *${recognizedName}* 🔵`;
+                        ? `🏠 *แจ้งเตือนครอบครัว Project-J*\nกล้อง: *[${cameraId}] ${camMeta.name}*\nพบบุคคล: *คุณ ${recognizedName}* 🟢`
+                        : `🎴 *แจ้งเตือนแขก / คนรู้จัก*\nกล้อง: *[${cameraId}] ${camMeta.name}*\nพบคุณ *${recognizedName}* 🔵`;
                     await sendTelegramAlertWithPhoto(alertImageSource, alertCaption);
                 }
             }
@@ -410,32 +437,18 @@ app.post('/api/snapshot/upload', async (req, res) => {
         return res.status(200).json({
             success: true,
             filename: snapshotFilename,
+            camera: camMeta.name,
             filteredAsMotion: hasImportantMotion,
-            recognizedPerson: recognizedName || null,
-            category: personCategory,
-            folder: eventFolderType
+            category: personCategory
         });
 
     } catch (error) {
-        console.error('Server error:', error);
+        console.error('Snapshot upload error:', error);
         return res.status(500).json({ success: false, message: error.message });
     }
 });
 
-app.post('/api/verify/response', (req, res) => {
-    const { sessionId, spokenName } = req.body;
-    if (pendingAudioVerifications[sessionId]) {
-        if (spokenName && spokenName.trim() !== "") {
-            VISITOR_WHITELIST.push(spokenName.trim());
-            pendingAudioVerifications[sessionId].status = 'verified';
-            delete pendingAudioVerifications[sessionId];
-            return res.json({ success: true, message: `บันทึกชื่อ ${spokenName} สำเร็จ` });
-        }
-    }
-    return res.json({ success: false, message: "Session expired or invalid name" });
-});
-
 app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-    console.log(`[Architecture] On-Demand Realtime & Voice Registration Active 🟢🎙️`);
+    console.log(`[Multi-Camera System] Ready to support camera001, camera002, and beyond 🟢📹`);
 });
