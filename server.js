@@ -1,4 +1,4 @@
-// server_on_demand_guardian_with_voice.js - Project-J Smart Guardian Server (Multi-Camera Support)
+// server.js - Project-J Smart Guardian Server (Multi-Camera & Real-time Live Switch Support)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -11,7 +11,7 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ตั้งค่าการเชื่อมต่อ Supabase Cloud Storage (ดึงค่าจาก Environment Variables บน Render)
+// ตั้งค่าการเชื่อมต่อ Supabase Cloud Storage
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
 let supabase = null;
@@ -48,7 +48,6 @@ if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
         camerasConfig = {};
     }
 } else {
-    // กำหนดกล้องเริ่มต้นตามที่เพื่อนเอกต้องการ
     camerasConfig = {
         "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", active: true },
         "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.188.140", active: true }
@@ -83,7 +82,7 @@ app.get('/api/cameras/list', (req, res) => {
     return res.json({ success: true, cameras: camerasConfig });
 });
 
-// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่ (เช่น camera003, camera004...)
+// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่
 app.post('/api/cameras/save', (req, res) => {
     try {
         const { cameraId, name, ip } = req.body;
@@ -100,7 +99,6 @@ app.post('/api/cameras/save', (req, res) => {
 
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 
-        // สร้างโฟลเดอร์รองรับภาพของกล้องใหม่ทันที
         const camDir = path.join(DIR_CAMERAS, cameraId);
         if (!fs.existsSync(camDir)) {
             fs.mkdirSync(camDir, { recursive: true });
@@ -124,7 +122,6 @@ app.delete('/api/cameras/delete/:cameraId', (req, res) => {
         const deletedName = camerasConfig[cameraId].name;
         delete camerasConfig[cameraId];
 
-        // บันทึกการเปลี่ยนแปลงลงไฟล์ config
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 
         console.log(`[Multi-Camera] ลบกล้องสำเร็จ -> [${cameraId}] ${deletedName}`);
@@ -195,7 +192,7 @@ app.get('/tablet', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// 📸 API 4: รองรับการรับภาพสดแยกตามรหัสกล้อง (เช่น /api/camera/upload/camera001)
+// 📸 API รองรับการรับภาพสดแยกตามรหัสกล้อง
 app.post('/api/camera/upload/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -208,11 +205,9 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
         const camMeta = camerasConfig[cameraId] || { name: cameraId };
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         
-        // บันทึกภาพล่าสุดของกล้องนั้นๆ
         const latestCamPath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
         fs.writeFileSync(latestCamPath, base64Data, 'base64');
 
-        // ถ้ารู้จักว่าเป็นกล้องหลักตัวแรก ให้อัปเดตเป็น realtime_home.jpg เผื่อหน้าเว็บเดิมเรียกใช้
         if (cameraId === 'camera001' || cameraId === 'camera002') {
             fs.writeFileSync(path.join(DIR_UPLOADS, 'realtime_home.jpg'), base64Data, 'base64');
         }
@@ -225,7 +220,7 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
     }
 });
 
-// 📸 API ดึงภาพล่าสุดของกล้องแต่ละตัวไปแสดงผล (รองรับ Fallback ป้องกัน 404)
+// 📸 API ดึงภาพล่าสุดของกล้องแต่ละตัวไปแสดงผล (ป้องกัน 404 ด้วย Fallback)
 app.get('/api/camera/latest/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -235,7 +230,6 @@ app.get('/api/camera/latest/:cameraId', (req, res) => {
             const imageBuffer = fs.readFileSync(filePath);
             return res.json({ success: true, imageBase64: imageBuffer.toString('base64') });
         } else {
-            // ถ้ายังไม่มีภาพเฉพาะของกล้องนี้ ให้ดึงภาพกลาง (realtime_home.jpg) หรือภาพของกล้องตัวหลักมาแสดงแทนชั่วคราว
             const fallbackPath = path.join(DIR_UPLOADS, 'realtime_home.jpg');
             if (fs.existsSync(fallbackPath)) {
                 const fallbackBuffer = fs.readFileSync(fallbackPath);
