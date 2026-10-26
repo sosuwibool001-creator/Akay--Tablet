@@ -338,7 +338,7 @@
 
         <div class="status-panel glass-card" id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (On-Demand Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 On-Demand Active: พร้อมเรียกดูภาพกล้อง PC บ้านทันทีเมื่อมีคำสั่ง</div>
+            <div id="audioStats" class="debug-stats">📹 On-Demand Active: พร้อมส่งสัญญาณสะกิดขอภาพจากกล้อง PC บ้านทันที</div>
         </div>
 
         <div class="bottom-controls">
@@ -587,7 +587,7 @@
                     : "ไม่มีประวัติคุยเก่า";
 
                 statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (On-Demand Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-                audioStats.innerText = `📹 Full-Screen Live: พร้อมเชื่อมต่อและเรียกดูภาพจากกล้อง PC บ้านสดๆ`;
+                audioStats.innerText = `📹 Full-Screen Live: พร้อมเชื่อมต่อและส่งสัญญาณสะกิดขอภาพจากกล้อง PC บ้าน`;
                 
                 const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Tablet Gemini Plus) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
@@ -829,7 +829,15 @@ ${historySummaryText}
 
         try {
             if (isAskingAboutHomePC) {
-                statusText.innerHTML = `<span class="status-dot"></span><strong>🏠 เจ:</strong> กำลังดึงภาพ [realtime_home.jpg] ล่าสุดจากกล้อง PC บ้าน...`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>🏠 เจ:</strong> กำลังส่งสัญญาณสะกิดขอภาพสดจากกล้อง PC บ้าน...`;
+                
+                // 🚀 ยิงสัญญาณ POST สะกิดคอมพิวเตอร์ให้แคปภาพเดี๋ยวนี้
+                await fetch(`${SERVER_URL}/api/camera/request-capture`, { method: 'POST' });
+                
+                // รอ 1.2 วินาทีให้คอมพิวเตอร์แคปภาพและอัปโหลดเสร็จ
+                await new Promise(resolve => setTimeout(resolve, 1200));
+
+                // ดึงภาพ realtime_home.jpg ล่าสุดมาใช้งาน
                 base64ImageToSend = await fetchLatestHomeCameraFrame();
             } else if (isAskingForVision && video && video.readyState === 4) {
                 const canvas = document.createElement('canvas');
@@ -940,6 +948,7 @@ ${historySummaryText}
         textInput.value = "";
     }
 
+    // 📸 เมื่อกดปุ่ม "ตรวจภาพ" ให้สั่งขอภาพจากกล้องบ้านแบบ On-Demand ทันที
     snapBtn.addEventListener('click', () => {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
             alert("ระบบเฝ้าระวังยังไม่ได้เชื่อมต่อครับ!");
