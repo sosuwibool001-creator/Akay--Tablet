@@ -859,7 +859,8 @@ async function sendTextDirectly(text) {
                 const base64ImageFull = canvas.toDataURL('image/jpeg', 0.8);
                 const base64DataOnly = base64ImageFull.replace(/^data:image\/\w+;base64,/, '');
 
-                await fetch(`${SERVER_URL}/api/camera/upload-latest`, {
+                // 🔄 แก้ไขจากเดิมที่เรียก /api/camera/upload-latest ให้เปลี่ยนมาใช้ API ตามรหัสกล้องปัจจุบัน
+                await fetch(`${SERVER_URL}/api/camera/upload/${currentCameraId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ imageBase64: base64ImageFull })
