@@ -1,4 +1,4 @@
-// server_on_demand_guardian.js - Project-J Smart Guardian Server (On-Demand Realtime Architecture)
+// server_on_demand_guardian_with_voice.js - Project-J Smart Guardian Server (On-Demand & Voice Registration)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -33,6 +33,7 @@ const DIR_FAMILY_TABLET = path.join(__dirname, 'family_events_tablet');
 const DIR_VISITOR_PC = path.join(__dirname, 'visitor_events_pc');
 const DIR_VISITOR_TABLET = path.join(__dirname, 'visitor_events_tablet');
 const DIR_UPLOADS = path.join(__dirname, 'uploads');
+const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles'); // โฟลเดอร์เก็บเสียงตัวอย่างรายบุคคล
 
 const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
 
@@ -41,7 +42,7 @@ const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
     DIR_MOTION_PC, DIR_MOTION_TABLET, 
     DIR_FAMILY_PC, DIR_FAMILY_TABLET, 
     DIR_VISITOR_PC, DIR_VISITOR_TABLET,
-    DIR_UPLOADS
+    DIR_UPLOADS, DIR_VOICE_PROFILES
 ].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -58,7 +59,7 @@ let cameraRequestState = { requested: false };
 let pendingAudioVerifications = {};
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพ Base64 ความละเอียดสูง
+app.use(express.json({ limit: '15mb' })); // ขยายรองรับภาพและเสียง Base64 ขนาดใหญ่
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
@@ -170,6 +171,54 @@ app.post('/api/camera/clear-request', (req, res) => {
     return res.json({ success: true });
 });
 
+// 🎙️ [NEW] API สำหรับบันทึกเสียงตัวอย่างรายบุคคล (Voice Profile Registration)
+app.post('/api/voice/register-sample', (req, res) => {
+    try {
+        const { personName, audioBase64 } = req.body;
+        if (!personName || !audioBase64) {
+            return res.status(400).json({ success: false, message: 'Missing personName or audioBase64' });
+        }
+
+        const personDir = path.join(DIR_VOICE_PROFILES, personName);
+        if (!fs.existsSync(personDir)) {
+            fs.mkdirSync(personDir, { recursive: true });
+        }
+
+        const base64Data = audioBase64.replace(/^data:audio\/\w+;base64,/, '');
+        const audioBuffer = Buffer.from(base64Data, 'base64');
+        
+        const filename = `sample_${Date.now()}.wav`;
+        const filePath = path.join(personDir, filename);
+
+        fs.writeFileSync(filePath, audioBuffer);
+        console.log(`🎙️ [Voice Registration]: บันทึกเสียงตัวอย่างของสมาชิก [${personName}] สำเร็จแล้ว`);
+
+        if (!FAMILY_WHITELIST.includes(personName) && !VISITOR_WHITELIST.includes(personName)) {
+            FAMILY_WHITELIST.push(personName);
+        }
+
+        return res.json({ success: true, message: `บันทึกเสียงของ ${personName} เรียบร้อยครับ` });
+    } catch (err) {
+        console.error('Voice register error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 🎙️ [NEW] API ดึงรายชื่อโปรไฟล์เสียงทั้งหมดที่มีการบันทึกไว้
+app.get('/api/voice/profiles', (req, res) => {
+    try {
+        if (!fs.existsSync(DIR_VOICE_PROFILES)) {
+            return res.json({ success: true, profiles: [] });
+        }
+        const profiles = fs.readdirSync(DIR_VOICE_PROFILES).filter(file => {
+            return fs.statSync(path.join(DIR_VOICE_PROFILES, file)).isDirectory();
+        });
+        return res.json({ success: true, profiles: profiles });
+    } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // เปิด Static Routes สำหรับเรียกดูไฟล์ผ่าน URL
 app.use('/uploads', express.static(DIR_UPLOADS));
 app.use('/snapshots_pc', express.static(DIR_PC));
@@ -180,6 +229,7 @@ app.use('/family_events_pc', express.static(DIR_FAMILY_PC));
 app.use('/family_events_tablet', express.static(DIR_FAMILY_TABLET));
 app.use('/visitor_events_pc', express.static(DIR_VISITOR_PC));
 app.use('/visitor_events_tablet', express.static(DIR_VISITOR_TABLET));
+app.use('/voice_profiles', express.static(DIR_VOICE_PROFILES));
 
 // ☁️ ฟังก์ชันอัปโหลดภาพขึ้น Supabase Cloud Storage
 async function uploadToCloudStorage(buffer, filename, folderType) {
@@ -387,5 +437,5 @@ app.post('/api/verify/response', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-    console.log(`[Architecture] On-Demand Realtime & Signaling Active 🟢📱💻`);
+    console.log(`[Architecture] On-Demand Realtime & Voice Registration Active 🟢🎙️`);
 });
