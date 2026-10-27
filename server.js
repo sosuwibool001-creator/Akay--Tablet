@@ -39,7 +39,7 @@ const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
     }
 });
 
-// โหลดหรือสร้างค่าตั้งค่ากล้องเริ่มต้น (Default Cameras)
+// โหลดหรือสร้างค่าตั้งค่ากล้องเริ่มต้น (Default Cameras) รวมถึงกล้องหน้าบ้าน 998-IP
 let camerasConfig = {};
 if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
     try {
@@ -50,7 +50,7 @@ if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
 } else {
     camerasConfig = {
         "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", active: true },
-        "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.188.140", active: true }
+        "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.188.140", rtsp: "rtsp://192.168.188.140:554/onvif1", active: true }
     };
     fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 }
@@ -93,6 +93,7 @@ app.post('/api/cameras/save', (req, res) => {
         camerasConfig[cameraId] = {
             name: name,
             ip: ip || 'DHCP/Unknown',
+            rtsp: ip ? `rtsp://${ip}:554/onvif1` : '',
             active: true,
             updatedAt: new Date().toISOString()
         };
@@ -455,5 +456,5 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-    console.log(`[Multi-Camera System] Ready to support camera001, camera002, and beyond 🟢📹`);
+    console.log(`[Multi-Camera System] Ready to support camera001, camera002 (Model 998-IP), and beyond 🟢📹`);
 });
