@@ -11,6 +11,7 @@
         .table-custom { color: #f8fafc; }
         .table-custom th { background-color: #334155; color: #38bdf8; }
         .table-custom td { vertical-align: middle; }
+        .badge-status { font-size: 0.85rem; padding: 0.35em 0.65em; }
     </style>
 </head>
 <body class="p-4">
@@ -38,6 +39,7 @@
                         <div class="mb-3">
                             <label class="form-label">IP Address ของกล้อง</label>
                             <input type="text" id="cameraIp" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 192.168.188.140" required>
+                            <small id="ipHelp" class="form-text text-muted">ต้องเป็นรูปแบบ IPv4 ที่ถูกต้อง</small>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-success flex-grow-1" id="btnSubmit">บันทึกกล้อง</button>
@@ -75,6 +77,12 @@
         const API_BASE = '';
         let currentCameras = {};
 
+        // ฟังก์ชันตรวจสอบรูปแบบ IP Address (IPv4)
+        function isValidIPv4(ip) {
+            const regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            return regex.test(ip);
+        }
+
         // โหลดรายการกล้องทั้งหมดมาแสดงในตาราง
         async function loadCameras() {
             try {
@@ -87,7 +95,7 @@
                     currentCameras = data.cameras;
                     const keys = Object.keys(data.cameras);
                     if (keys.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" class="text-center">ยังไม่มีกล้องในระบบ</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">ยังไม่มีกล้องในระบบ</td></tr>';
                         return;
                     }
 
@@ -105,9 +113,12 @@
                             </tr>
                         `;
                     });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">ไม่สามารถดึงข้อมูลกล้องได้</td></tr>';
                 }
             } catch (err) {
                 console.error('Error loading cameras:', err);
+                document.getElementById('cameraTableBody').innerHTML = '<tr><td colspan="4" class="text-center text-danger">เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์</td></tr>';
             }
         }
 
@@ -151,10 +162,11 @@
                     resetForm();
                     loadCameras();
                 } else {
-                    alert('เกิดข้อผิดพลาด: ' + data.message);
+                    alert('เกิดข้อผิดพลาด: ' + (data.message || 'ไม่สามารถลบกล้องได้'));
                 }
             } catch (err) {
-                alert('ไม่สามารถลบกล้องได้');
+                console.error('Delete error:', err);
+                alert('ไม่สามารถเชื่อมต่อเพื่อลบกล้องได้');
             }
         }
 
@@ -164,6 +176,11 @@
             const cameraId = document.getElementById('cameraId').value.trim();
             const name = document.getElementById('cameraName').value.trim();
             const ip = document.getElementById('cameraIp').value.trim();
+
+            if (!isValidIPv4(ip)) {
+                alert('รูปแบบ IP Address ไม่ถูกต้อง กรุณากรอกให้อยู่ในรูปแบบ เช่น 192.168.1.50');
+                return;
+            }
 
             try {
                 const res = await fetch(`${API_BASE}/api/cameras/save`, {
@@ -178,14 +195,10 @@
                     resetForm();
                     loadCameras();
                 } else {
-                    alert('เกิดข้อผิดพลาด: ' + data.message);
+                    alert('เกิดข้อผิดพลาดในการบันทึก: ' + (data.message || 'ไม่สามารถบันทึกได้'));
                 }
             } catch (err) {
-                alert('ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้');
+                console.error('Save error:', err);
+                alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์เพื่อบันทึกข้อมูล');
             }
         });
-
-        loadCameras();
-    </script>
-</body>
-</html>
