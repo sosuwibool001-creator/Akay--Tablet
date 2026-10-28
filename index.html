@@ -124,14 +124,103 @@
 
         #step2 { display: none; text-align: left; width: 100%; }
 
-        video {
+        /* 🟢 สไตล์ปรับปรุงเฉพาะส่วนการแสดงผลกล้องแบบ Multi-Camera Main + Thumbnails */
+        .main-camera-box {
+            position: relative;
             width: 100%;
-            max-height: 480px; 
-            border-radius: 18px;
+            height: 400px;
             background: #000;
+            border-radius: 18px;
+            overflow: hidden;
+            border: 2px solid var(--accent-blue);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .main-camera-box video, .main-camera-box img {
+            width: 100%;
+            height: 100%;
             object-fit: cover;
-            border: 1px solid var(--border-color);
+        }
+
+        .cam-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(0, 0, 0, 0.65);
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* 🟢 กริดจอย่อยสร้างแบบ Dynamic */
+        .camera-grid-thumbnails {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
             margin-bottom: 15px;
+        }
+
+        .thumb-box {
+            background: #fafafa;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .thumb-box.active {
+            border-color: var(--accent-green);
+            box-shadow: 0 0 8px rgba(52, 199, 89, 0.3);
+        }
+
+        .thumb-preview {
+            width: 100%;
+            height: 100px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .thumb-preview video, .thumb-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .thumb-title {
+            font-size: 11px;
+            margin-top: 4px;
+            font-weight: 600;
+            color: #1d1d1f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .live-dot {
+            height: 7px;
+            width: 7px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 6px var(--accent-green);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
         }
 
         button.standard-btn {
@@ -175,7 +264,7 @@
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">PC Master</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Live Stream Mode)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Voice Registration Mode)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -224,23 +313,31 @@
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
 
-        <!-- หน้าต่างแสดงภาพไลฟ์สตรีมเคลื่อนไหว -->
-        <video id="webcam" autoplay playsinline muted></video>
+        <!-- 🔴 หน้าจอเมนหลักแสดงผลกล้องที่เลือกอยู่ -->
+        <div class="main-camera-box">
+            <div id="camBadge" class="cam-badge">📹 กล้องหลัก: กล้องหน้าคอม (camera001)</div>
+            <div id="mainCamDisplay" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                <video id="webcam" autoplay playsinline muted></video>
+            </div>
+        </div>
+
+        <!-- 📷 แผงจอย่อย Dynamic Grid (สร้างกล่องกล้องตามจำนวนที่มีในระบบอัตโนมัติ) -->
+        <div id="cameraGrid" class="camera-grid-thumbnails"></div>
 
         <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
-            <button id="snapBtn" class="standard-btn" style="display: none;">📸 (ปิดใช้งาน)</button>
-            <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้อง</button>
+            <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ (Manual)</button>
+            <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับมุมมองกล้อง</button>
             <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติคุย</button>
         </div>
 
         <div style="display: flex; gap: 6px;">
-            <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ หรือสั่งดูกล้อง..." style="flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
+            <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ..." style="flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
             <button id="sendTextBtn" class="standard-btn clear-btn" style="padding: 8px 14px;">💬 ส่ง</button>
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบสตรีมภาพสดพร้อมทำงาน (Live Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Live Stream Active: แสดงผลภาพเคลื่อนไหวเรียลไทม์</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (PC Mode)...</div>
+            <div id="audioStats" class="debug-stats">📹 Voice Registration Ready: พร้อมบันทึกเสียงสมาชิกด้วยคำสั่งเสียง</div>
         </div>
     </div>
 </div>
@@ -307,7 +404,14 @@ let speechTimeout = null;
 // ตัวแปรควบคุมโหมดบันทึกเสียงรายบุคคล
 let isVoiceRegistrationMode = false;
 let targetRegistrationName = "";
-let currentCameraId = "camera001"; // ค่าเริ่มต้นกล้องหน้าคอม
+
+// 🟢 [NEW] ทะเบียนกล้องในระบบ (เพิ่มกล้องตัวที่ 3, 4 ได้จากตรงนี้ หน้าต่างจะงอกให้อัตโนมัติ)
+let camerasRegistry = {
+    "camera001": { name: "กล้องหน้าคอม (Webcam)", type: "webcam" },
+    "camera002": { name: "กล้องหน้าบ้าน (NWP 998-IP)", type: "stream" }
+};
+let currentCameraId = "camera001";
+let cameraStreamInterval = null;
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -380,6 +484,7 @@ registerOwnerBtn.addEventListener('click', async () => {
             authenticatedUser = name;
             userNameDisplay.innerText = authenticatedUser;
             await initCamera();
+            renderDynamicCameraGrid();
             startMainAppSession();
         } else {
             alert("เกิดข้อผิดพลาดในการบันทึกสิทธิ์: " + data.message);
@@ -402,6 +507,7 @@ function runAutoVerification(ownerName) {
             step2.style.display = 'block';
 
             await initCamera();
+            renderDynamicCameraGrid();
             startMainAppSession();
         }, 800);
 
@@ -440,22 +546,110 @@ async function initCamera() {
         };
 
         mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = mediaStream;
+        if (video) video.srcObject = mediaStream;
     } catch (err) {
         console.warn("ไม่สามารถเปิดไมค์/กล้องได้: " + err.message);
         try {
             mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            video.srcObject = mediaStream;
+            if (video) video.srcObject = mediaStream;
         } catch (e) {
             alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
         }
     }
 }
 
+// 🟢 [NEW] สร้าง Dynamic Camera Grid ด้านล่างสำหรับเลือกกล้องย่อย
+function renderDynamicCameraGrid() {
+    const grid = document.getElementById('cameraGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
+        const box = document.createElement('div');
+        box.className = `thumb-box ${camId === currentCameraId ? 'active' : ''}`;
+        box.id = `thumb-${camId}`;
+        box.onclick = () => switchActiveCamera(camId);
+
+        let content = '';
+        if (camInfo.type === 'webcam') {
+            content = `<video id="preview-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>`;
+        } else {
+            content = `<img id="preview-${camId}" src="/uploads/realtime_${camId}.jpg" onerror="this.src='https://via.placeholder.com/200x100/000000/0071e3?text=${camId}'" style="width:100%; height:100%; object-fit:cover;">`;
+        }
+
+        box.innerHTML = `
+            <div class="thumb-preview">${content}</div>
+            <div class="thumb-title">
+                <span>${camInfo.name}</span>
+                <span class="live-dot"></span>
+            </div>
+        `;
+        grid.appendChild(box);
+
+        if (camInfo.type === 'webcam' && mediaStream) {
+            setTimeout(() => {
+                const prevVid = document.getElementById(`preview-${camId}`);
+                if (prevVid) prevVid.srcObject = mediaStream;
+            }, 300);
+        }
+    }
+}
+
+// 🟢 [NEW] ฟังก์ชันสลับกล้องขึ้นแสดงผลที่จอหลักใหญ่
+function switchActiveCamera(camId) {
+    if (!camerasRegistry[camId]) return;
+    currentCameraId = camId;
+
+    document.querySelectorAll('.thumb-box').forEach(b => b.classList.remove('active'));
+    const activeThumb = document.getElementById(`thumb-${camId}`);
+    if (activeThumb) activeThumb.classList.add('active');
+
+    const badge = document.getElementById('camBadge');
+    if (badge) badge.innerText = `📹 กล้องหลัก: ${camerasRegistry[camId].name} (${camId})`;
+
+    const displayArea = document.getElementById('mainCamDisplay');
+    displayArea.innerHTML = '';
+
+    if (cameraStreamInterval) {
+        clearInterval(cameraStreamInterval);
+        cameraStreamInterval = null;
+    }
+
+    if (camerasRegistry[camId].type === 'webcam') {
+        const mainVid = document.createElement('video');
+        mainVid.id = 'webcam';
+        mainVid.autoplay = true;
+        mainVid.playsInline = true;
+        mainVid.muted = true;
+        mainVid.style.width = '100%';
+        mainVid.style.height = '100%';
+        mainVid.style.objectFit = 'cover';
+        if (mediaStream) mainVid.srcObject = mediaStream;
+        displayArea.appendChild(mainVid);
+    } else {
+        const mainImg = document.createElement('img');
+        mainImg.src = `/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
+        mainImg.style.width = '100%';
+        mainImg.style.height = '100%';
+        mainImg.style.objectFit = 'cover';
+        displayArea.appendChild(mainImg);
+
+        cameraStreamInterval = setInterval(() => {
+            if (currentCameraId === camId) {
+                mainImg.src = `/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
+            }
+        }, 3000);
+    }
+
+    statusText.innerHTML = `<span class="status-dot"></span><strong>📹 สลับมุมมอง:</strong> แสดงผล [${camerasRegistry[camId].name}] เรียบร้อยครับ`;
+}
+
 async function switchCamera() {
-    useFrontCamera = !useFrontCamera;
-    await initCamera();
-    statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เปลี่ยนเป็นใช้งาน${useFrontCamera ? "กล้องหน้า" : "กล้องหลัง"}เรียบร้อยครับ 📷`;
+    if (currentCameraId === 'camera001') {
+        switchActiveCamera('camera002');
+    } else {
+        switchActiveCamera('camera001');
+    }
 }
 
 switchCamBtn.addEventListener('click', switchCamera);
@@ -490,8 +684,8 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลระบบสตรีมสดแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `📹 Live Stream Active: พร้อมสตรีมภาพเคลื่อนไหวและรับคำสั่งเสียง`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (Voice Registration Mode) 🎙️🔊📹`;
+            audioStats.innerText = `📹 Voice Registration Active: พร้อมรับคำสั่งเสียงบันทึกโปรไฟล์`;
             
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
@@ -531,7 +725,7 @@ ${historySummaryText}
 
             startSpeechRecognition();
             startKeepAlivePing();
-            startRemoteCaptureListener(); // 👈 คงระบบดึงภาพตามคำขอของแท็บเล็ตไว้ปกติไม่ให้เสียหาย[cite: 2]
+            startRemoteCaptureListener(); 
         };
 
         ws.onmessage = async (event) => {
@@ -559,12 +753,22 @@ ${historySummaryText}
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
                         
+                        // ตรวจจับคำสั่งพิเศษจากเจเพื่อเริ่มโหมดบันทึกเสียงรายบุคคล
                         if (responseText.includes("[START_VOICE_REGISTRATION:")) {
                             const match = responseText.match(/\[START_VOICE_REGISTRATION:(.*?)\]/);
                             if (match && match[1]) {
                                 targetRegistrationName = match[1].trim();
                                 triggerVoiceSampleRecording(targetRegistrationName);
                             }
+                        }
+
+                        const lowerText = responseText.toLowerCase();
+                        if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง") || lowerText.includes("back camera")) && useFrontCamera) {
+                            useFrontCamera = false;
+                            initCamera();
+                        } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง") || lowerText.includes("front camera")) && !useFrontCamera) {
+                            useFrontCamera = true;
+                            initCamera();
                         }
                     }
                 }
@@ -601,7 +805,7 @@ function startKeepAlivePing() {
     }, 15000);
 }
 
-// 🎙️ บันทึกเสียงตัวอย่างรายบุคคล
+// 🎙️ ฟังก์ชันบันทึกเสียงตัวอย่างจากไมโครโฟนสดๆ เมื่อเจสั่งเปิดโหมดลงทะเบียนเสียง
 async function triggerVoiceSampleRecording(personName) {
     if (isVoiceRegistrationMode) return;
     isVoiceRegistrationMode = true;
@@ -652,7 +856,10 @@ async function triggerVoiceSampleRecording(personName) {
         };
 
         mediaRecorder.start();
-        setTimeout(() => { mediaRecorder.stop(); }, 4000);
+
+        setTimeout(() => {
+            mediaRecorder.stop();
+        }, 4000);
 
     } catch (err) {
         console.error("Microphone access error:", err);
@@ -661,40 +868,82 @@ async function triggerVoiceSampleRecording(personName) {
     }
 }
 
-// 📡 [คงเดิม 100%] ระบบคอยดักฟังคำขอ On-Demand จากแท็บเล็ต เพื่อให้แท็บเล็ตดึงภาพจากกล้องคอมได้ปกติ
+// 📡 ระบบคอยดักฟังคำขอ On-Demand จากแท็บเล็ต พร้อมเคลียร์สถานะอัตโนมัติ
 function startRemoteCaptureListener() {
     if (remoteCheckInterval) clearInterval(remoteCheckInterval);
     
     remoteCheckInterval = setInterval(async () => {
-        if (!isUserActiveSession || !video || video.readyState !== 4) return;
+        const activeVid = document.getElementById('webcam');
+        if (!isUserActiveSession || !activeVid || activeVid.readyState !== 4) return;
 
         try {
             const res = await fetch(`${SERVER_URL}/api/camera/check-request`);
             const data = await res.json();
 
             if (data && data.requested) {
-                console.log("📥 [Remote Request] ได้รับคำขอภาพสดจากแท็บเล็ต กำลังส่งภาพปัจจุบันให้...");
-                
-                // แคปส่งเฉพาะตอนที่แท็บเล็ตส่งสัญญาณขอมาเท่านั้น ระบบหลักจะไม่รวนและไม่แคปพร่ำเพรื่อ
-                const canvas = document.createElement('canvas');
-                canvas.width = 1280;
-                canvas.height = 720;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(video, 0, 0, 1280, 720);
-                const base64Image = canvas.toDataURL('image/jpeg', 0.8);
-                canvas.width = 0; canvas.height = 0;
-
-                await fetch(`${SERVER_URL}/api/camera/upload/${currentCameraId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageBase64: base64Image })
-                });
-
+                console.log("📥 ได้รับคำขอภาพสดจากแท็บเล็ต กำลังแคปส่ง...");
+                await captureAndSendFrame(false);
                 await fetch(`${SERVER_URL}/api/camera/clear-request`, { method: 'POST' });
-                console.log("✅ ส่งภาพให้แท็บเล็ตและเคลียร์สถานะเรียบร้อย");
+                console.log("✅ แคปภาพและเคลียร์สถานะเรียบร้อย พร้อมรับคำขอรอบถัดไป");
             }
         } catch (err) {}
     }, 2000);
+}
+
+async function captureAndSendFrame(isManualTrigger = false) {
+    const activeVid = document.getElementById('webcam');
+    if (!activeVid || activeVid.readyState !== 4) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1280;
+    canvas.height = 720;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(activeVid, 0, 0, 1280, 720);
+
+    const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+    canvas.width = 0; canvas.height = 0;
+
+    try {
+        const res = await fetch(`${SERVER_URL}/api/camera/upload/${currentCameraId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: base64Image })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            audioStats.innerText = `📹 อัปเดตภาพสด [${currentCameraId}] สำเร็จ (${new Date().toLocaleTimeString('th-TH')})`;
+        }
+    } catch (err) {
+        console.warn("ไม่สามารถอัปเดตภาพสดไปยังเซิร์ฟเวอร์ได้:", err.message);
+    }
+
+    if (isManualTrigger) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            const promptText = `ช่วยตรวจสอบภาพจากกล้อง ${currentCameraId} ให้หน่อยครับ / Please check this live image.`;
+
+            const imageMessage = {
+                clientContent: {
+                    turns: [{
+                        role: "user",
+                        parts: [
+                            { inlineData: { mimeType: "image/jpeg", data: base64Image.replace(/^data:image\/\w+;base64,/, '') } },
+                            { text: promptText }
+                        ]
+                    }],
+                    turnComplete: true
+                }
+            };
+
+            try {
+                ws.send(JSON.stringify(imageMessage));
+            } catch (wsErr) {
+                console.error("WebSocket send error:", wsErr);
+            }
+        }
+        saveToHistory('user', '[กดส่งภาพสดให้เจตรวจสอบ]');
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังตรวจสอบภาพสดจากกล้อง ${currentCameraId}...`;
+    }
 }
 
 function startSpeechRecognition() {
@@ -771,17 +1020,61 @@ async function sendTextDirectly(text) {
    
     const lowerText = text.toLowerCase();
     
-    // ตรวจจับคำสั่งเปลี่ยนกล้อง (สตรีมสด)
-    if (lowerText.includes("กล้องหน้าบ้าน") || lowerText.includes("camera002")) {
-        currentCameraId = "camera002";
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📹 มุมมอง:</strong> กำลังสลับไปที่กล้องหน้าบ้าน (camera002)...`;
-    } else if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
-        currentCameraId = "camera001";
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📹 มุมมอง:</strong> กำลังสลับไปที่กล้องหน้าคอม (camera001)...`;
+    // 📹 รองรับคำสั่งเสียงสลับไปกล้องต่างๆ ทันที
+    if (lowerText.includes("กล้องหน้าบ้าน") || lowerText.includes("camera002") || lowerText.includes("หน้าบ้าน")) {
+        switchActiveCamera("camera002");
+    } else if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001") || lowerText.includes("หน้าคอม")) {
+        switchActiveCamera("camera001");
     }
 
     saveToHistory('user', text);
-    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังตอบ...</strong>`;
+    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
+
+    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || 
+                              lowerText.includes("ดูกล้อง") || lowerText.includes("ถืออะไร") || 
+                              lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || 
+                              lowerText.includes("ล่าสุด") || lowerText.includes("ดูหน่อย") ||
+                              lowerText.includes("มองเห็น") || lowerText.includes("มีอะไร");
+
+    if (isAskingForVision) {
+        try {
+            const activeVid = document.getElementById('webcam');
+            if (activeVid && activeVid.readyState === 4) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1280;
+                canvas.height = 720;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(activeVid, 0, 0, 1280, 720);
+
+                const base64ImageFull = canvas.toDataURL('image/jpeg', 0.8);
+                const base64DataOnly = base64ImageFull.replace(/^data:image\/\w+;base64,/, '');
+
+                await fetch(`${SERVER_URL}/api/camera/upload/${currentCameraId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageBase64: base64ImageFull })
+                });
+
+                canvas.width = 0; canvas.height = 0;
+
+                ws.send(JSON.stringify({
+                    clientContent: {
+                        turns: [{
+                            role: "user",
+                            parts: [
+                                { inlineData: { mimeType: "image/jpeg", data: base64DataOnly } },
+                                { text: text }
+                            ]
+                        }],
+                        turnComplete: true
+                    }
+                }));
+                return;
+            }
+        } catch (err) {
+            console.warn("ไม่สามารถดึงภาพสดไปวิเคราะห์ได้:", err);
+        }
+    }
 
     const textMessage = {
         clientContent: {
@@ -853,7 +1146,13 @@ function sendTextMessage() {
     textInput.value = "";
 }
 
-switchCamBtn.addEventListener('click', switchCamera);
+snapBtn.addEventListener('click', () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert("ระบบเฝ้าระวังยังไม่ได้เชื่อมต่อครับ!");
+        return;
+    }
+    captureAndSendFrame(true);
+});
 
 function stopSession() {
     isUserActiveSession = false;
@@ -861,6 +1160,7 @@ function stopSession() {
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
+    if (cameraStreamInterval) { clearInterval(cameraStreamInterval); cameraStreamInterval = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
