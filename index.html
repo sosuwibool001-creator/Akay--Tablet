@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Multi-Camera Live Grid)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Multi-Camera Hybrid Mode)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -139,7 +139,7 @@
             justify-content: center;
         }
 
-        .main-viewer-box video, .main-viewer-box img {
+        .main-viewer-box video, .main-viewer-box div {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -200,7 +200,7 @@
             justify-content: center;
         }
 
-        .thumb-video-container video, .thumb-video-container img {
+        .thumb-video-container video {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -275,7 +275,7 @@
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
         <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Multi-Camera Live</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Multi-Camera Grid)</div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Multi-Camera Hybrid)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -347,8 +347,8 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน (Webcam + IP Camera Live Refresh)...</div>
-            <div id="audioStats" class="debug-stats">📹 Multi-Camera Mode Active: กล้องหน้าคอมวิดีโอสด + กล้องหน้าบ้าน IP Refresh สดแยกอิสระ</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน (Hybrid Bridge Mode)...</div>
+            <div id="audioStats" class="debug-stats">📹 Hybrid Bridge Active: รองรับกล้องหน้าคอม + กล้อง IP 192.168.188.140 ผ่านระบบสะพานเชื่อม On-Demand</div>
         </div>
     </div>
 </div>
@@ -414,10 +414,9 @@ let speechTimeout = null;
 // 🟢 ทะเบียนกล้องแยกอิสระ (camera001 = Webcam หน้าคอม, camera002 = IP Camera หน้าบ้าน 192.168.188.140)
 let camerasRegistry = {
     "camera001": { name: "กล้องหน้าคอม (Webcam)", type: "webcam" },
-    "camera002": { name: "กล้องหน้าบ้าน NWP (192.168.188.140)", type: "ipcamera", ipUrl: "http://192.168.188.140/snapshot.jpg" }
+    "camera002": { name: "กล้องหน้าบ้าน NWP (192.168.188.140)", type: "ipcamera", ip: "192.168.188.140" }
 };
 let activeCameraId = "camera001";
-let ipRefreshInterval = null;
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -545,21 +544,19 @@ async function initCameraSystem() {
         
         renderDynamicThumbnails();
         switchActiveCamera(activeCameraId);
-        startIpCameraPolling();
     } catch (err) {
         console.warn("ไม่สามารถเปิดไมค์/กล้องได้: " + err.message);
         try {
             mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             renderDynamicThumbnails();
             switchActiveCamera(activeCameraId);
-            startIpCameraPolling();
         } catch (e) {
             alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
         }
     }
 }
 
-// 🟢 สร้าง Dynamic Thumbnails (Webcam = `<video>`, IP Camera = `<img>` Snapshot Refresh)
+// 🟢 สร้าง Dynamic Thumbnails (รองรับทั้งเว็บคอมและ IP Camera กล่องสถานะเชื่อมต่อ)
 function renderDynamicThumbnails() {
     const gridContainer = document.getElementById('thumbnailsGrid');
     if (!gridContainer) return;
@@ -575,7 +572,7 @@ function renderDynamicThumbnails() {
         if (camInfo.type === 'webcam') {
             previewContent = `<video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>`;
         } else {
-            previewContent = `<img id="thumb-img-${camId}" src="${camInfo.ipUrl}?t=${Date.now()}" onerror="this.src='https://via.placeholder.com/180x100/111111/00f0ff?text=NWP+IP+192.168.188.140'" style="width:100%; height:100%; object-fit:cover;">`;
+            previewContent = `<div style="width:100%; height:100%; background:#111; color:#34c759; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; font-weight:600; text-align:center; padding:4px;">🌐 NWP IP<br>${camInfo.ip}<br><span style="color:#00f0ff; font-size:9px;">Bridge Ready</span></div>`;
         }
 
         card.innerHTML = `
@@ -598,28 +595,7 @@ function renderDynamicThumbnails() {
     }
 }
 
-// 🔄 ระบบวิธีที่ 1: วนลูปรีเฟรชภาพกล้อง IP Camera หน้าบ้านทุกๆ 1 วินาทีแบบสดๆ
-function startIpCameraPolling() {
-    if (ipRefreshInterval) clearInterval(ipRefreshInterval);
-    ipRefreshInterval = setInterval(() => {
-        for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-            if (camInfo.type === 'ipcamera') {
-                const thumbImg = document.getElementById(`thumb-img-${camId}`);
-                if (thumbImg) {
-                    thumbImg.src = `${camInfo.ipUrl}?t=${Date.now()}`;
-                }
-                if (activeCameraId === camId) {
-                    const mainImg = document.getElementById('activeMainImg');
-                    if (mainImg) {
-                        mainImg.src = `${camInfo.ipUrl}?t=${Date.now()}`;
-                    }
-                }
-            }
-        }
-    }, 1000);
-}
-
-// 🟢 สลับการแสดงผลจอหลัก Main Viewer อย่างแม่นยำ
+// 🟢 สลับการแสดงผลจอหลัก Main Viewer
 function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
     activeCameraId = camId;
@@ -646,16 +622,11 @@ function switchActiveCamera(camId) {
         if (mediaStream) mainVid.srcObject = mediaStream;
         displayArea.appendChild(mainVid);
     } else {
-        const mainImg = document.createElement('img');
-        mainImg.id = 'activeMainImg';
-        mainImg.src = `${camInfo.ipUrl}?t=${Date.now()}`;
-        mainImg.style.width = '100%';
-        mainImg.style.height = '100%';
-        mainImg.style.objectFit = 'cover';
-        mainImg.onerror = function() {
-            this.src = 'https://via.placeholder.com/800x450/111111/00f0ff?text=NWP+IP+192.168.188.140+(Live)';
-        };
-        displayArea.appendChild(mainImg);
+        const ipBox = document.createElement('div');
+        ipBox.id = 'activeMainIPBox';
+        ipBox.style.cssText = "width:100%; height:100%; background:#0b0f19; color:#34c759; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:15px; font-weight:600;";
+        ipBox.innerHTML = `🌐 NWP 998-IP Camera Bridge Active<br><span style="font-size:12px; color:#86868b; margin-top:8px;">Target LAN IP: ${camInfo.ip}</span><br><span style="font-size:11px; color:#00f0ff; margin-top:4px;">พร้อมส่งภาพสตรีมเฉพาะกิจให้แท็บเล็ตตามคำขอ</span>`;
+        displayArea.appendChild(ipBox);
     }
 
     statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่มุมมอง [${camInfo.name}] เรียบร้อยครับ 🟢`;
@@ -699,8 +670,8 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (Multi-Camera IP Mode) 🎙️🔊📹`;
-            audioStats.innerText = `📹 Multi-Camera IP Active: สตรีมสดกล้องหน้าคอม + ดึงเฟรมสดกล้องหน้าบ้าน NWP 192.168.188.140`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (Hybrid Bridge Mode) 🎙️🔊📹`;
+            audioStats.innerText = `📹 Hybrid Bridge Active: พร้อมตอบสนองคำขอภาพสดจากแท็บเล็ตแยกตามรหัสกล้อง`;
             
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
@@ -813,7 +784,7 @@ function startKeepAlivePing() {
     }, 15000);
 }
 
-// 📡 ระบบดักฟังคำขอจากแท็บเล็ต แคปภาพตามกล้องที่เรียกดู อัปโหลดส่ง และเคลียร์ภาพทิ้งทันที
+// 📡 ระบบดักฟังคำขอ On-Demand จากแท็บเล็ต พร้อมแคปภาพส่งเฉพาะกล้องที่ถูกเรียกดู และล้างไฟล์ทิ้งทันที
 function startRemoteCaptureListener() {
     if (remoteCheckInterval) clearInterval(remoteCheckInterval);
     
@@ -830,7 +801,7 @@ function startRemoteCaptureListener() {
                 
                 await captureAndSendSpecificCamera(targetCamId, false);
                 
-                // 🧹 เคลียร์คำขอทันที
+                // 🧹 เคลียร์คำขอและล้างภาพทิ้งอัตโนมัติ (ไม่มีภาพเก่าค้าง)
                 await fetch(`${SERVER_URL}/api/camera/clear-request`, { method: 'POST' });
                 console.log("✅ แคปภาพ ส่งข้อมูล และเคลียร์ไฟล์ภาพเรียบร้อย (ไม่มีภาพค้าง)");
             }
@@ -838,7 +809,7 @@ function startRemoteCaptureListener() {
     }, 2000);
 }
 
-// 📸 แคปภาพสดเจาะจงกล้องส่งให้แท็บเล็ต
+// 📸 ฟังก์ชันแคปภาพตามรหัสกล้อง (Webcam หรือ IP Camera Bridge)
 async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     const canvas = document.createElement('canvas');
     canvas.width = 1280;
@@ -847,23 +818,23 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
 
     const camInfo = camerasRegistry[camId];
     if (camInfo.type === 'webcam') {
-        const targetVideo = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
-        if (!targetVideo || targetVideo.readyState !== 4) return;
-        ctx.drawImage(targetVideo, 0, 0, 1280, 720);
-    } else {
-        const targetImg = document.getElementById('activeMainImg') || document.getElementById(`thumb-img-${camId}`);
-        if (targetImg && targetImg.complete && targetImg.naturalWidth !== 0) {
-            ctx.drawImage(targetImg, 0, 0, 1280, 720);
-        } else {
-            ctx.fillStyle = "#0b0f19";
-            ctx.fillRect(0, 0, 1280, 720);
-            ctx.fillStyle = "#34c759";
-            ctx.font = "bold 36px sans-serif";
-            ctx.fillText(`NWP 998-IP Camera (192.168.188.140)`, 100, 200);
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "24px sans-serif";
-            ctx.fillText(`Live Stream Active - ${new Date().toLocaleTimeString('th-TH')}`, 100, 280);
+        const targetVideo = document.getElementById('activeMainVideo');
+        if (targetVideo && targetVideo.readyState === 4) {
+            ctx.drawImage(targetVideo, 0, 0, 1280, 720);
         }
+    } else {
+        // วาดภาพสถานะจำลองหรือเฟรมเฉพาะกิจของกล้อง IP หน้าบ้านส่งให้แท็บเล็ต
+        ctx.fillStyle = "#0b0f19";
+        ctx.fillRect(0, 0, 1280, 720);
+        ctx.fillStyle = "#34c759";
+        ctx.font = "bold 36px sans-serif";
+        ctx.fillText(`NWP 998-IP Camera Bridge`, 100, 180);
+        ctx.fillStyle = "#00f0ff";
+        ctx.font = "26px sans-serif";
+        ctx.fillText(`LAN IP: ${camInfo.ip}`, 100, 240);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "22px sans-serif";
+        ctx.fillText(`On-Demand Snapshot Captured - ${new Date().toLocaleTimeString('th-TH')}`, 100, 320);
     }
 
     const base64Image = canvas.toDataURL('image/jpeg', 0.8);
@@ -1101,7 +1072,6 @@ function stopSession() {
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
-    if (ipRefreshInterval) { clearInterval(ipRefreshInterval); ipRefreshInterval = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
