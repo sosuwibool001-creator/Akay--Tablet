@@ -414,7 +414,7 @@ let speechTimeout = null;
 // 🟢 ทะเบียนกล้องในระบบ (สามารถเพิ่มกล้องตัวที่ 3, 4 ได้ทันที ระบบจะสร้างหน้าต่างให้อัตโนมัติ)
 let camerasRegistry = {
     "camera001": { name: "กล้องหน้าคอม (Webcam)", type: "webcam" },
-    "camera002": { name: "กล้องมุมเสริม (External Cam)", type: "webcam" } // หรือปรับเป็น stream ตามต้องการ
+    "camera002": { name: "กล้องหน้าบ้าน (192.168.188.140)", type: "stream", url: "http://192.168.188.140:554/onvif1" } // หรือ URL สตรีมตรงของกล้องตัวนั้น
 };
 let activeCameraId = "camera001";
 
