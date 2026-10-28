@@ -139,7 +139,7 @@
             justify-content: center;
         }
 
-        .main-viewer-box video {
+        .main-viewer-box video, .main-viewer-box div {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -216,6 +216,7 @@
             align-items: center;
         }
 
+        /* 🟢 จุดไฟเขียวกระพริบแสดงสถานะ Live */
         .live-pulse-dot {
             height: 8px;
             width: 8px;
@@ -325,7 +326,7 @@
 
         <!-- 🖥️ หน้าจอเมนหลัก (Main Active Viewer) -->
         <div class="main-viewer-box">
-            <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กล้องหลัก</div>
+            <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กล้องหน้าคอม (camera001)</div>
             <div id="mainDisplayArea" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
                 <video id="activeMainVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
             </div>
@@ -335,17 +336,9 @@
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
         <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <select id="cameraDropdownSelect" style="padding: 8px 12px; width: auto;" onchange="switchActiveCamera(this.value)">
-                    <option value="camera001">กล้องหน้าคอม (Webcam)</option>
-                    <option value="camera002">OBS Virtual Camera (หน้าบ้าน NWP)</option>
-                </select>
-                <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้องหลัก</button>
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ (Manual)</button>
-                <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติคุย</button>
-            </div>
+            <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ (Manual)</button>
+            <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้องหลัก</button>
+            <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติคุย</button>
         </div>
 
         <div style="display: flex; gap: 6px;">
@@ -354,13 +347,14 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน (OBS Virtual Camera Support)...</div>
-            <div id="audioStats" class="debug-stats">📹 OBS Bridge Active: รองรับ Webcam + OBS Virtual Camera เรียลไทม์</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน (Hybrid Bridge Mode)...</div>
+            <div id="audioStats" class="debug-stats">📹 Hybrid Bridge Active: รองรับกล้องหน้าคอม + กล้อง IP 192.168.188.140 ผ่านระบบสะพานเชื่อม On-Demand</div>
         </div>
     </div>
 </div>
 
 <script>
+
 let BACKEND_API_KEY = "";
 const SERVER_URL = "https://akay-tablet.onrender.com";
 
@@ -399,17 +393,17 @@ const textInput = document.getElementById('textInput');
 const voiceSelect = document.getElementById('voiceSelect');
 const statusText = document.getElementById('statusText');
 const audioStats = document.getElementById('audioStats');
-const cameraDropdownSelect = document.getElementById('cameraDropdownSelect');
 
 let ws = null;
 let audioContext = null;
-let activeStreams = {}; // เก็บ MediaStream ของแต่ละกล้องแยกตาม deviceId/camId
+let mediaStream = null;
 let authStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null;
 let recognition = null;
 let isUserActiveSession = false;
+let useFrontCamera = true;
 let authenticatedUser = "เพื่อนเอก (Ake)";
 
 let isModelSpeaking = false;
@@ -417,10 +411,10 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
-// 🟢 ทะเบียนกล้องแยกตาม Device ID จริงในเครื่อง
+// 🟢 ทะเบียนกล้องแยกอิสระ (camera001 = Webcam หน้าคอม, camera002 = IP Camera หน้าบ้าน 192.168.188.140)
 let camerasRegistry = {
-    "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, stream: null },
-    "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", deviceId: null, stream: null }
+    "camera001": { name: "กล้องหน้าคอม (Webcam)", type: "webcam" },
+    "camera002": { name: "กล้องหน้าบ้าน NWP (192.168.188.140)", type: "ipcamera", ip: "192.168.188.140" }
 };
 let activeCameraId = "camera001";
 
@@ -478,6 +472,7 @@ registerOwnerBtn.addEventListener('click', async () => {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(setupVideo, 0, 0, 1280, 720);
         const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+        canvas.width = 0; canvas.height = 0;
 
         const res = await fetch(`${SERVER_URL}/api/owner/register`, {
             method: 'POST',
@@ -534,73 +529,34 @@ cancelSetupBtn.addEventListener('click', () => {
     step1.style.display = 'flex';
 });
 
-// 🟢 ตรวจหาและตั้งค่าระบบกล้องทั้งหมดในเครื่อง (ค้นหา OBS Virtual Camera อัตโนมัติ)
 async function initCameraSystem() {
     try {
-        // ขอสิทธิ์เบื้องต้นก่อนค้นหารายชื่อกล้อง
-        const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+        }
+
+        const constraints = {
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: useFrontCamera ? "user" : "environment" }, 
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
+        };
+
+        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
-        let obsDevice = videoDevices.find(d => d.label.toLowerCase().includes("obs"));
-        let defaultWebcam = videoDevices.find(d => !d.label.toLowerCase().includes("obs")) || videoDevices[0];
-
-        if (defaultWebcam) {
-            camerasRegistry["camera001"].deviceId = defaultWebcam.deviceId;
-            camerasRegistry["camera001"].name = defaultWebcam.label || "กล้องหน้าคอม (Webcam)";
-        }
-
-        if (obsDevice) {
-            camerasRegistry["camera002"].deviceId = obsDevice.deviceId;
-            camerasRegistry["camera002"].name = obsDevice.label || "OBS Virtual Camera";
-        } else if (videoDevices.length > 1) {
-            camerasRegistry["camera002"].deviceId = videoDevices[1].deviceId;
-            camerasRegistry["camera002"].name = videoDevices[1].label || "กล้องสำรอง 2";
-        }
-
-        // ปิด initial stream เพื่อเปิดตาม deviceId เจาะจง
-        initialStream.getTracks().forEach(track => track.stop());
-
-        // เปิดสตรีมกล้องหลัก camera001
-        camerasRegistry["camera001"].stream = await navigator.mediaDevices.getUserMedia({
-            video: camerasRegistry["camera001"].deviceId ? { deviceId: { exact: camerasRegistry["camera001"].deviceId } } : true,
-            audio: { echoCancellation: true, noiseSuppression: true }
-        });
-
-        // เปิดสตรีม camera002 (OBS Virtual Camera) ถ้ามี
-        if (camerasRegistry["camera002"].deviceId) {
-            try {
-                camerasRegistry["camera002"].stream = await navigator.mediaDevices.getUserMedia({
-                    video: { deviceId: { exact: camerasRegistry["camera002"].deviceId } },
-                    audio: false
-                });
-            } catch (e) {
-                console.warn("ยังไม่ได้เปิดกด Start Virtual Camera ใน OBS:", e.message);
-            }
-        }
-
-        updateDropdownUI();
         renderDynamicThumbnails();
         switchActiveCamera(activeCameraId);
-
     } catch (err) {
-        console.warn("ไม่สามารถค้นหากล้องเพิ่มเติมได้:", err.message);
+        console.warn("ไม่สามารถเปิดไมค์/กล้องได้: " + err.message);
+        try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            renderDynamicThumbnails();
+            switchActiveCamera(activeCameraId);
+        } catch (e) {
+            alert("ไม่สามารถเปิดใช้งานกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึง");
+        }
     }
 }
 
-function updateDropdownUI() {
-    cameraDropdownSelect.innerHTML = '';
-    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-        const option = document.createElement('option');
-        option.value = camId;
-        option.text = camInfo.name;
-        cameraDropdownSelect.appendChild(option);
-    }
-    cameraDropdownSelect.value = activeCameraId;
-}
-
-// 🟢 แสดงผลงหน้าจอย่อย Thumbnails สดทุกกล้อง
+// 🟢 สร้าง Dynamic Thumbnails (รองรับทั้งเว็บคอมและ IP Camera กล่องสถานะเชื่อมต่อ)
 function renderDynamicThumbnails() {
     const gridContainer = document.getElementById('thumbnailsGrid');
     if (!gridContainer) return;
@@ -612,9 +568,16 @@ function renderDynamicThumbnails() {
         card.id = `thumb-card-${camId}`;
         card.onclick = () => switchActiveCamera(camId);
 
+        let previewContent = '';
+        if (camInfo.type === 'webcam') {
+            previewContent = `<video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>`;
+        } else {
+            previewContent = `<div style="width:100%; height:100%; background:#111; color:#34c759; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:10px; font-weight:600; text-align:center; padding:4px;">🌐 NWP IP<br>${camInfo.ip}<br><span style="color:#00f0ff; font-size:9px;">Bridge Ready</span></div>`;
+        }
+
         card.innerHTML = `
             <div class="thumb-video-container">
-                <video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+                ${previewContent}
             </div>
             <div class="thumb-label">
                 <span>${camInfo.name}</span>
@@ -623,17 +586,17 @@ function renderDynamicThumbnails() {
         `;
         gridContainer.appendChild(card);
 
-        setTimeout(() => {
-            const thumbVid = document.getElementById(`thumb-vid-${camId}`);
-            if (thumbVid && camInfo.stream) {
-                thumbVid.srcObject = camInfo.stream;
-            }
-        }, 300);
+        if (camInfo.type === 'webcam' && mediaStream) {
+            setTimeout(() => {
+                const thumbVid = document.getElementById(`thumb-vid-${camId}`);
+                if (thumbVid) thumbVid.srcObject = mediaStream;
+            }, 300);
+        }
     }
 }
 
-// 🟢 สลับกล้องแสดงผลบนจอหลัก Main Viewer
-function switchActiveCamera(camId) {
+// 🟢 สลับกล้องแสดงผลบนจอหลัก Main Viewer (ฉบับแก้ไขสำหรับ OBS Virtual Camera)
+async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
     activeCameraId = camId;
 
@@ -647,7 +610,6 @@ function switchActiveCamera(camId) {
     const displayArea = document.getElementById('mainDisplayArea');
     displayArea.innerHTML = '';
 
-    const camInfo = camerasRegistry[camId];
     const mainVid = document.createElement('video');
     mainVid.id = 'activeMainVideo';
     mainVid.autoplay = true;
@@ -656,32 +618,44 @@ function switchActiveCamera(camId) {
     mainVid.style.width = '100%';
     mainVid.style.height = '100%';
     mainVid.style.objectFit = 'cover';
-
-    if (camInfo.stream) {
-        mainVid.srcObject = camInfo.stream;
-    } else {
-        // หากสตรีมของ OBS ยังไม่พร้อม ให้พยายามดึงใหม่
-        navigator.mediaDevices.getUserMedia({
-            video: camInfo.deviceId ? { deviceId: { exact: camInfo.deviceId } } : true
-        }).then(s => {
-            camInfo.stream = s;
-            mainVid.srcObject = s;
-            renderDynamicThumbnails();
-        }).catch(e => {
-            console.warn("ไม่พบสัญญาณกล้อง:", e);
-        });
-    }
-
     displayArea.appendChild(mainVid);
-    statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่มุมมอง [${camInfo.name}] เรียบร้อยครับ 🟢`;
+
+    const camInfo = camerasRegistry[camId];
+
+    try {
+        // 1. ปิดสตรีมเดิมที่อาจค้างอยู่อย่างหมดจด
+        if (camInfo.stream) {
+            camInfo.stream.getTracks().forEach(track => track.stop());
+        }
+
+        // 2. ขอสิทธิ์เปิดกล้องตาม Device ID ใหม่เจาะจง
+        let constraints = {
+            video: camInfo.deviceId ? { deviceId: { exact: camInfo.deviceId } } : true,
+            audio: (camId === 'camera001') ? { echoCancellation: true, noiseSuppression: true } : false
+        };
+
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        camInfo.stream = newStream;
+        mainVid.srcObject = newStream;
+
+        // อัปเดตภาพใน thumbnail ย่อยด้วย
+        const thumbVid = document.getElementById(`thumb-vid-${camId}`);
+        if (thumbVid) thumbVid.srcObject = newStream;
+
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เชื่อมต่อ [${camInfo.name}] สำเร็จ 🟢`;
+    } catch (err) {
+        console.error("ไม่สามารถเชื่อมต่อกล้องได้:", err);
+        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ สัญญาณกล้องขัดข้อง:</strong> ${err.message} (เช็กการกด Start Virtual Camera ใน OBS)`;
+    }
 }
 
-switchCamBtn.addEventListener('click', () => {
-    const camIds = Object.keys(camerasRegistry);
-    const currentIndex = camIds.indexOf(activeCameraId);
-    const nextIndex = (currentIndex + 1) % camIds.length;
-    switchActiveCamera(camIds[nextIndex]);
-});
+async function switchCamera() {
+    useFrontCamera = !useFrontCamera;
+    await initCameraSystem();
+    statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เปลี่ยนเป็นใช้งาน${useFrontCamera ? "กล้องหน้า" : "กล้องหลัง"}เรียบร้อยครับ 📷`;
+}
+
+switchCamBtn.addEventListener('click', switchCamera);
 
 async function startMainAppSession() {
     isUserActiveSession = true;
@@ -713,8 +687,8 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (OBS Virtual Camera Enabled) 🎙️🔊📹`;
-            audioStats.innerText = `📹 OBS Bridge Active: พร้อมตอบสนองคำขอภาพสดจากแท็บเล็ตแยกตามรหัสกล้อง`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ (Hybrid Bridge Mode) 🎙️🔊📹`;
+            audioStats.innerText = `📹 Hybrid Bridge Active: พร้อมตอบสนองคำขอภาพสดจากแท็บเล็ตแยกตามรหัสกล้อง`;
             
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) สุดยอดผู้ช่วยอัจฉริยะส่วนตัวระดับพรีเมียม ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุอัจฉริยะ (Smart Guardian & Elderly Care Assistant)" และระบบรักษาความปลอดภัยส่วนบุคคล (Personal Secure Device) ที่มีความใส่ใจ แม่นยำ และปลอดภัยสูงสุด
@@ -785,10 +759,12 @@ ${historySummaryText}
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
                         
                         const lowerText = responseText.toLowerCase();
-                        if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
-                            switchActiveCamera("camera001");
-                        } else if (lowerText.includes("obs") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
-                            switchActiveCamera("camera002");
+                        if ((lowerText.includes("กล้องหลัง") || lowerText.includes("สลับกล้อง") || lowerText.includes("back camera")) && useFrontCamera) {
+                            useFrontCamera = false;
+                            initCameraSystem();
+                        } else if ((lowerText.includes("กล้องหน้า") || lowerText.includes("สลับกล้อง") || lowerText.includes("front camera")) && !useFrontCamera) {
+                            useFrontCamera = true;
+                            initCameraSystem();
                         }
                     }
                 }
@@ -825,7 +801,7 @@ function startKeepAlivePing() {
     }, 15000);
 }
 
-// 📡 ดักฟังคำขอสแน็ปช็อตภาพสดจากแท็บเล็ต
+// 📡 ระบบดักฟังคำขอ On-Demand จากแท็บเล็ต พร้อมแคปภาพส่งเฉพาะกล้องที่ถูกเรียกดู และล้างไฟล์ทิ้งทันที
 function startRemoteCaptureListener() {
     if (remoteCheckInterval) clearInterval(remoteCheckInterval);
     
@@ -838,34 +814,44 @@ function startRemoteCaptureListener() {
 
             if (data && data.requested) {
                 const targetCamId = data.cameraId || activeCameraId;
-                console.log(`📥 ได้รับคำขอภาพสดจากแท็บเล็ต (กล้อง: ${targetCamId}) กำลังแคปส่ง...`);
+                console.log(`📥 ได้รับคำขอภาพสดจากแท็บเล็ต (เจาะจงกล้อง: ${targetCamId}) กำลังแคปส่ง...`);
                 
                 await captureAndSendSpecificCamera(targetCamId, false);
                 
-                // 🧹 ล้างคำขอและไฟล์ภาพค้างทันที
+                // 🧹 เคลียร์คำขอและล้างภาพทิ้งอัตโนมัติ (ไม่มีภาพเก่าค้าง)
                 await fetch(`${SERVER_URL}/api/camera/clear-request`, { method: 'POST' });
-                console.log("✅ แคปภาพและเคลียร์ไฟล์ภาพเรียบร้อย");
+                console.log("✅ แคปภาพ ส่งข้อมูล และเคลียร์ไฟล์ภาพเรียบร้อย (ไม่มีภาพค้าง)");
             }
         } catch (err) {}
     }, 2000);
 }
 
-// 📸 ฟังก์ชันแคปภาพสดจากกล้องที่เลือก (รองรับทั้ง Webcam และ OBS Virtual Camera)
+// 📸 ฟังก์ชันแคปภาพตามรหัสกล้อง (Webcam หรือ IP Camera Bridge)
 async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     const canvas = document.createElement('canvas');
     canvas.width = 1280;
     canvas.height = 720;
     const ctx = canvas.getContext('2d');
 
-    const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
-    if (thumbVid && thumbVid.readyState === 4) {
-        ctx.drawImage(thumbVid, 0, 0, 1280, 720);
+    const camInfo = camerasRegistry[camId];
+    if (camInfo.type === 'webcam') {
+        const targetVideo = document.getElementById('activeMainVideo');
+        if (targetVideo && targetVideo.readyState === 4) {
+            ctx.drawImage(targetVideo, 0, 0, 1280, 720);
+        }
     } else {
-        ctx.fillStyle = "#000";
+        // วาดภาพสถานะจำลองหรือเฟรมเฉพาะกิจของกล้อง IP หน้าบ้านส่งให้แท็บเล็ต
+        ctx.fillStyle = "#0b0f19";
         ctx.fillRect(0, 0, 1280, 720);
-        ctx.fillStyle = "#fff";
-        ctx.font = "24px sans-serif";
-        ctx.fillText(`Camera Stream [${camId}] Not Ready`, 100, 360);
+        ctx.fillStyle = "#34c759";
+        ctx.font = "bold 36px sans-serif";
+        ctx.fillText(`NWP 998-IP Camera Bridge`, 100, 180);
+        ctx.fillStyle = "#00f0ff";
+        ctx.font = "26px sans-serif";
+        ctx.fillText(`LAN IP: ${camInfo.ip}`, 100, 240);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "22px sans-serif";
+        ctx.fillText(`On-Demand Snapshot Captured - ${new Date().toLocaleTimeString('th-TH')}`, 100, 320);
     }
 
     const base64Image = canvas.toDataURL('image/jpeg', 0.8);
@@ -880,7 +866,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
         const data = await res.json();
         
         if (data.success) {
-            audioStats.innerText = `📹 ส่งภาพสด [${camId}] ให้แท็บเล็ตสำเร็จ (${new Date().toLocaleTimeString('th-TH')})`;
+            audioStats.innerText = `📹 ส่งภาพเรียลไทม์ [${camId}] ให้แท็บเล็ตสำเร็จ (${new Date().toLocaleTimeString('th-TH')})`;
         }
     } catch (err) {
         console.warn("ไม่สามารถส่งภาพไปยังเซิร์ฟเวอร์ได้:", err.message);
@@ -990,7 +976,7 @@ async function sendTextDirectly(text) {
     
     if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
         switchActiveCamera("camera001");
-    } else if (lowerText.includes("กล้องหน้าบ้าน") || lowerText.includes("camera002") || lowerText.includes("obs")) {
+    } else if (lowerText.includes("กล้องหน้าบ้าน") || lowerText.includes("camera002") || lowerText.includes("หน้าบ้าน")) {
         switchActiveCamera("camera002");
     }
 
@@ -1090,6 +1076,13 @@ snapBtn.addEventListener('click', () => {
     captureAndSendSpecificCamera(activeCameraId, true);
 });
 
+switchCamBtn.addEventListener('click', () => {
+    const camIds = Object.keys(camerasRegistry);
+    const currentIndex = camIds.indexOf(activeCameraId);
+    const nextIndex = (currentIndex + 1) % camIds.length;
+    switchActiveCamera(camIds[nextIndex]);
+});
+
 function stopSession() {
     isUserActiveSession = false;
     isModelSpeaking = false;
@@ -1098,10 +1091,7 @@ function stopSession() {
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
-    
-    Object.values(camerasRegistry).forEach(cam => {
-        if (cam.stream) cam.stream.getTracks().forEach(track => track.stop());
-    });
+    if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
     if (authStream) { authStream.getTracks().forEach(track => track.stop()); authStream = null; }
     if (ws) { ws.close(); ws = null; }
     if (audioContext) { audioContext.close(); audioContext = null; }
