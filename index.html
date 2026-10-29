@@ -901,13 +901,66 @@ function playAudioChunk(base64Data) {
     source.start(nextAudioTime);
     nextAudioTime += audioBuffer.duration;
 
-    const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 1500;
+    const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 800; // 🟢 ปรับลดเวลาหน่วงตอนจบให้กระชับขึ้น
     if (speakingTimeout) clearTimeout(speakingTimeout);
     speakingTimeout = setTimeout(() => {
         isModelSpeaking = false;
         audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
-        if (isUserActiveSession && recognition) { try { recognition.start(); } catch(e) {} }
+        
+        // 🟢 เปิดไมค์สแตนด์บายล่วงหน้าทันทีที่เจพูดจบ เพื่อไม่ให้พลาดคำแรกของเพื่อนเอก
+        if (isUserActiveSession && recognition) { 
+            try { 
+                recognition.start(); 
+            } catch(e) {} 
+        }
     }, remainingTime);
+}
+
+function startSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    if (recognition) { try { recognition.stop(); } catch(e){} }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'th-TH';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+        if (isModelSpeaking) return;
+        let currentChunk = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            currentChunk += event.results[i][0].transcript;
+        }
+        if (currentChunk.trim()) {
+            speechBuffer = currentChunk.trim();
+            if (speechTimeout) clearTimeout(speechTimeout);
+            
+            // 🟢 ลดเวลาหน่วงลงเหลือ 500ms เพื่อให้กดส่งคำพูดได้รวดเร็วทันใจ
+            speechTimeout = setTimeout(() => {
+                let finalTextToSend = speechBuffer.trim();
+                speechBuffer = "";
+                if (finalTextToSend && !isModelSpeaking) sendTextDirectly(finalTextToSend);
+            }, 500);
+        }
+    };
+
+    recognition.onerror = (err) => { 
+        // ป้องกันไมค์หลุด ถ้าระบบแจ้ง no-speech ให้รีสตาร์ทไมค์อัตโนมัติทันที
+        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
+            setTimeout(startSpeechRecognition, 200); 
+        }
+    };
+    
+    recognition.onend = () => { 
+        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
+            setTimeout(() => { 
+                try { recognition.start(); } catch(e){} 
+            }, 50); 
+        }
+    };
+    
+    try { recognition.start(); } catch(e) {}
 }
 
 sendTextBtn.addEventListener('click', sendTextMessage);
