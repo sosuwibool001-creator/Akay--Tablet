@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Gemini Plus Overlay)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Voice-Only Multi-Cam)</title>
     <style>
         :root {
             --bg-color: #0f172a;
@@ -159,7 +159,6 @@
             box-sizing: border-box;
         }
 
-        /* รองรับการสลับแสดงผลระหว่างกล้องอุปกรณ์ (Local) กับกล้อง NVR/ระบบ (Remote Stream Container) */
         #webcam, #remoteCameraDisplay {
             position: absolute;
             top: 0;
@@ -172,7 +171,7 @@
         }
 
         #remoteCameraDisplay {
-            display: none; /* เริ่มต้นแสดงกล้องแท็บเล็ตปกติ เปิดใช้งานเมื่อเลือกดูจาก NVR */
+            display: none;
             z-index: 2;
         }
 
@@ -265,7 +264,7 @@
 
         .action-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr; /* ปรับเพิ่มช่องสำหรับปุ่มเลือกกล้อง NVR */
+            grid-template-columns: 1fr 1fr; /* ปรับเหลือ 2 ปุ่มหลักที่จำเป็น */
             gap: 6px;
             width: 100%;
         }
@@ -284,27 +283,6 @@
             border: 1px solid var(--card-border);
             min-width: 0;
         }
-
-        /* Modal เลือกกล้อง NVR รายตัว */
-        #cameraSelectorModal {
-            position: fixed;
-            top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 200;
-            display: none;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .camera-grid-box {
-            background: #fff;
-            width: 100%;
-            max-width: 500px;
-            border-radius: 20px;
-            padding: 20px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
     </style>
 </head>
 <body>
@@ -313,7 +291,7 @@
     <div class="auth-card">
         <div id="step1">
             <div class="logo-box">Project-J <span style="font-size: 12px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px;">Gemini Plus</span></div>
-            <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (Tablet Edition - Multi-Camera)</div>
+            <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (Voice Control Edition)</div>
             
             <div class="input-group">
                 <select id="voiceSelect">
@@ -353,22 +331,8 @@
     </div>
 </div>
 
-<!-- Modal สำหรับเลือกกล้อง NVR รายตัว -->
-<div id="cameraSelectorModal">
-    <div class="camera-grid-box">
-        <h3 style="margin-bottom: 12px; color: var(--accent-blue);">📹 เลือกกล้อง NVR (1 - 32)</h3>
-        <p style="font-size: 12px; color: var(--text-sub); margin-bottom: 16px;">แตะเลือกกล้องที่ต้องการดูภาพสดรายตัวจากระบบ NVR:</p>
-        <div id="cameraListContainer" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; max-height: 50vh; overflow-y: auto; margin-bottom: 16px;">
-            <!-- สร้างปุ่มกล้อง 1-32 อัตโนมัติด้วย JS -->
-        </div>
-        <button id="closeCamModalBtn" class="standard-btn stop-btn" style="width: 100%;">ปิดหน้าต่าง</button>
-    </div>
-</div>
-
 <div id="step2">
-    <!-- กล้องแท็บเล็ต Local (กล้องหน้า/หลัง) -->
     <video id="webcam" autoplay playsinline muted></video>
-    <!-- จอแสดงผลภาพกล้อง NVR Remote (กรณีเลือกดูจากระบบ NVR) -->
     <img id="remoteCameraDisplay" alt="NVR Camera Stream">
 
     <div class="overlay-layer">
@@ -380,21 +344,19 @@
         </div>
 
         <div class="status-panel glass-card" id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Project-J พร้อมทำงาน (Multi-Camera Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Active Camera: กล้องแท็บเล็ต (Local) / รองรับเลือกดู NVR 32 ช่อง</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบพร้อมรับคำสั่งเสียงสลับกล้อง...</div>
+            <div id="audioStats" class="debug-stats">🗣️ Voice-Control Active: พูด "ขอดูจอกล้อง 3" หรือ "สลับเป็นกล้องแท็บเล็ต" ได้ทันที</div>
         </div>
 
         <div class="bottom-controls">
             <div class="action-grid">
-                <button id="snapBtn" class="standard-btn">📸 ตรวจภาพ</button>
-                <button id="selectCamBtn" class="standard-btn" style="background-color: var(--accent-orange);">🎛️ เลือกกล้อง</button>
-                <button id="switchCamBtn" class="standard-btn" style="background-color: var(--accent-purple);">🔄 สลับกล้อง</button>
+                <button id="snapBtn" class="standard-btn">📸 ตรวจภาพปัจจุบัน</button>
                 <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างจำ</button>
             </div>
 
             <div class="chat-input-box glass-card">
                 <button id="micToggleBtn" class="standard-btn" style="background-color: var(--accent-green); white-space: nowrap;">🎙️ เปิดไมค์ฟัง</button>
-                <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ หรือสั่งดูกล้อง...">
+                <input type="text" id="textInput" placeholder="พิมพ์ข้อความ หรือสั่งสลับกล้องด้วยเสียง...">
                 <button id="sendTextBtn" class="standard-btn clear-btn" style="padding: 10px 14px;">💬 ส่ง</button>
             </div>
         </div>
@@ -404,7 +366,7 @@
 <script>
     let BACKEND_API_KEY = ""; 
     const SERVER_URL = "https://akay-tablet.onrender.com";
-    let currentSelectedCameraId = "local"; // เริ่มต้นใช้กล้องแท็บเล็ต
+    let currentSelectedCameraId = "local"; // สถานะเริ่มต้น: กล้องแท็บเล็ต
 
     async function initConfig() {
         try {
@@ -437,8 +399,6 @@
     const remoteCameraDisplay = document.getElementById('remoteCameraDisplay');
     const stopBtn = document.getElementById('stopBtn');
     const snapBtn = document.getElementById('snapBtn');
-    const switchCamBtn = document.getElementById('switchCamBtn');
-    const selectCamBtn = document.getElementById('selectCamBtn');
     const clearMemBtn = document.getElementById('clearMemBtn');
     const sendTextBtn = document.getElementById('sendTextBtn');
     const textInput = document.getElementById('textInput');
@@ -446,10 +406,6 @@
     const statusText = document.getElementById('statusText');
     const audioStats = document.getElementById('audioStats');
     const micToggleBtn = document.getElementById('micToggleBtn');
-
-    const cameraSelectorModal = document.getElementById('cameraSelectorModal');
-    const cameraListContainer = document.getElementById('cameraListContainer');
-    const closeCamModalBtn = document.getElementById('closeCamModalBtn');
 
     let ws = null;
     let audioContext = null;
@@ -465,39 +421,6 @@
     let speakingTimeout = null;
     let isMicActive = false;
     let remoteStreamInterval = null;
-
-    // สร้างปุ่มเลือกกล้อง 32 ช่อง NVR อัตโนมัติ
-    function buildCameraSelectorGrid() {
-        cameraListContainer.innerHTML = '';
-        
-        // ปุ่มสำหรับสลับกลับมาดูกล้องแท็บเล็ต
-        const localBtn = document.createElement('button');
-        localBtn.className = 'standard-btn';
-        localBtn.style.backgroundColor = 'var(--accent-purple)';
-        localBtn.innerText = '📱 กล้องเครื่อง';
-        localBtn.onclick = () => switchToLocalCamera();
-        cameraListContainer.appendChild(localBtn);
-
-        // สร้างปุ่มกล้อง NVR ช่องที่ 1 ถึง 32
-        for (let i = 1; i <= 32; i++) {
-            const camId = `camera${String(i).padStart(3, '0')}`; // เช่น camera001, camera002...
-            const btn = document.createElement('button');
-            btn.className = 'standard-btn';
-            btn.style.backgroundColor = currentSelectedCameraId === camId ? 'var(--accent-green)' : 'var(--accent-blue)';
-            btn.innerText = `Cam ${i}`;
-            btn.onclick = () => switchToNVRCamera(camId, `Cam ${i}`);
-            cameraListContainer.appendChild(btn);
-        }
-    }
-    buildCameraSelectorGrid();
-
-    selectCamBtn.addEventListener('click', () => {
-        cameraSelectorModal.style.display = 'flex';
-    });
-
-    closeCamModalBtn.addEventListener('click', () => {
-        cameraSelectorModal.style.display = 'none';
-    });
 
     function saveToHistory(role, text) {
         let history = JSON.parse(localStorage.getItem('akay_chat_history_tablet') || '[]');
@@ -632,36 +555,34 @@
         }
     }
 
-    // 📱 สลับกลับมาดูกล้องแท็บเล็ต Local
+    // 📱 [VOICE CONTROL] ฟังก์ชันสลับกลับมาดูกล้องแท็บเล็ต Local ผ่านคำสั่งเสียง
     async function switchToLocalCamera() {
         currentSelectedCameraId = "local";
-        if (remoteStreamInterval) clearInterval(remoteStreamInterval);
+        if (remoteStreamInterval) {
+            clearInterval(remoteStreamInterval);
+            remoteStreamInterval = null;
+        }
         remoteCameraDisplay.style.display = 'none';
         video.style.display = 'block';
         await initCamera();
-        cameraSelectorModal.style.display = 'none';
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> แสดงภาพจากกล้องแท็บเล็ต (Local) เรียบร้อย`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาแสดงภาพกล้องแท็บเล็ตเรียบร้อยครับ`;
         audioStats.innerText = `📹 Active Camera: กล้องแท็บเล็ต (Local)`;
-        buildCameraSelectorGrid();
     }
 
-    // 🖥️ สลับไปดูภาพสดจากกล้อง NVR รายตัว (Remote Stream)
-    async function switchToNVRCamera(camId, camLabel) {
+    // 🖥️ [VOICE CONTROL] ฟังก์ชันสลับไปดูภาพสด NVR รายตัวผ่านคำสั่งเสียง
+    async function switchToNVRCamera(camId) {
         currentSelectedCameraId = camId;
         if (mediaStream) {
-            mediaStream.getTracks().forEach(t => t.stop()); // ปิดกล้องแท็บเล็ตประหยัดแบต
+            mediaStream.getTracks().forEach(t => t.stop());
         }
         video.style.display = 'none';
         remoteCameraDisplay.style.display = 'block';
-        cameraSelectorModal.style.display = 'none';
 
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> กำลังเชื่อมต่อภาพจาก ${camLabel} (NVR)...`;
-        audioStats.innerText = `📹 Active Camera: ${camLabel} (${camId})`;
-        buildCameraSelectorGrid();
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> กำลังสลับไปแสดงผลภาพสดจาก [${camId}]...`;
+        audioStats.innerText = `📹 Active Camera: ${camId} (NVR Stream)`;
 
-        // ฟังก์ชันดึงภาพสตรีมสดอัปเดตต่อเนื่อง (Polling Frame)
         if (remoteStreamInterval) clearInterval(remoteStreamInterval);
-        
+
         async function fetchFrame() {
             try {
                 const res = await fetch(`${SERVER_URL}/api/camera/latest/${camId}?t=${Date.now()}`);
@@ -675,20 +596,46 @@
         }
 
         await fetchFrame();
-        remoteStreamInterval = setInterval(fetchFrame, 1500); // อัปเดตภาพทุก 1.5 วินาที
+        remoteStreamInterval = setInterval(fetchFrame, 1500);
     }
 
-    async function switchCamera() {
-        if (currentSelectedCameraId !== "local") {
-            alert("ท่านกำลังเปิดดูภาพจากกล้อง NVR อยู่ หากต้องการสลับกล้องหน้า/หลัง ให้กลับมาเลือก 'กล้องเครื่อง' ก่อนครับ");
-            return;
+    // 🎙️ [VOICE COMMAND PARSER] ตัววิเคราะห์คำสั่งเสียงเพื่อสลับกล้องอัตโนมัติ
+    function parseAndExecuteCameraVoiceCommand(text) {
+        const lower = text.toLowerCase();
+
+        // 1. ตรวจจับคำสั่งสลับกลับมากล้องแท็บเล็ต
+        if (lower.includes("กล้องแท็บเล็ต") || lower.includes("กล้องเครื่อง") || lower.includes("กล้องตัวเอง") || lower.includes("หน้าจอเดิม")) {
+            switchToLocalCamera();
+            return true;
         }
-        useFrontCamera = !useFrontCamera;
-        await initCamera();
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เปลี่ยนเป็นใช้งาน${useFrontCamera ? "กล้องหน้า" : "กล้องหลัง"}เรียบร้อยครับ 📷`;
-    }
 
-    switchCamBtn.addEventListener('click', switchCamera);
+        // 2. ตรวจจับคำสั่งสลับกล้องหน้า/กล้องหลัง ของตัวแท็บเล็ต
+        if (lower.includes("กล้องหลัง") || lower.includes("back camera")) {
+            if (currentSelectedCameraId !== "local") switchToLocalCamera();
+            useFrontCamera = false;
+            initCamera();
+            return true;
+        }
+        if (lower.includes("กล้องหน้า") || lower.includes("front camera")) {
+            if (currentSelectedCameraId !== "local") switchToLocalCamera();
+            useFrontCamera = true;
+            initCamera();
+            return true;
+        }
+
+        // 3. ตรวจจับคำสั่งสลับไปกล้อง NVR ช่องต่างๆ (เช่น "กล้อง 3", "จอกล้องที่ 5", "cam 12")
+        const camMatch = lower.match(/(?:กล้อง|จอ|ช่อง|cam|camera)\s*(\d+)/i);
+        if (camMatch && camMatch[1]) {
+            const camNum = parseInt(camMatch[1]);
+            if (camNum >= 1 && camNum <= 32) {
+                const targetCamId = `camera${String(camNum).padStart(3, '0')}`;
+                switchToNVRCamera(targetCamId);
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     async function startMainAppSession() {
         isUserActiveSession = true;
@@ -719,21 +666,20 @@
                     ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                     : "ไม่มีประวัติคุยเก่า";
 
-                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (Multi-Camera Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-                audioStats.innerText = `📹 Multi-Camera Active: รองรับเรียกดู NVR 32 ช่องและกล้องเครื่อง`;
+                statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (Voice-Control Camera) เจพร้อมฟังคำสั่งสลับกล้องแล้วครับ 🎙️🔊📹`;
+                audioStats.innerText = `📹 Active Camera: ${currentSelectedCameraId}`;
                 
                 const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Tablet Gemini Plus) ผู้ช่วยอัจฉริยะส่วนตัว ทำหน้าที่เป็น "ผู้ดูแลผู้สูงอายุและระบบความปลอดภัย (Smart Guardian & Camera Monitoring)"
+คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Tablet Gemini Plus)
 
 ผู้ใช้งานปัจจุบันที่ผ่านการยืนยันตัวตนคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
-กล้องที่กำลังเปิดดูอยู่ปัจจุบัน: ${currentSelectedCameraId}
 
 ${historySummaryText}
 
-[กฎสำคัญ]:
-1. หากผู้ใช้งานสั่งให้ตรวจสอบภาพจากกล้อง NVR ช่องไหน (เช่น "ขอดูชลอส 3 หน่อย", "เช็กกล้อง 5") ให้ดึงภาพจากกล้องช่องนั้นมาวิเคราะห์
-2. รักษาโทนเสียงที่สุภาพ เป็นกันเอง ใช้คำว่า "ครับ" เสมอ ห้ามใช้คำว่า "ค่ะ"
+[หน้าที่หลักเรื่องกล้อง]:
+1. หากผู้ใช้งานพูดคำสั่งให้สลับกล้อง เช่น "ขอดูจอกล้อง 3", "สลับไปกล้อง 5", "ขอกล้องหน้าแท็บเล็ต" ให้เจตอบรับด้วยความยินดีพร้อมแจ้งกำลังสลับจอให้ทันที
+2. ตอบคำถามสั้น กระชับ สุภาพ เป็นกันเอง และใช้คำว่า "ครับ" เสมอ
 `;
 
                 const setupMessage = {
@@ -806,7 +752,6 @@ ${historySummaryText}
         }, 15000);
     }
 
-    // ฟังก์ชันดึงภาพส่งให้ AI ตรวจสอบ (รองรับทั้งกล้องเครื่องและกล้อง NVR ตามที่เลือกอยู่)
     async function fetchActiveCameraFrameBase64() {
         try {
             if (currentSelectedCameraId !== "local") {
@@ -884,6 +829,9 @@ ${historySummaryText}
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         if (isModelSpeaking) return;
 
+        // 🎯 ตรวจจับและปฏิบัติตามคำสั่งเสียงสลับกล้องที่แท็บเล็ตทันที
+        parseAndExecuteCameraVoiceCommand(text);
+
         saveToHistory('user', text);
         statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
@@ -896,7 +844,7 @@ ${historySummaryText}
             });
         }
 
-        parts.push({ text: `[กำลังดูช่องกล้อง: ${currentSelectedCameraId}] ${text}` });
+        parts.push({ text: `[กล้องปัจจุบันที่แท็บเล็ตเปิดอยู่: ${currentSelectedCameraId}] ${text}` });
 
         ws.send(JSON.stringify({
             clientContent: {
@@ -937,7 +885,7 @@ ${historySummaryText}
         if (speakingTimeout) clearTimeout(speakingTimeout);
         speakingTimeout = setTimeout(() => {
             isModelSpeaking = false;
-            audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว กดไมค์พูดคุยต่อได้ครับ`;
+            audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พูดสั่งงานต่อได้ครับ`;
         }, remainingTime);
     }
 
