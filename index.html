@@ -410,8 +410,12 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
-let camerasRegistry = {};
-let activeCameraId = "";
+// 🟢 กำหนดรหัสกล้องตายตัวชัดเจน (camera001 และ camera002 สำหรับ OBS)
+let camerasRegistry = {
+    "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, stream: null },
+    "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", deviceId: null, stream: null }
+};
+let activeCameraId = "camera001";
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -523,7 +527,7 @@ cancelSetupBtn.addEventListener('click', () => {
     step1.style.display = 'flex';
 });
 
-// 🟢 ฟังก์ชันใหม่: ดึงรายชื่อกล้องทุกตัวในเครื่องมาใส่ Dropdown แบบอิสระ 100%
+// 🟢 ค้นหาและแมป Device ID ให้ตรงกับ camera001 และ camera002
 async function initCameraSystem() {
     try {
         const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -532,23 +536,21 @@ async function initCameraSystem() {
 
         initialStream.getTracks().forEach(track => track.stop());
 
-        camerasRegistry = {};
-        videoDevices.forEach((device, index) => {
-            const camId = `cam_${index}`;
-            camerasRegistry[camId] = {
-                name: device.label || `Camera ${index + 1}`,
-                deviceId: device.deviceId,
-                stream: null
-            };
-        });
+        let obsDevice = videoDevices.find(d => d.label.toLowerCase().includes("obs"));
+        let defaultWebcam = videoDevices.find(d => !d.label.toLowerCase().includes("obs")) || videoDevices[0];
 
-        if (Object.keys(camerasRegistry).length === 0) {
-            alert("ไม่พบกล้องในระบบคอมพิวเตอร์ครับ!");
-            return;
+        if (defaultWebcam) {
+            camerasRegistry["camera001"].deviceId = defaultWebcam.deviceId;
+            camerasRegistry["camera001"].name = defaultWebcam.label || "กล้องหน้าคอม (Webcam)";
         }
 
-        // ตั้งค่ากล้องแรกเป็นค่าเริ่มต้น
-        activeCameraId = Object.keys(camerasRegistry)[0];
+        if (obsDevice) {
+            camerasRegistry["camera002"].deviceId = obsDevice.deviceId;
+            camerasRegistry["camera002"].name = obsDevice.label || "OBS Virtual Camera";
+        } else if (videoDevices.length > 1) {
+            camerasRegistry["camera002"].deviceId = videoDevices[1].deviceId;
+            camerasRegistry["camera002"].name = videoDevices[1].label || "กล้องสำรอง 2";
+        }
 
         updateDropdownUI();
         renderDynamicThumbnails();
@@ -585,7 +587,7 @@ function renderDynamicThumbnails() {
 
         card.innerHTML = `
             <div class="thumb-video-container">
-                <video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+                <video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:contain; background:#000;"></video>
             </div>
             <div class="thumb-label">
                 <span>${camInfo.name}</span>
@@ -593,9 +595,21 @@ function renderDynamicThumbnails() {
             </div>
         `;
         gridContainer.appendChild(card);
+
+        // เปิดสตรีมเข้า Thumbnail ย่อยล่วงหน้าเพื่อให้ออกภาพพรีวิว
+        if (camInfo.deviceId) {
+            navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: camInfo.deviceId } }, audio: false })
+                .then(stream => {
+                    camInfo.stream = stream;
+                    const thumbVid = document.getElementById(`thumb-vid-${camId}`);
+                    if (thumbVid) thumbVid.srcObject = stream;
+                })
+                .catch(e => console.warn(`ไม่สามารถเปิดพรีวิว ${camId}:`, e.message));
+        }
     }
 }
 
+// 🟢 ฟังก์ชันสลับกล้องหลัก พร้อมจัดการเคลียร์สตรีมเดิมและแก้ปัญหาภาพเบลอด้วย contain
 async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
     activeCameraId = camId;
@@ -619,7 +633,8 @@ async function switchActiveCamera(camId) {
     mainVid.muted = true;
     mainVid.style.width = '100%';
     mainVid.style.height = '100%';
-    mainVid.style.objectFit = 'cover';
+    mainVid.style.objectFit = 'contain'; // แก้ภาพซูมเบลอ
+    mainVid.style.background = '#000';
     displayArea.appendChild(mainVid);
 
     const camInfo = camerasRegistry[camId];
@@ -630,17 +645,14 @@ async function switchActiveCamera(camId) {
         }
 
         const newStream = await navigator.mediaDevices.getUserMedia({
-            video: { deviceId: { exact: camInfo.deviceId } },
+            video: camInfo.deviceId ? { deviceId: { exact: camInfo.deviceId } } : true,
             audio: false
         });
         
         camInfo.stream = newStream;
         mainVid.srcObject = newStream;
 
-        const thumbVid = document.getElementById(`thumb-vid-${camId}`);
-        if (thumbVid) thumbVid.srcObject = newStream;
-
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> เชื่อมต่อ [${camInfo.name}] สำเร็จ 🟢`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
     } catch (err) {
         console.error("ไม่สามารถเชื่อมต่อกล้องได้:", err);
         statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ สัญญาณกล้องขัดข้อง:</strong> ${err.message}`;
@@ -680,7 +692,7 @@ async function startMainAppSession() {
                 : "ไม่มีประวัติคุยเก่า";
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `📹 Multi-Camera Dynamic Bridge: พร้อมทำงาน`;
+            audioStats.innerText = `📹 Multi-Camera Hybrid Mode: พร้อมทำงาน`;
             
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
@@ -720,6 +732,13 @@ ${historySummaryText}
                     if (responseText) {
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
+                        
+                        const lowerText = responseText.toLowerCase();
+                        if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
+                            switchActiveCamera("camera001");
+                        } else if (lowerText.includes("obs") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
+                            switchActiveCamera("camera002");
+                        }
                     }
                 }
             } catch (e) {
@@ -848,6 +867,12 @@ async function sendTextDirectly(text) {
     if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking) return;
     const lowerText = text.toLowerCase();
     
+    if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
+        switchActiveCamera("camera001");
+    } else if (lowerText.includes("OBS") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
+        switchActiveCamera("camera002");
+    }
+
     saveToHistory('user', text);
     statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
