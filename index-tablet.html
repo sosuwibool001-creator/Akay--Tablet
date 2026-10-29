@@ -156,12 +156,13 @@
         /* ---------------------------
            Step 2: Full-Screen Camera & Floating Overlay UI
         --------------------------- */
-        #step2 {
+       #step2 {
             display: none;
             width: 100vw;
             height: 100vh;
             position: relative;
             overflow: hidden;
+            box-sizing: border-box;
         }
 
         #webcam {
@@ -185,8 +186,9 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 16px;
+            padding: 12px; /* ลด Padding ลงนิดหน่อยเพื่อให้มีพื้นที่พอดีจอ */
             pointer-events: none;
+            box-sizing: border-box;
         }
 
         .overlay-layer * {
@@ -229,8 +231,8 @@
         }
 
         .status-panel {
-            margin: auto 0 12px 0;
-            max-height: 160px;
+            margin: auto 0 8px 0;
+            max-height: 120px; /* ลดความสูงสูงสุดลง ป้องกันกล่องข้อความดันแถบล่างตกจอ */
             overflow-y: auto;
         }
 
@@ -255,8 +257,9 @@
         .bottom-controls {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
             width: 100%;
+            margin-bottom: env(safe-area-inset-bottom); /* รองรับขอบจอมือถือ/แท็บเล็ตสมัยใหม่ */
         }
 
         .action-grid {
