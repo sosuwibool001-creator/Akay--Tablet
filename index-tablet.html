@@ -259,25 +259,29 @@
             flex-direction: column;
             gap: 8px;
             width: 100%;
-            margin-bottom: env(safe-area-inset-bottom); /* รองรับขอบจอมือถือ/แท็บเล็ตสมัยใหม่ */
+            margin-top: auto; /* 🟢 ดันแถบควบคุมทั้งหมดให้อยู่ชิดด้านล่างสุดเสมอแบบอัตโนมัติ */
+            margin-bottom: 10px;
         }
 
-        .action-grid {
+       .action-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 8px;
+            width: 100%;
         }
 
-        .chat-input-box {
+       .chat-input-box {
             display: flex;
             gap: 8px;
             align-items: center;
+            width: 100%;
         }
 
-        .chat-input-box input {
+       .chat-input-box input {
             flex: 1;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             border: 1px solid var(--card-border);
+            min-width: 0; /* ป้องกันไม่ให้ช่อง input ดันจนเลยขอบจอ */
         }
     </style>
 </head>
