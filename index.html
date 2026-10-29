@@ -786,6 +786,27 @@ ${historySummaryText}
     }
 }
 
+// 🟢 ฟังก์ชันสำหรับอัปเดตและเตรียมคำสั่งเสียงสำหรับกล้องแต่ละตัวแบบไดนามิก
+function updateVoiceCommandsMapping() {
+    const cameraKeys = Object.keys(camerasRegistry);
+    console.log("🎙️ อัปเดตชุดคำสั่งเสียงสำหรับกล้องทั้งหมดเรียบร้อย:", cameraKeys);
+}
+
+// 🟢 ฟังก์ชันช่วยตรวจสอบคำสั่งเสียงสลับกล้องอัตโนมัติ
+function checkVoiceCommandForCamera(spokenText) {
+    const lowerText = spokenText.toLowerCase();
+    
+    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
+        let keyword = camInfo.name.toLowerCase();
+        // ถ้าพูดชื่อกล้อง หรือรหัสกล้อง (เช่น camera001, camera002) ให้ทำการสลับทันที
+        if (lowerText.includes(camId) || lowerText.includes(keyword) || lowerText.includes(camInfo.name.toLowerCase().split(" ")[0])) {
+            switchActiveCamera(camId);
+            return true;
+        }
+    }
+    return false;
+}
+
 function startKeepAlivePing() {
     if (pingInterval) clearInterval(pingInterval);
     pingInterval = setInterval(() => {
