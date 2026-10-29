@@ -470,17 +470,17 @@ registerOwnerBtn.addEventListener('click', async () => {
 
     try {
         const canvas = document.createElement('canvas');
-        canvas.width = 1280; canvas.height = 720;
+        canvas.width = 1920; canvas.height = 1080; // 🟢 ปรับความกว้าง-สูงเป็น 1920x1080
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(setupVideo, 0, 0, 1280, 720);
-        const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+        ctx.drawImage(setupVideo, 0, 0, 1920, 1080);
+        const base64Image = canvas.toDataURL('image/jpeg', 0.55); // 🟢 ปรับคุณภาพไฟล์เป็น 0.55
 
-        const res = await fetch(`${SERVER_URL}/api/owner/register`, {
+        const res = styleFetchObjectOrCall(`${SERVER_URL}/api/owner/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ownerName: name, imageBase64: base64Image })
         });
-        const data = await res.json();
+                const data = await res.json();
 
         if (data.success) {
             alert(`🎉 ยืนยันสิทธิ์เจ้าของเครื่องสำเร็จ: ${name}`);
@@ -634,8 +634,8 @@ async function switchActiveCamera(camId) {
         const constraints = {
             video: {
                 deviceId: camInfo.deviceId ? { exact: camInfo.deviceId } : undefined,
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
+                width: { ideal: 1920 },  // 🟢 ขอความละเอียด Full HD
+                height: { ideal: 1080 }  // 🟢 ขอความละเอียด Full HD
             },
             audio: false
         };
@@ -777,21 +777,22 @@ function startRemoteCaptureListener() {
 
 async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     const canvas = document.createElement('canvas');
-    canvas.width = 1280; canvas.height = 720;
+    canvas.width = 1920; canvas.height = 1080; // 🟢 ปรับความกว้าง-สูงเป็น 1920x1080
     const ctx = canvas.getContext('2d');
 
     const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
     if (thumbVid && thumbVid.readyState === 4) {
-        ctx.drawImage(thumbVid, 0, 0, 1280, 720);
+        ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
     } else {
+        canvas.width = 1920; canvas.height = 1080;
         ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, 1280, 720);
+        ctx.fillRect(0, 0, 1920, 1080);
         ctx.fillStyle = "#fff";
-        ctx.font = "24px sans-serif";
-        ctx.fillText(`Camera Stream [${camId}] Not Ready`, 100, 360);
+        ctx.font = "32px sans-serif";
+        ctx.fillText(`Camera Stream [${camId}] Not Ready`, 150, 540);
     }
 
-    const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+    const base64Image = canvas.toDataURL('image/jpeg', 0.55); // 🟢 ปรับคุณภาพไฟล์เป็น 0.55
     canvas.width = 0; canvas.height = 0;
 
     try {
@@ -801,6 +802,8 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             body: JSON.stringify({ imageBase64: base64Image })
         });
     } catch (err) {}
+    // ...
+
 
     if (isManualTrigger) {
         if (ws && ws.readyState === WebSocket.OPEN) {
