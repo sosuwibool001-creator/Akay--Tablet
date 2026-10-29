@@ -124,27 +124,25 @@
 
         #step2 { display: none; text-align: left; width: 100%; }
 
-        /* 🖥️ Main Viewer จอหลัก */
+        /* 🖥️ Main Viewer จอหลัก (แก้ไขคราบฉากดำทับซ้อน) */
         .main-viewer-box {
             position: relative;
             width: 100%;
-            height: 380px;
+            height: 420px;
             background: #000;
             border-radius: 18px;
             overflow: hidden;
             border: 2px solid var(--accent-blue);
             margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
 
-       .main-viewer-box video, .main-viewer-box div {
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* เปลี่ยนเป็น cover เพื่อให้ภาพขยายเต็มจอสวยงาม ไม่เหลือขอบดำ */
-    background: #000;
-    filter: brightness(1.15) contrast(1.05); /* เพิ่มความสว่างและคอนทราสต์แก้ภาพมืด */
+        #activeMainVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            border: none;
+            outline: none;
         }
 
         .main-badge {
@@ -218,7 +216,6 @@
             align-items: center;
         }
 
-        /* 🟢 จุดไฟเขียวกระพริบแสดงสถานะ Live */
         .live-pulse-dot {
             height: 8px;
             width: 8px;
@@ -326,19 +323,27 @@
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
 
-        <!-- 🖥️ หน้าจอเมนหลัก (Main Active Viewer) -->
+        <!-- 🖥️ หน้าจอเมนหลัก (ตัด div ซ้อนทับออก เหลือ video เพียวๆ) -->
         <div class="main-viewer-box">
-    <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กล้องหลัก</div>
-    <video id="activeMainVideo" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; background: #000;"></video>
-     </div>
+            <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กล้องหน้าคอม (camera001)</div>
+            <video id="activeMainVideo" autoplay playsinline muted></video>
+        </div>
 
         <!-- 📷 แผงจอย่อย Thumbnails -->
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
         <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
-            <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ (Manual)</button>
-            <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้องหลัก</button>
-            <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติคุย</button>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <select id="cameraDropdownSelect" style="padding: 8px 12px; width: auto;" onchange="switchActiveCamera(this.value)">
+                    <option value="camera001">กล้องหน้าคอม (Webcam)</option>
+                    <option value="camera002">OBS Virtual Camera (หน้าบ้าน NWP)</option>
+                </select>
+                <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้องหลัก</button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ (Manual)</button>
+                <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติคุย</button>
+            </div>
         </div>
 
         <div style="display: flex; gap: 6px;">
@@ -347,14 +352,13 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน (Hybrid Bridge Mode)...</div>
-            <div id="audioStats" class="debug-stats">📹 Hybrid Bridge Active: รองรับกล้องหน้าคอม + กล้อง IP 192.168.188.140 ผ่านระบบสะพานเชื่อม On-Demand</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน...</div>
+            <div id="audioStats" class="debug-stats">📹 OBS Bridge Active: พร้อมสลับภาพแบบเรียลไทม์</div>
         </div>
     </div>
 </div>
 
 <script>
-
 let BACKEND_API_KEY = "";
 const SERVER_URL = "https://akay-tablet.onrender.com";
 
@@ -410,7 +414,6 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
-// 🟢 กำหนดรหัสกล้องตายตัวชัดเจน (camera001 และ camera002 สำหรับ OBS)
 let camerasRegistry = {
     "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, stream: null },
     "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", deviceId: null, stream: null }
@@ -527,7 +530,6 @@ cancelSetupBtn.addEventListener('click', () => {
     step1.style.display = 'flex';
 });
 
-// 🟢 ค้นหาและแมป Device ID ให้ตรงกับ camera001 และ camera002
 async function initCameraSystem() {
     try {
         const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -558,7 +560,6 @@ async function initCameraSystem() {
 
     } catch (err) {
         console.warn("ไม่สามารถค้นหากล้องได้:", err.message);
-        alert("ไม่สามารถเข้าถึงกล้องได้ กรุณาตรวจสอบสิทธิ์การอนุญาตบนเบราว์เซอร์");
     }
 }
 
@@ -587,7 +588,7 @@ function renderDynamicThumbnails() {
 
         card.innerHTML = `
             <div class="thumb-video-container">
-                <video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:contain; background:#000;"></video>
+                <video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
             </div>
             <div class="thumb-label">
                 <span>${camInfo.name}</span>
@@ -596,11 +597,9 @@ function renderDynamicThumbnails() {
         `;
         gridContainer.appendChild(card);
 
-        // เปิดสตรีมเข้า Thumbnail ย่อยล่วงหน้าเพื่อให้ออกภาพพรีวิว
         if (camInfo.deviceId) {
             navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: camInfo.deviceId } }, audio: false })
                 .then(stream => {
-                    camInfo.stream = stream;
                     const thumbVid = document.getElementById(`thumb-vid-${camId}`);
                     if (thumbVid) thumbVid.srcObject = stream;
                 })
@@ -609,7 +608,7 @@ function renderDynamicThumbnails() {
     }
 }
 
-// 🟢 ฟังก์ชันสลับกล้องหลัก พร้อมจัดการเคลียร์สตรีมเดิมและแก้ปัญหาภาพเบลอด้วย contain
+// 🟢 ฟังก์ชันสลับกล้องแบบไม่มีเลเยอร์ซ้อนทับ
 async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
     activeCameraId = camId;
@@ -862,7 +861,7 @@ async function sendTextDirectly(text) {
     
     if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
         switchActiveCamera("camera001");
-    } else if (lowerText.includes("OBS") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
+    } else if (lowerText.includes("obs") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
         switchActiveCamera("camera002");
     }
 
