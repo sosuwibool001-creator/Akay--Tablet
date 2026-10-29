@@ -643,10 +643,12 @@ async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
     activeCameraId = camId;
 
+    // ไฮไลต์ขอบการ์ดจอย่อย
     document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active'));
     const targetCard = document.getElementById(`thumb-card-${camId}`);
     if (targetCard) targetCard.classList.add('active');
 
+    // อัปเดตชื่อป้ายกำกับจอหลัก
     const mainCamBadge = document.getElementById('mainCamBadge');
     if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camerasRegistry[camId].name}`;
     if (cameraDropdownSelect) cameraDropdownSelect.value = camId;
@@ -657,6 +659,7 @@ async function switchActiveCamera(camId) {
     const camInfo = camerasRegistry[camId];
 
     try {
+        // ปิดสตรีมเก่าถ้ามี เพื่อกันชนกันเอง
         if (camInfo.stream) {
             camInfo.stream.getTracks().forEach(track => track.stop());
         }
@@ -664,15 +667,18 @@ async function switchActiveCamera(camId) {
         const constraints = {
             video: {
                 deviceId: camInfo.deviceId ? { exact: camInfo.deviceId } : undefined,
-                width: { ideal: 1920 },  // 🟢 ขอความละเอียด Full HD
-                height: { ideal: 1080 }  // 🟢 ขอความละเอียด Full HD
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
             },
             audio: false
         };
 
         const newStream = await navigator.mediaDevices.getUserMedia(constraints);
         camInfo.stream = newStream;
+        
+        // 🟢 บังคับผูก Stream เข้ากับแท็ก Video หลักทันที และสั่ง play() เผื่อเบราว์เซอร์บล็อกการเล่นอัตโนมัติ
         mainVid.srcObject = newStream;
+        await mainVid.play().catch(e => console.log("Auto-play prevented:", e));
 
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
     } catch (err) {
