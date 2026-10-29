@@ -470,17 +470,18 @@ registerOwnerBtn.addEventListener('click', async () => {
 
     try {
         const canvas = document.createElement('canvas');
-        canvas.width = 1920; canvas.height = 1080; // 🟢 ปรับความกว้าง-สูงเป็น 1920x1080
+        canvas.width = 1920; canvas.height = 1080;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(setupVideo, 0, 0, 1920, 1080);
-        const base64Image = canvas.toDataURL('image/jpeg', 0.55); // 🟢 ปรับคุณภาพไฟล์เป็น 0.55
+        const base64Image = canvas.toDataURL('image/jpeg', 0.55);
 
-        const res = styleFetchObjectOrCall(`${SERVER_URL}/api/owner/register`, {
+        // 🟢 แก้ไขกลับมาใช้ fetch มาตรฐานที่ถูกต้องเรียบร้อยครับ
+        const res = await fetch(`${SERVER_URL}/api/owner/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ownerName: name, imageBase64: base64Image })
         });
-                const data = await res.json();
+        const data = await res.json();
 
         if (data.success) {
             alert(`🎉 ยืนยันสิทธิ์เจ้าของเครื่องสำเร็จ: ${name}`);
