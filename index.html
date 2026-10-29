@@ -539,29 +539,58 @@ async function initCameraSystem() {
 
         initialStream.getTracks().forEach(track => track.stop());
 
-        let obsDevice = videoDevices.find(d => d.label.toLowerCase().includes("obs"));
-        let defaultWebcam = videoDevices.find(d => !d.label.toLowerCase().includes("obs")) || videoDevices[0];
+        camerasRegistry = {};
 
-        if (defaultWebcam) {
-            camerasRegistry["camera001"].deviceId = defaultWebcam.deviceId;
-            camerasRegistry["camera001"].name = defaultWebcam.label || "กล้องหน้าคอม (Webcam)";
+        // 🟢 วนลูปสร้างรายชื่อกล้องทุกตัวที่มีในเครื่อง/OBS อัตโนมัติ (ไม่จำกัดจำนวน)
+        videoDevices.forEach((device, index) => {
+            const camId = `camera00${index + 1}`; // สร้างรหัส เช่น camera001, camera002, camera003...
+            let customName = device.label || `กล้องตัวที่ ${index + 1}`;
+            
+            // ตั้งชื่อให้จำง่ายตามประเภท
+            if (customName.toLowerCase().includes("obs")) {
+                customName = `OBS Virtual Camera (${index + 1})`;
+            } else if (index === 0) {
+                customName = `กล้องหน้าคอม (Webcam)`;
+            }
+
+            camerasRegistry[camId] = {
+                name: customName,
+                deviceId: device.deviceId,
+                stream: null
+            };
+        });
+
+        if (Object.keys(camerasRegistry).length === 0) {
+            alert("ไม่พบกล้องในระบบครับ!");
+            return;
         }
 
-        if (obsDevice) {
-            camerasRegistry["camera002"].deviceId = obsDevice.deviceId;
-            camerasRegistry["camera002"].name = obsDevice.label || "OBS Virtual Camera";
-        } else if (videoDevices.length > 1) {
-            camerasRegistry["camera002"].deviceId = videoDevices[1].deviceId;
-            camerasRegistry["camera002"].name = videoDevices[1].label || "กล้องสำรอง 2";
+        if (!activeCameraId) {
+            activeCameraId = Object.keys(camerasRegistry)[0];
         }
 
         updateDropdownUI();
         renderDynamicThumbnails();
+        updateVoiceCommandsMapping(); // 🟢 อัปเดตคำสั่งเสียงอัตโนมัติ
         await switchActiveCamera(activeCameraId);
 
     } catch (err) {
         console.warn("ไม่สามารถค้นหากล้องได้:", err.message);
     }
+}
+
+function checkVoiceCommandForCamera(spokenText) {
+    const lowerText = spokenText.toLowerCase();
+    
+    // วนลูปเช็กจากรายชื่อกล้องที่มีอยู่จริงทั้งหมดในระบบอัตโนมัติ
+    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
+        let keyword = camInfo.name.toLowerCase().split(" ")[0]; // ดึงคำแรกมาเป็นคีย์เวิร์ด หรือใช้รหัส
+        if (lowerText.includes(camId) || lowerText.includes(keyword) || lowerText.includes(camInfo.name.toLowerCase())) {
+            switchActiveCamera(camId);
+            return true;
+        }
+    }
+    return false;
 }
 
 function updateDropdownUI() {
@@ -867,6 +896,15 @@ async function sendTextDirectly(text) {
         switchActiveCamera("camera001");
     } else if (lowerText.includes("obs") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
         switchActiveCamera("camera002");
+
+        if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking) return;
+    const lowerText = text.toLowerCase();
+    
+    // 🟢 ตรวจสอบคำสั่งสลับกล้องอัตโนมัติจากเสียงพูด
+    if (checkVoiceCommandForCamera(lowerText)) {
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🔄 คำสั่งเสียง:</strong> สลับกล้องตามคำสั่งเรียบร้อย`;
+        return;
+    }
     }
 
     saveToHistory('user', text);
