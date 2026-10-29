@@ -139,11 +139,13 @@
             justify-content: center;
         }
 
-        .main-viewer-box video, .main-viewer-box div {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-                   }
+       .main-viewer-box video, .main-viewer-box div {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* เปลี่ยนเป็น cover เพื่อให้ภาพขยายเต็มจอสวยงาม ไม่เหลือขอบดำ */
+    background: #000;
+    filter: brightness(1.15) contrast(1.05); /* เพิ่มความสว่างและคอนทราสต์แก้ภาพมืด */
+        }
 
         .main-badge {
             position: absolute;
@@ -633,8 +635,9 @@ async function switchActiveCamera(camId) {
     mainVid.muted = true;
     mainVid.style.width = '100%';
     mainVid.style.height = '100%';
-    mainVid.style.objectFit = 'contain'; // แก้ภาพซูมเบลอ
+    mainVid.style.objectFit = 'cover';
     mainVid.style.background = '#000';
+    mainVid.style.filter = 'brightness(1.15) contrast(1.05)'; // เพิ่มความสว่างให้จอหลัก
     displayArea.appendChild(mainVid);
 
     const camInfo = camerasRegistry[camId];
@@ -644,11 +647,17 @@ async function switchActiveCamera(camId) {
             camInfo.stream.getTracks().forEach(track => track.stop());
         }
 
-        const newStream = await navigator.mediaDevices.getUserMedia({
-            video: camInfo.deviceId ? { deviceId: { exact: camInfo.deviceId } } : true,
+        // 🟢 บังคับขอความละเอียดสูง HD (1280x720) เพื่อความคมชัด
+        const constraints = {
+            video: {
+                deviceId: camInfo.deviceId ? { exact: camInfo.deviceId } : undefined,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
             audio: false
-        });
-        
+        };
+
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
         camInfo.stream = newStream;
         mainVid.srcObject = newStream;
 
