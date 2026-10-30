@@ -186,9 +186,10 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 12px; /* ลด Padding ลงนิดหน่อยเพื่อให้มีพื้นที่พอดีจอ */
+            padding: 8px 12px; /* ลด padding ด้านบนล่างลงเพื่อให้มีพื้นที่เหลือ */
             pointer-events: none;
             box-sizing: border-box;
+            overflow: hidden; /* ป้องกันไม่ให้มีเนื้อหาล้นออกนอกเลเยอร์ */
         }
 
         .overlay-layer * {
@@ -231,9 +232,10 @@
         }
 
         .status-panel {
-            margin: auto 0 8px 0;
-            max-height: 120px; /* ลดความสูงสูงสุดลง ป้องกันกล่องข้อความดันแถบล่างตกจอ */
+            margin: auto 0 4px 0; /* ลดระยะห่างด้านล่างของกล่องสถานะ */
+            max-height: 90px;    /* จำกัดความสูงไม่ให้ดันส่วนล่างตกจอ */
             overflow-y: auto;
+            font-size: 13px;
         }
 
         #statusText {
@@ -254,30 +256,34 @@
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         }
 
-        .bottom-controls {
+       .bottom-controls {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
             width: 100%;
-            margin-bottom: env(safe-area-inset-bottom); /* รองรับขอบจอมือถือ/แท็บเล็ตสมัยใหม่ */
+            margin-bottom: 4px; /* ดึงให้อยู่ชิดขอบล่างแบบพอดีไม่ตกขอบ */
         }
 
-        .action-grid {
+      .action-grid {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px;
+            gap: 6px;
+            width: 100%;
         }
 
-        .chat-input-box {
+       .chat-input-box {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             align-items: center;
+            width: 100%;
+            padding: 8px 12px; /* กระชับกล่องข้อความลงนิดนึง */
         }
 
-        .chat-input-box input {
+       .chat-input-box input {
             flex: 1;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             border: 1px solid var(--card-border);
+            min-width: 0; /* ป้องกันไม่ให้ช่อง input ดันจนเลยขอบจอ */
         }
     </style>
 </head>
