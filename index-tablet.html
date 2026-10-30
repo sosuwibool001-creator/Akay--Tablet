@@ -183,13 +183,12 @@
             width: 100vw;
             height: 100vh;
             z-index: 10;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 8px 12px; /* ลด padding ด้านบนล่างลงเพื่อให้มีพื้นที่เหลือ */
+            display: grid;
+            grid-template-rows: auto 1fr auto; /* แถวบนพอดีตัว / แถวกลางขยายตามพื้นที่ / แถวรล่างชิดขอบ */
+            padding: 8px 12px;
             pointer-events: none;
             box-sizing: border-box;
-            overflow: hidden; /* ป้องกันไม่ให้มีเนื้อหาล้นออกนอกเลเยอร์ */
+            gap: 8px;
         }
 
         .overlay-layer * {
@@ -206,10 +205,7 @@
             padding: 12px 16px;
         }
 
-        .top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+       .top-bar {
             width: 100%;
         }
 
@@ -232,11 +228,12 @@
         }
 
         .status-panel {
-            margin: auto 0 4px 0; /* ลดระยะห่างด้านล่างของกล่องสถานะ */
-            max-height: 90px;    /* จำกัดความสูงไม่ให้ดันส่วนล่างตกจอ */
+            align-self: end; /* ดึงมาชิดด้านล่างของโซนกลาง */
+            max-height: 80px;
             overflow-y: auto;
-            font-size: 13px;
+            margin-bottom: 4px;
         }
+        
 
         #statusText {
             font-size: 14px;
@@ -261,7 +258,7 @@
             flex-direction: column;
             gap: 6px;
             width: 100%;
-            margin-bottom: 4px; /* ดึงให้อยู่ชิดขอบล่างแบบพอดีไม่ตกขอบ */
+            align-self: end;
         }
 
       .action-grid {
@@ -276,14 +273,14 @@
             gap: 6px;
             align-items: center;
             width: 100%;
-            padding: 8px 12px; /* กระชับกล่องข้อความลงนิดนึง */
+            padding: 8px 12px;
         }
 
-       .chat-input-box input {
+        .chat-input-box input {
             flex: 1;
             background: rgba(255, 255, 255, 0.95);
             border: 1px solid var(--card-border);
-            min-width: 0; /* ป้องกันไม่ให้ช่อง input ดันจนเลยขอบจอ */
+            min-width: 0;
         }
     </style>
 </head>
