@@ -1,4 +1,4 @@
-// server.js - Project-J Smart Guardian Server (Multi-Camera & Real-time Live Switch Support)
+// server.js - Project-J Smart Guardian Server (Multi-Camera & Voice Biometrics Storage Support)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -27,13 +27,14 @@ if (SUPABASE_URL && SUPABASE_KEY) {
 // โฟลเดอร์สำรองบนเครื่อง (Local Fallback Directories)
 const DIR_CAMERAS = path.join(__dirname, 'cameras_storage');
 const DIR_UPLOADS = path.join(__dirname, 'uploads');
-const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles'); 
+const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles'); // 🎙️ โฟลเดอร์เก็บโปรไฟล์เสียงและหน้าคนรู้จักหลังบ้าน
+const DIR_PROFILES = path.join(__dirname, 'storage', 'profiles'); // 📁 โฟลเดอร์จัดเก็บแยกตามรายชื่อบุคคล (Auto-Enrollment)
 
 const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
 const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
 
 [
-    DIR_CAMERAS, DIR_UPLOADS, DIR_VOICE_PROFILES
+    DIR_CAMERAS, DIR_UPLOADS, DIR_VOICE_PROFILES, DIR_PROFILES
 ].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -72,7 +73,7 @@ let cameraRequestState = { requested: false };
 let pendingAudioVerifications = {};
 
 app.use(cors());
-app.use(express.json({ limit: '15mb' })); 
+app.use(express.json({ limit: '50mb' })); 
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
@@ -221,7 +222,6 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
     }
 });
 
-// 📸 API ดึงภาพล่าสุดของกล้องแต่ละตัวไปแสดงผล (ป้องกัน 404 ด้วย Fallback)
 app.get('/api/camera/latest/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -259,7 +259,61 @@ app.post('/api/camera/clear-request', (req, res) => {
     return res.json({ success: true });
 });
 
-// 🎙️ API บันทึกเสียงตัวอย่างรายบุคคล
+/* ==========================================================
+   🎙️ VOICE BIOMETRICS & AUTO-ENROLLMENT BACKEND ENDPOINTS
+   ========================================================== */
+
+// 1. API สำหรับรับและจัดเก็บโปรไฟล์คนใหม่ (เสียง WAV + ภาพ JPG) แยกโฟลเดอร์ตามชื่อและเวลา
+app.post('/api/profiles/enroll', (req, res) => {
+    try {
+        const { guestName, imageBase64, audioBase64 } = req.body;
+
+        if (!guestName) {
+            return res.status(400).json({ success: false, message: 'Missing guestName' });
+        }
+
+        // คลีนชื่อโฟลเดอร์ป้องกันอักขระพิเศษ
+        const safeFolderName = guestName.trim().replace(/[/\\?%*:|"<>]/g, '_');
+        const userFolder = path.join(DIR_PROFILES, safeFolderName);
+
+        if (!fs.existsSync(userFolder)) {
+            fs.mkdirSync(userFolder, { recursive: true });
+        }
+
+        // สร้างชื่อไฟล์ตามวันเวลาปัจจุบัน (Format: YYYY-MM-DD_HH-mm-ss)
+        const now = new Date();
+        const timestampStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }) + '_' + 
+                             now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
+
+        // จัดเก็บไฟล์ภาพถ่าย (JPG)
+        if (imageBase64) {
+            const imageBuffer = Buffer.from(imageBase64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+            const imagePath = path.join(userFolder, `face_${timestampStr}.jpg`);
+            fs.writeFileSync(imagePath, imageBuffer);
+        }
+
+        // จัดเก็บไฟล์เสียง (WAV)
+        if (audioBase64) {
+            const audioBuffer = Buffer.from(audioBase64.replace(/^data:audio\/\w+;base64,/, ''), 'base64');
+            const audioPath = path.join(userFolder, `voice_${timestampStr}.wav`);
+            fs.writeFileSync(audioPath, audioBuffer);
+        }
+
+        // เพิ่มเข้า Visitor Whitelist อัตโนมัติหากยังไม่มี
+        if (!VISITOR_WHITELIST.includes(safeFolderName) && !FAMILY_WHITELIST.includes(safeFolderName)) {
+            VISITOR_WHITELIST.push(safeFolderName);
+        }
+
+        console.log(`[AutoEnrollment Server] บันทึกโปรไฟล์สำเร็จสำหรับ: [${safeFolderName}] ที่โฟลเดอร์ ${userFolder}`);
+        return res.json({ success: true, message: `Profile saved successfully for ${safeFolderName}`, folder: userFolder });
+
+    } catch (error) {
+        console.error('[Enrollment Server Error]', error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 2. API บันทึกเสียงตัวอย่างรายบุคคลแบบเดิม
 app.post('/api/voice/register-sample', (req, res) => {
     try {
         const { personName, audioBase64 } = req.body;
@@ -306,6 +360,7 @@ app.get('/api/voice/profiles', (req, res) => {
 app.use('/uploads', express.static(DIR_UPLOADS));
 app.use('/cameras_storage', express.static(DIR_CAMERAS));
 app.use('/voice_profiles', express.static(DIR_VOICE_PROFILES));
+app.use('/storage', express.static(path.join(__dirname, 'storage')));
 
 async function uploadToCloudStorage(buffer, filename, folderType) {
     if (!supabase) return null;
@@ -454,18 +509,17 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     }
 });
 
-// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติทุกๆ 5 วินาที
 function captureRtspSnapshot(cameraId, rtspUrl) {
     const outputFilePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     
     ffmpeg(rtspUrl)
         .inputOptions([
-            '-rtsp_transport tcp', // บังคับใช้ TCP เพื่อความเสถียร
-            '-stimeout 3000000'    // Timeout 3 วินาทีกันค้าง
+            '-rtsp_transport tcp',
+            '-stimeout 3000000'
         ])
         .outputOptions([
-            '-vframes 1',          // ดึงภาพนิ่ง 1 เฟรม
-            '-q:v 2'               // คุณภาพภาพ
+            '-vframes 1',
+            '-q:v 2'
         ])
         .output(outputFilePath)
         .on('end', () => {
@@ -483,7 +537,6 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
         .run();
 }
 
-// ⏰ ตั้งเวลาดึงภาพจากกล้องหน้าบ้าน (camera002) ทุกๆ 5 วินาที
 setInterval(() => {
     if (camerasConfig['camera002'] && camerasConfig['camera002'].ip) {
         const rtspUrl = `rtsp://${camerasConfig['camera002'].ip}:554/onvif1`;
@@ -493,5 +546,5 @@ setInterval(() => {
 
 app.listen(PORT, () => {
     console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-    console.log(`[Multi-Camera System] Ready to support camera001, camera002, and beyond 🟢📹`);
+    console.log(`[Multi-Camera System] Ready to support camera001, camera002, and Voice Biometrics Profiles 🟢🎙️`);
 });
