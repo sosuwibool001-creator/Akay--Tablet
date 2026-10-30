@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Multi-Camera Hybrid Mode)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Auto Enrollment Engine)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -124,7 +124,6 @@
 
         #step2 { display: none; text-align: left; width: 100%; }
 
-        /* 🖥️ Main Viewer จอหลัก (แก้ไขคราบฉากดำทับซ้อน) */
         .main-viewer-box {
             position: relative;
             width: 100%;
@@ -160,7 +159,23 @@
             z-index: 10;
         }
 
-        /* 📷 แผง Thumbnails จอย่อย */
+        /* 🔴 Countdown Badge Overlay เมื่อมีการบันทึกคนใหม่ */
+        .countdown-overlay {
+            display: none;
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(255, 59, 48, 0.85);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            backdrop-filter: blur(4px);
+            z-index: 10;
+            animation: pulse 1s infinite;
+        }
+
         .thumbnails-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -178,15 +193,8 @@
             position: relative;
         }
 
-        .thumb-card:hover {
-            border-color: var(--accent-blue);
-            transform: translateY(-2px);
-        }
-
-        .thumb-card.active {
-            border-color: var(--accent-green);
-            box-shadow: 0 0 10px rgba(52, 199, 89, 0.3);
-        }
+        .thumb-card:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
+        .thumb-card.active { border-color: var(--accent-green); box-shadow: 0 0 10px rgba(52, 199, 89, 0.3); }
 
         .thumb-video-container {
             width: 100%;
@@ -200,11 +208,7 @@
             justify-content: center;
         }
 
-        .thumb-video-container video {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+        .thumb-video-container video { width: 100%; height: 100%; object-fit: cover; }
 
         .thumb-label {
             font-size: 11px;
@@ -217,12 +221,8 @@
         }
 
         .live-pulse-dot {
-            height: 8px;
-            width: 8px;
-            background-color: var(--accent-green);
-            border-radius: 50%;
-            display: inline-block;
-            box-shadow: 0 0 8px var(--accent-green);
+            height: 8px; width: 8px; background-color: var(--accent-green);
+            border-radius: 50%; display: inline-block; box-shadow: 0 0 8px var(--accent-green);
             animation: pulse 1.5s infinite;
         }
 
@@ -273,8 +273,8 @@
 <div class="container">
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
-        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Multi-Camera Live</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุในบ้าน (PC Version - Multi-Camera Hybrid)</div>
+        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Auto Enrollment</span></div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (PC Version - Hands-Free Profile Enrollment)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -314,7 +314,7 @@
         <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 15px;">❌ ยกเลิก</button>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลัก Multi-Camera Grid -->
+    <!-- Step 2: แดชบอร์ดหลัก Multi-Camera (Clean UI หน้าจอสะอาดตา) -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
@@ -323,13 +323,12 @@
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
 
-        <!-- 🖥️ หน้าจอเมนหลัก (ตัด div ซ้อนทับออก เหลือ video เพียวๆ) -->
         <div class="main-viewer-box">
             <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กล้องหน้าคอม (camera001)</div>
+            <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
             <video id="activeMainVideo" autoplay playsinline muted></video>
         </div>
 
-        <!-- 📷 แผงจอย่อย Thumbnails -->
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
         <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
@@ -341,8 +340,8 @@
                 <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้องหลัก</button>
             </div>
             <div style="display: flex; gap: 8px;">
-                <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ (Manual)</button>
-                <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติคุย</button>
+                <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ</button>
+                <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
             </div>
         </div>
 
@@ -353,7 +352,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน...</div>
-            <div id="audioStats" class="debug-stats">📹 OBS Bridge Active: พร้อมสลับภาพแบบเรียลไทม์</div>
+            <div id="audioStats" class="debug-stats">🎙️ Auto Enrollment Engine: พร้อมบันทึกเสียงและถ่ายภาพคนใหม่อัตโนมัติ</div>
         </div>
     </div>
 </div>
@@ -373,6 +372,100 @@ async function initConfig() {
 }
 initConfig();
 
+/* ==========================================================
+   🎙️ AUTOMATIC ENROLLMENT & AUDIO BUFFER MANAGER
+   ========================================================== */
+class AutoEnrollmentManager {
+    constructor(sampleRate = 16000) {
+        this.sampleRate = sampleRate;
+        this.audioContext = null;
+        this.mediaStream = null;
+        this.processor = null;
+        this.inputNode = null;
+        this.isRecording = false;
+        this.audioChunks = [];
+    }
+
+    startCapture(mediaStream) {
+        this.mediaStream = mediaStream;
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: this.sampleRate });
+        
+        const audioTrackStream = new MediaStream(this.mediaStream.getAudioTracks());
+        this.inputNode = this.audioContext.createMediaStreamSource(audioTrackStream);
+        this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+        
+        this.processor.onaudioprocess = (e) => {
+            if (!this.isRecording) return;
+            const inputData = e.inputBuffer.getChannelData(0);
+            this.audioChunks.push(new Float32Array(inputData));
+        };
+
+        this.inputNode.connect(this.processor);
+        this.processor.connect(this.audioContext.destination);
+    }
+
+    startRecording() {
+        this.audioChunks = [];
+        this.isRecording = true;
+    }
+
+    stopAndExportWAVBase64() {
+        this.isRecording = false;
+        if (this.audioChunks.length === 0) return null;
+
+        const totalLength = this.audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        const result = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of this.audioChunks) {
+            result.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        this.audioChunks = [];
+        const wavBlob = this.encodeWAV(result, this.sampleRate);
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.readAsDataURL(wavBlob);
+        });
+    }
+
+    encodeWAV(samples, sampleRate) {
+        const buffer = new ArrayBuffer(44 + samples.length * 2);
+        const view = new DataView(buffer);
+        const writeString = (view, offset, string) => {
+            for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
+        };
+
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + samples.length * 2, true);
+        writeString(view, 8, 'WAVE');
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeString(view, 36, 'data');
+        view.setUint32(40, samples.length * 2, true);
+
+        let offset = 44;
+        for (let i = 0; i < samples.length; i++, offset += 2) {
+            let s = Math.max(-1, Math.min(1, samples[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+        }
+        return new Blob([view], { type: 'audio/wav' });
+    }
+}
+
+let enrollmentManager = new AutoEnrollmentManager();
+let isEnrollingGuest = false; // Flag ป้องกันการบันทึกซ้ำซ้อน
+
+/* ==========================================================
+   UI & APPLICATION LOGIC
+   ========================================================== */
 const step1 = document.getElementById('step1');
 const stepSetup = document.getElementById('stepSetup');
 const stepAuth = document.getElementById('stepAuth');
@@ -387,6 +480,7 @@ const ownerNameInput = document.getElementById('ownerNameInput');
 const registerOwnerBtn = document.getElementById('registerOwnerBtn');
 const authStatusText = document.getElementById('authStatusText');
 const userNameDisplay = document.getElementById('userNameDisplay');
+const countdownBadge = document.getElementById('countdownBadge');
 
 const stopBtn = document.getElementById('stopBtn');
 const snapBtn = document.getElementById('snapBtn');
@@ -402,6 +496,7 @@ const cameraDropdownSelect = document.getElementById('cameraDropdownSelect');
 let ws = null;
 let audioContext = null;
 let authStream = null;
+let masterMediaStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null;
@@ -442,7 +537,6 @@ startAuthBtn.addEventListener('click', async () => {
     try {
         const res = await fetch(`${SERVER_URL}/api/owner/check`);
         const data = await res.json();
-
         step1.style.display = 'none';
 
         if (!data.registered) {
@@ -463,10 +557,7 @@ startAuthBtn.addEventListener('click', async () => {
 
 registerOwnerBtn.addEventListener('click', async () => {
     const name = ownerNameInput.value.trim();
-    if (!name) {
-        alert("กรุณาระบุชื่อเจ้าของเครื่องก่อนครับ!");
-        return;
-    }
+    if (!name) { alert("กรุณาระบุชื่อเจ้าของเครื่องก่อนครับ!"); return; }
 
     try {
         const canvas = document.createElement('canvas');
@@ -475,7 +566,6 @@ registerOwnerBtn.addEventListener('click', async () => {
         ctx.drawImage(setupVideo, 0, 0, 1920, 1080);
         const base64Image = canvas.toDataURL('image/jpeg', 0.55);
 
-        // 🟢 แก้ไขกลับมาใช้ fetch มาตรฐานที่ถูกต้องเรียบร้อยครับ
         const res = await fetch(`${SERVER_URL}/api/owner/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -511,11 +601,9 @@ function runAutoVerification(ownerName) {
             if (authStream) authStream.getTracks().forEach(t => t.stop());
             stepAuth.style.display = 'none';
             step2.style.display = 'block';
-
             await initCameraSystem();
             startMainAppSession();
         }, 800);
-
     }, 2000);
 }
 
@@ -536,61 +624,29 @@ async function initCameraSystem() {
         const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
-
         initialStream.getTracks().forEach(track => track.stop());
 
         camerasRegistry = {};
-
-        // 🟢 วนลูปสร้างรายชื่อกล้องทุกตัวที่มีในเครื่อง/OBS อัตโนมัติ (ไม่จำกัดจำนวน)
         videoDevices.forEach((device, index) => {
-            const camId = `camera00${index + 1}`; // สร้างรหัส เช่น camera001, camera002, camera003...
+            const camId = `camera00${index + 1}`;
             let customName = device.label || `กล้องตัวที่ ${index + 1}`;
-            
-            // ตั้งชื่อให้จำง่ายตามประเภท
             if (customName.toLowerCase().includes("obs")) {
                 customName = `OBS Virtual Camera (${index + 1})`;
             } else if (index === 0) {
                 customName = `กล้องหน้าคอม (Webcam)`;
             }
-
-            camerasRegistry[camId] = {
-                name: customName,
-                deviceId: device.deviceId,
-                stream: null
-            };
+            camerasRegistry[camId] = { name: customName, deviceId: device.deviceId, stream: null };
         });
 
-        if (Object.keys(camerasRegistry).length === 0) {
-            alert("ไม่พบกล้องในระบบครับ!");
-            return;
-        }
-
-        if (!activeCameraId) {
-            activeCameraId = Object.keys(camerasRegistry)[0];
-        }
+        if (Object.keys(camerasRegistry).length === 0) { alert("ไม่พบกล้องในระบบครับ!"); return; }
+        if (!activeCameraId) activeCameraId = Object.keys(camerasRegistry)[0];
 
         updateDropdownUI();
         renderDynamicThumbnails();
-        updateVoiceCommandsMapping(); // 🟢 อัปเดตคำสั่งเสียงอัตโนมัติ
         await switchActiveCamera(activeCameraId);
-
     } catch (err) {
         console.warn("ไม่สามารถค้นหากล้องได้:", err.message);
     }
-}
-
-function checkVoiceCommandForCamera(spokenText) {
-    const lowerText = spokenText.toLowerCase();
-    
-    // วนลูปเช็กจากรายชื่อกล้องที่มีอยู่จริงทั้งหมดในระบบอัตโนมัติ
-    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-        let keyword = camInfo.name.toLowerCase().split(" ")[0]; // ดึงคำแรกมาเป็นคีย์เวิร์ด หรือใช้รหัส
-        if (lowerText.includes(camId) || lowerText.includes(keyword) || lowerText.includes(camInfo.name.toLowerCase())) {
-            switchActiveCamera(camId);
-            return true;
-        }
-    }
-    return false;
 }
 
 function updateDropdownUI() {
@@ -622,7 +678,7 @@ function renderDynamicThumbnails() {
             </div>
             <div class="thumb-label">
                 <span>${camInfo.name}</span>
-                <span class="live-pulse-dot" title="สตรีมสดกำลังเล่นอยู่"></span>
+                <span class="live-pulse-dot"></span>
             </div>
         `;
         gridContainer.appendChild(card);
@@ -638,17 +694,14 @@ function renderDynamicThumbnails() {
     }
 }
 
-// 🟢 ฟังก์ชันสลับกล้องแบบไม่มีเลเยอร์ซ้อนทับ
 async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
     activeCameraId = camId;
 
-    // ไฮไลต์ขอบการ์ดจอย่อย
     document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active'));
     const targetCard = document.getElementById(`thumb-card-${camId}`);
     if (targetCard) targetCard.classList.add('active');
 
-    // อัปเดตชื่อป้ายกำกับจอหลัก
     const mainCamBadge = document.getElementById('mainCamBadge');
     if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camerasRegistry[camId].name}`;
     if (cameraDropdownSelect) cameraDropdownSelect.value = camId;
@@ -657,32 +710,19 @@ async function switchActiveCamera(camId) {
     if (!mainVid) return;
 
     const camInfo = camerasRegistry[camId];
-
     try {
-        // ปิดสตรีมเก่าถ้ามี เพื่อกันชนกันเอง
-        if (camInfo.stream) {
-            camInfo.stream.getTracks().forEach(track => track.stop());
-        }
+        if (camInfo.stream) camInfo.stream.getTracks().forEach(track => track.stop());
 
-        const constraints = {
-            video: {
-                deviceId: camInfo.deviceId ? { exact: camInfo.deviceId } : undefined,
-                width: { ideal: 1920 },
-                height: { ideal: 1080 }
-            },
+        const newStream = await navigator.mediaDevices.getUserMedia({
+            video: { deviceId: camInfo.deviceId ? { exact: camInfo.deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } },
             audio: false
-        };
-
-        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        });
         camInfo.stream = newStream;
-        
-        // 🟢 บังคับผูก Stream เข้ากับแท็ก Video หลักทันที และสั่ง play() เผื่อเบราว์เซอร์บล็อกการเล่นอัตโนมัติ
         mainVid.srcObject = newStream;
         await mainVid.play().catch(e => console.log("Auto-play prevented:", e));
 
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
     } catch (err) {
-        console.error("ไม่สามารถเชื่อมต่อกล้องได้:", err);
         statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ สัญญาณกล้องขัดข้อง:</strong> ${err.message}`;
     }
 }
@@ -698,10 +738,11 @@ async function startMainAppSession() {
     isUserActiveSession = true;
 
     try {
+        masterMediaStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        enrollmentManager.startCapture(masterMediaStream);
+
         audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-        if (audioContext.state === 'suspended') {
-            await audioContext.resume();
-        }
+        if (audioContext.state === 'suspended') await audioContext.resume();
         nextAudioTime = audioContext.currentTime;
 
         const selectedVoice = voiceSelect.value;
@@ -720,7 +761,7 @@ async function startMainAppSession() {
                 : "ไม่มีประวัติคุยเก่า";
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `📹 Multi-Camera Hybrid Mode: พร้อมทำงาน`;
+            audioStats.innerText = `🎙️ Auto Enrollment Engine Ready: ทักเจเมื่อมีเพื่อนใหม่`;
             
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
@@ -760,13 +801,6 @@ ${historySummaryText}
                     if (responseText) {
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
-                        
-                        const lowerText = responseText.toLowerCase();
-                        if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
-                            switchActiveCamera("camera001");
-                        } else if (lowerText.includes("obs") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
-                            switchActiveCamera("camera002");
-                        }
                     }
                 }
             } catch (e) {
@@ -784,27 +818,6 @@ ${historySummaryText}
     } catch (e) {
         statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เกิดข้อผิดพลาด:</strong> ${e.message}`;
     }
-}
-
-// 🟢 ฟังก์ชันสำหรับอัปเดตและเตรียมคำสั่งเสียงสำหรับกล้องแต่ละตัวแบบไดนามิก
-function updateVoiceCommandsMapping() {
-    const cameraKeys = Object.keys(camerasRegistry);
-    console.log("🎙️ อัปเดตชุดคำสั่งเสียงสำหรับกล้องทั้งหมดเรียบร้อย:", cameraKeys);
-}
-
-// 🟢 ฟังก์ชันช่วยตรวจสอบคำสั่งเสียงสลับกล้องอัตโนมัติ
-function checkVoiceCommandForCamera(spokenText) {
-    const lowerText = spokenText.toLowerCase();
-    
-    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-        let keyword = camInfo.name.toLowerCase();
-        // ถ้าพูดชื่อกล้อง หรือรหัสกล้อง (เช่น camera001, camera002) ให้ทำการสลับทันที
-        if (lowerText.includes(camId) || lowerText.includes(keyword) || lowerText.includes(camInfo.name.toLowerCase().split(" ")[0])) {
-            switchActiveCamera(camId);
-            return true;
-        }
-    }
-    return false;
 }
 
 function startKeepAlivePing() {
@@ -834,14 +847,13 @@ function startRemoteCaptureListener() {
 
 async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     const canvas = document.createElement('canvas');
-    canvas.width = 1920; canvas.height = 1080; // 🟢 ปรับความกว้าง-สูงเป็น 1920x1080
+    canvas.width = 1920; canvas.height = 1080;
     const ctx = canvas.getContext('2d');
 
     const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
     if (thumbVid && thumbVid.readyState === 4) {
         ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
     } else {
-        canvas.width = 1920; canvas.height = 1080;
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, 1920, 1080);
         ctx.fillStyle = "#fff";
@@ -849,8 +861,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
         ctx.fillText(`Camera Stream [${camId}] Not Ready`, 150, 540);
     }
 
-    const base64Image = canvas.toDataURL('image/jpeg', 0.55); // 🟢 ปรับคุณภาพไฟล์เป็น 0.55
-    canvas.width = 0; canvas.height = 0;
+    const base64Image = canvas.toDataURL('image/jpeg', 0.55);
 
     try {
         await fetch(`${SERVER_URL}/api/camera/upload/${camId}`, {
@@ -859,8 +870,6 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             body: JSON.stringify({ imageBase64: base64Image })
         });
     } catch (err) {}
-    // ...
-
 
     if (isManualTrigger) {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -883,6 +892,119 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     }
 }
 
+/* ==========================================================
+   🔍 KEYWORD EXTRACTION & AUTOMATIC ENROLLMENT SEQUENCE
+   ========================================================== */
+function checkForEnrollmentTrigger(text) {
+    const lowerText = text.toLowerCase();
+    
+    // คีย์เวิร์ดตรวจจับคำแนะนำเพื่อนใหม่
+    const isIntroducing = lowerText.includes("เพื่อนใหม่") || lowerText.includes("นี่คุณ") || lowerText.includes("ขอแนะนำให้รู้จัก") || lowerText.includes("คนนี้ชื่อ");
+    
+    if (isIntroducing && !isEnrollingGuest) {
+        // สกัดชื่อเพื่อนใหม่ออกจากข้อความ
+        let extractedName = "เพื่อนใหม่";
+        const nameMatch = text.match(/(?:ชื่อ|นี่คุณ|เพื่อนใหม่ชื่อ)\s*([\u0E00-\u0E7Fa-zA-Z0-9_\s]+)/);
+        if (nameMatch && nameMatch[1]) {
+            extractedName = nameMatch[1].trim().split(" ")[0]; // ดึงเฉพาะคำแรก
+        }
+
+        console.log(`[AutoEnrollment] Triggered for guest: ${extractedName}`);
+        triggerGuestEnrollmentSequence(extractedName);
+        return true;
+    }
+    return false;
+}
+
+// 🟢 ฟังก์ชันควบคุมสเต็ปนับถอยหลัง อัดเสียง และถ่ายภาพคนใหม่อัตโนมัติ
+async function triggerGuestEnrollmentSequence(guestName) {
+    isEnrollingGuest = true;
+    
+    // 1. หยุด Speech Recognition ชั่วคราวป้องกันไมค์หลุด
+    if (recognition) { try { recognition.stop(); } catch(e){} }
+
+    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>🎙️ เจ:</strong> กำลังต้อนรับและเปิดระบบบันทึกโปรไฟล์สำหรับคุณ ${guestName}...`;
+
+    // 2. เจตอบรับด้วยเสียงแบบสังเคราะห์ในเบราว์เซอร์ (TTS) ให้กระชับ แม่นยำ
+    const greetingText = `สวัสดีครับผมเจครับ ผู้ดูแลความปลอดภัยของบ้านหลังนี้ ขออนุญาตบันทึกเสียงและถ่ายรูปเพื่อเก็บเป็นโปรไฟล์คนรู้จักนะครับ`;
+    await playTextToSpeech(greetingText);
+
+    // 3. เริ่มต้นนับถอยหลัง 5..4..3..2..1 บน Overlay + อัดเสียง
+    countdownBadge.style.display = 'block';
+    enrollmentManager.startRecording(); // เริ่มต้นเก็บ PCM audio chunks
+
+    let count = 5;
+    let capturedImageBase64 = null;
+
+    const countdownInterval = setInterval(async () => {
+        countdownBadge.innerText = `🎙️ กำลังบันทึกเสียงโปรไฟล์คุณ ${guestName}: ${count}`;
+
+        // ในวินาทีที่ 3 ให้ทำการ Snap ภาพใบหน้าจากกล้องหลัก
+        if (count === 3) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1280; canvas.height = 720;
+            const ctx = canvas.getContext('2d');
+            const mainVid = document.getElementById('activeMainVideo');
+            if (mainVid && mainVid.readyState === 4) {
+                ctx.drawImage(mainVid, 0, 0, 1280, 720);
+                capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
+            }
+        }
+
+        count--;
+
+        if (count < 0) {
+            clearInterval(countdownInterval);
+            countdownBadge.style.display = 'none';
+
+            // 4. จบการนับถอยหลัง - ดึง Base64 เสียง WAV
+            const audioBase64 = await enrollmentManager.stopAndExportWAVBase64();
+
+            // 5. ส่งไฟล์ไปยัง Backend Server แยกตามโฟลเดอร์ชื่อบุคคล
+            try {
+                await fetch(`${SERVER_URL}/api/profiles/enroll`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        guestName: guestName,
+                        imageBase64: capturedImageBase64,
+                        audioBase64: audioBase64
+                    })
+                });
+                console.log(`[AutoEnrollment] Successfully uploaded files for ${guestName}`);
+            } catch (err) {
+                console.error("[AutoEnrollment Upload Error]", err);
+            }
+
+            // 6. เจกล่าวปิดประโยคด้วยเสียง
+            const closingText = `จบการบันทึกเรียบร้อยครับ ยินดีที่ได้รู้จักคุณ ${guestName} ครับ`;
+            await playTextToSpeech(closingText);
+
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> บันทึกโปรไฟล์คุณ [${guestName}] เรียบร้อยครับ 🟢`;
+            audioStats.innerText = `📁 Saved Profile: /storage/profiles/${guestName}/`;
+
+            isEnrollingGuest = false;
+            if (isUserActiveSession) startSpeechRecognition(); // กลับมาเปิดฟังเสียงปกติ
+        }
+    }, 1000);
+}
+
+// ฟังก์ชันช่วยเปลี่ยนข้อความให้เป็นเสียงพูดผ่าน Web Speech Synthesis API
+function playTextToSpeech(text) {
+    return new Promise((resolve) => {
+        if (!('speechSynthesis' in window)) { resolve(); return; }
+        
+        window.speechSynthesis.cancel(); // ล้างคิวเสียงเก่า
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'th-TH';
+        utterance.rate = 0.95;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        
+        window.speechSynthesis.speak(utterance);
+    });
+}
+
 function startSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
@@ -894,7 +1016,7 @@ function startSpeechRecognition() {
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
-        if (isModelSpeaking) return;
+        if (isModelSpeaking || isEnrollingGuest) return;
         let currentChunk = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
             if (event.results[i].isFinal) currentChunk += event.results[i][0].transcript;
@@ -905,33 +1027,31 @@ function startSpeechRecognition() {
             speechTimeout = setTimeout(() => {
                 let finalTextToSend = speechBuffer.trim();
                 speechBuffer = "";
-                if (finalTextToSend && !isModelSpeaking) sendTextDirectly(finalTextToSend);
-            }, 1200);
+                if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
+                    sendTextDirectly(finalTextToSend);
+                }
+            }, 800);
         }
     };
 
-    recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) setTimeout(startSpeechRecognition, 500); };
-    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
+    recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isEnrollingGuest) setTimeout(startSpeechRecognition, 500); };
+    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking && !isEnrollingGuest) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
     try { recognition.start(); } catch(e) {}
 }
 
 async function sendTextDirectly(text) {
-    if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking || isEnrollingGuest) return;
+
+    // 🟢 เช็กก่อนเลยว่าเสียงที่พูดเข้ามาเป็นคำสั่งแนะนำเพื่อนใหม่หรือไม่
+    if (checkForEnrollmentTrigger(text)) {
+        return; // หากเป็นคำสั่งแนะนำคนใหม่ ให้หยุดการส่งไปหา Gemini และสลับไปทำ Auto Enrollment Sequence ทันที
+    }
+
     const lowerText = text.toLowerCase();
-    
     if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
         switchActiveCamera("camera001");
     } else if (lowerText.includes("obs") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
         switchActiveCamera("camera002");
-
-        if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking) return;
-    const lowerText = text.toLowerCase();
-    
-    // 🟢 ตรวจสอบคำสั่งสลับกล้องอัตโนมัติจากเสียงพูด
-    if (checkVoiceCommandForCamera(lowerText)) {
-        statusText.innerHTML = `<span class="status-dot"></span><strong>🔄 คำสั่งเสียง:</strong> สลับกล้องตามคำสั่งเรียบร้อย`;
-        return;
-    }
     }
 
     saveToHistory('user', text);
@@ -947,7 +1067,7 @@ async function sendTextDirectly(text) {
 }
 
 function playAudioChunk(base64Data) {
-    if (!audioContext) return;
+    if (!audioContext || isEnrollingGuest) return;
     isModelSpeaking = true;
     if (recognition) { try { recognition.stop(); } catch(e) {} }
 
@@ -970,66 +1090,15 @@ function playAudioChunk(base64Data) {
     source.start(nextAudioTime);
     nextAudioTime += audioBuffer.duration;
 
-    const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 800; // 🟢 ปรับลดเวลาหน่วงตอนจบให้กระชับขึ้น
+    const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 800;
     if (speakingTimeout) clearTimeout(speakingTimeout);
     speakingTimeout = setTimeout(() => {
         isModelSpeaking = false;
         audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
-        
-        // 🟢 เปิดไมค์สแตนด์บายล่วงหน้าทันทีที่เจพูดจบ เพื่อไม่ให้พลาดคำแรกของเพื่อนเอก
-        if (isUserActiveSession && recognition) { 
-            try { 
-                recognition.start(); 
-            } catch(e) {} 
+        if (isUserActiveSession && recognition && !isEnrollingGuest) { 
+            try { recognition.start(); } catch(e) {} 
         }
     }, remainingTime);
-}
-
-function startSpeechRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-    if (recognition) { try { recognition.stop(); } catch(e){} }
-
-    recognition = new SpeechRecognition();
-    recognition.lang = 'th-TH';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event) => {
-        if (isModelSpeaking) return;
-        let currentChunk = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            currentChunk += event.results[i][0].transcript;
-        }
-        if (currentChunk.trim()) {
-            speechBuffer = currentChunk.trim();
-            if (speechTimeout) clearTimeout(speechTimeout);
-            
-            // 🟢 ลดเวลาหน่วงลงเหลือ 500ms เพื่อให้กดส่งคำพูดได้รวดเร็วทันใจ
-            speechTimeout = setTimeout(() => {
-                let finalTextToSend = speechBuffer.trim();
-                speechBuffer = "";
-                if (finalTextToSend && !isModelSpeaking) sendTextDirectly(finalTextToSend);
-            }, 500);
-        }
-    };
-
-    recognition.onerror = (err) => { 
-        // ป้องกันไมค์หลุด ถ้าระบบแจ้ง no-speech ให้รีสตาร์ทไมค์อัตโนมัติทันที
-        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) {
-            setTimeout(startSpeechRecognition, 200); 
-        }
-    };
-    
-    recognition.onend = () => { 
-        if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) {
-            setTimeout(() => { 
-                try { recognition.start(); } catch(e){} 
-            }, 50); 
-        }
-    };
-    
-    try { recognition.start(); } catch(e) {}
 }
 
 sendTextBtn.addEventListener('click', sendTextMessage);
@@ -1053,6 +1122,7 @@ snapBtn.addEventListener('click', () => {
 function stopSession() {
     isUserActiveSession = false;
     isModelSpeaking = false;
+    isEnrollingGuest = false;
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
@@ -1062,6 +1132,7 @@ function stopSession() {
     Object.values(camerasRegistry).forEach(cam => {
         if (cam.stream) cam.stream.getTracks().forEach(track => track.stop());
     });
+    if (masterMediaStream) { masterMediaStream.getTracks().forEach(track => track.stop()); masterMediaStream = null; }
     if (authStream) { authStream.getTracks().forEach(track => track.stop()); authStream = null; }
     if (ws) { ws.close(); ws = null; }
     if (audioContext) { audioContext.close(); audioContext = null; }
