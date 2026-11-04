@@ -1,4 +1,4 @@
-// server.js - Project-J Smart Guardian Server (Multi-Camera & Voice Biometrics Storage Support)
+// server.js - Project-J Smart Guardian Server (Multi-Camera & Real-time Live Switch Support)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -27,14 +27,13 @@ if (SUPABASE_URL && SUPABASE_KEY) {
 // โฟลเดอร์สำรองบนเครื่อง (Local Fallback Directories)
 const DIR_CAMERAS = path.join(__dirname, 'cameras_storage');
 const DIR_UPLOADS = path.join(__dirname, 'uploads');
-const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles'); // 🎙️ โฟลเดอร์เก็บโปรไฟล์เสียงและหน้าคนรู้จักหลังบ้าน
-const DIR_PROFILES = path.join(__dirname, 'storage', 'profiles'); // 📁 โฟลเดอร์จัดเก็บแยกตามรายชื่อบุคคล (Auto-Enrollment)
+const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles'); 
 
 const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
 const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
 
 [
-    DIR_CAMERAS, DIR_UPLOADS, DIR_VOICE_PROFILES, DIR_PROFILES
+    DIR_CAMERAS, DIR_UPLOADS, DIR_VOICE_PROFILES
 ].forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
@@ -43,18 +42,42 @@ const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
 
 // โหลดหรือสร้างค่าตั้งค่ากล้องเริ่มต้น (Default Cameras)
 let camerasConfig = {};
-if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
-    try {
-        camerasConfig = JSON.parse(fs.readFileSync(CAMERAS_CONFIG_PATH, 'utf8'));
-    } catch (e) {
-        camerasConfig = {};
+
+async function initCamerasConfig() {
+    if (supabase) {
+        try {
+            const { data, error } = await supabase.from('cameras_config').select('*');
+            if (!error && data && data.length > 0) {
+                data.forEach(row => {
+                    camerasConfig[row.camera_id] = {
+                        name: row.name,
+                        ip: row.ip,
+                        active: row.active ?? true,
+                        updatedAt: row.updated_at
+                    };
+                });
+                console.log('[Supabase DB] โหลดรายชื่อกล้องจาก Supabase สำเร็จ 🟢');
+                return;
+            }
+        } catch (err) {
+            console.error('[Supabase DB Error] ไม่สามารถโหลดจาก Supabase ได้, โหลดจาก Local แทน:', err.message);
+        }
     }
-} else {
-    camerasConfig = {
-        "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", active: true },
-        "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.188.140", active: true }
-    };
-    fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
+
+    // Fallback ใช้ Local JSON
+    if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
+        try {
+            camerasConfig = JSON.parse(fs.readFileSync(CAMERAS_CONFIG_PATH, 'utf8'));
+        } catch (e) {
+            camerasConfig = {};
+        }
+    } else {
+        camerasConfig = {
+            "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", active: true },
+            "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.188.140", active: true }
+        };
+        fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
+    }
 }
 
 // สร้างโฟลเดอร์ย่อยสำหรับเก็บภาพของแต่ละกล้องอัตโนมัติ
@@ -73,31 +96,67 @@ let cameraRequestState = { requested: false };
 let pendingAudioVerifications = {};
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); 
+app.use(express.json({ limit: '15mb' })); 
 app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
 const VISITOR_WHITELIST = ["คุณน้า", "ช่างไฟ", "เพื่อนบ้าน", "Guest"];
 
 // 📷 API จัดการกล้อง: ดึงรายชื่อกล้องทั้งหมด
-app.get('/api/cameras/list', (req, res) => {
+app.get('/api/cameras/list', async (req, res) => {
+    if (supabase) {
+        try {
+            const { data, error } = await supabase.from('cameras_config').select('*');
+            if (!error && data) {
+                const cloudCameras = {};
+                data.forEach(row => {
+                    cloudCameras[row.camera_id] = {
+                        name: row.name,
+                        ip: row.ip,
+                        active: row.active ?? true,
+                        updatedAt: row.updated_at
+                    };
+                });
+                camerasConfig = cloudCameras;
+            }
+        } catch (err) {
+            console.error('Fetch cloud cameras error:', err.message);
+        }
+    }
     return res.json({ success: true, cameras: camerasConfig });
 });
 
-// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่
-app.post('/api/cameras/save', (req, res) => {
+// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่ (บันทึกลง Supabase)
+app.post('/api/cameras/save', async (req, res) => {
     try {
         const { cameraId, name, ip } = req.body;
         if (!cameraId || !name) {
             return res.status(400).json({ success: false, message: 'Camera ID and Name are required' });
         }
 
+        const updatedAt = new Date().toISOString();
         camerasConfig[cameraId] = {
             name: name,
             ip: ip || 'DHCP/Unknown',
             active: true,
-            updatedAt: new Date().toISOString()
+            updatedAt: updatedAt
         };
+
+        if (supabase) {
+            const { error } = await supabase
+                .from('cameras_config')
+                .upsert({ 
+                    camera_id: cameraId, 
+                    name: name, 
+                    ip: ip || 'DHCP/Unknown', 
+                    active: true, 
+                    updated_at: updatedAt 
+                }, { onConflict: 'camera_id' });
+
+            if (error) {
+                console.error('[Supabase Save Error]:', error.message);
+            }
+        }
 
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 
@@ -114,7 +173,7 @@ app.post('/api/cameras/save', (req, res) => {
 });
 
 // 📷 API จัดการกล้อง: ลบกล้องออกจากระบบ
-app.delete('/api/cameras/delete/:cameraId', (req, res) => {
+app.delete('/api/cameras/delete/:cameraId', async (req, res) => {
     try {
         const { cameraId } = req.params;
         if (!camerasConfig[cameraId]) {
@@ -124,11 +183,74 @@ app.delete('/api/cameras/delete/:cameraId', (req, res) => {
         const deletedName = camerasConfig[cameraId].name;
         delete camerasConfig[cameraId];
 
+        if (supabase) {
+            const { error } = await supabase
+                .from('cameras_config')
+                .delete()
+                .eq('camera_id', cameraId);
+
+            if (error) {
+                console.error('[Supabase Delete Error]:', error.message);
+            }
+        }
+
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 
         console.log(`[Multi-Camera] ลบกล้องสำเร็จ -> [${cameraId}] ${deletedName}`);
         return res.json({ success: true, message: `ลบกล้อง ${deletedName} เรียบร้อยแล้วครับ`, cameras: camerasConfig });
     } catch (err) {
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// 🗣️ API รับคำสั่งเสียงเพื่อสลับหรือเปิดกล้องตามชื่อที่สั่ง
+app.post('/api/camera/voice-command', async (req, res) => {
+    try {
+        const { commandText } = req.body; // เช่น "เปิดกล้องหน้าบ้าน" หรือ "ขอจ้องกล้อง camera003"
+        if (!commandText) {
+            return res.status(400).json({ success: false, message: 'ไม่พบคำสั่งเสียง' });
+        }
+
+        let targetCamId = null;
+        let targetCamMeta = null;
+
+        // ค้นหาว่าในข้อความคำสั่งเสียงมีชื่อเรียกหรือรหัสกล้องตัวไหนตรงกันบ้าง
+        for (const [camId, cam] of Object.entries(camerasConfig)) {
+            if (commandText.includes(camId) || commandText.includes(cam.name)) {
+                targetCamId = camId;
+                targetCamMeta = cam;
+                break;
+            }
+        }
+
+        if (!targetCamId) {
+            return res.status(404).json({ 
+                success: false, 
+                message: `ไม่พบกล้องที่ตรงกับคำสั่ง "${commandText}" ครับเพื่อนเอก` 
+            });
+        }
+
+        // ดึงภาพล่าสุดของกล้องตัวที่เจอ
+        const filePath = path.join(DIR_UPLOADS, `realtime_${targetCamId}.jpg`);
+        let imageBase64 = null;
+        
+        if (fs.existsSync(filePath)) {
+            imageBase64 = fs.readFileSync(filePath).toString('base64');
+        }
+
+        console.log(`[Voice Command] สลับมาที่กล้อง -> [${targetCamId}] ${targetCamMeta.name} สำเร็จ 🟢`);
+        
+        return res.json({
+            success: true,
+            message: `สลับภาพมาที่ ${targetCamMeta.name} (${targetCamId}) เรียบร้อยครับ`,
+            cameraId: targetCamId,
+            cameraName: targetCamMeta.name,
+            ip: targetCamMeta.ip,
+            imageBase64: imageBase64
+        });
+
+    } catch (err) {
+        console.error('Voice command error:', err);
         return res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -222,6 +344,7 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
     }
 });
 
+// 📸 API ดึงภาพล่าสุดของกล้องแต่ละตัวไปแสดงผล
 app.get('/api/camera/latest/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -259,61 +382,7 @@ app.post('/api/camera/clear-request', (req, res) => {
     return res.json({ success: true });
 });
 
-/* ==========================================================
-   🎙️ VOICE BIOMETRICS & AUTO-ENROLLMENT BACKEND ENDPOINTS
-   ========================================================== */
-
-// 1. API สำหรับรับและจัดเก็บโปรไฟล์คนใหม่ (เสียง WAV + ภาพ JPG) แยกโฟลเดอร์ตามชื่อและเวลา
-app.post('/api/profiles/enroll', (req, res) => {
-    try {
-        const { guestName, imageBase64, audioBase64 } = req.body;
-
-        if (!guestName) {
-            return res.status(400).json({ success: false, message: 'Missing guestName' });
-        }
-
-        // คลีนชื่อโฟลเดอร์ป้องกันอักขระพิเศษ
-        const safeFolderName = guestName.trim().replace(/[/\\?%*:|"<>]/g, '_');
-        const userFolder = path.join(DIR_PROFILES, safeFolderName);
-
-        if (!fs.existsSync(userFolder)) {
-            fs.mkdirSync(userFolder, { recursive: true });
-        }
-
-        // สร้างชื่อไฟล์ตามวันเวลาปัจจุบัน (Format: YYYY-MM-DD_HH-mm-ss)
-        const now = new Date();
-        const timestampStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }) + '_' + 
-                             now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
-
-        // จัดเก็บไฟล์ภาพถ่าย (JPG)
-        if (imageBase64) {
-            const imageBuffer = Buffer.from(imageBase64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-            const imagePath = path.join(userFolder, `face_${timestampStr}.jpg`);
-            fs.writeFileSync(imagePath, imageBuffer);
-        }
-
-        // จัดเก็บไฟล์เสียง (WAV)
-        if (audioBase64) {
-            const audioBuffer = Buffer.from(audioBase64.replace(/^data:audio\/\w+;base64,/, ''), 'base64');
-            const audioPath = path.join(userFolder, `voice_${timestampStr}.wav`);
-            fs.writeFileSync(audioPath, audioBuffer);
-        }
-
-        // เพิ่มเข้า Visitor Whitelist อัตโนมัติหากยังไม่มี
-        if (!VISITOR_WHITELIST.includes(safeFolderName) && !FAMILY_WHITELIST.includes(safeFolderName)) {
-            VISITOR_WHITELIST.push(safeFolderName);
-        }
-
-        console.log(`[AutoEnrollment Server] บันทึกโปรไฟล์สำเร็จสำหรับ: [${safeFolderName}] ที่โฟลเดอร์ ${userFolder}`);
-        return res.json({ success: true, message: `Profile saved successfully for ${safeFolderName}`, folder: userFolder });
-
-    } catch (error) {
-        console.error('[Enrollment Server Error]', error);
-        return res.status(500).json({ success: false, message: error.message });
-    }
-});
-
-// 2. API บันทึกเสียงตัวอย่างรายบุคคลแบบเดิม
+// 🎙️ API บันทึกเสียงตัวอย่างรายบุคคล
 app.post('/api/voice/register-sample', (req, res) => {
     try {
         const { personName, audioBase64 } = req.body;
@@ -360,7 +429,6 @@ app.get('/api/voice/profiles', (req, res) => {
 app.use('/uploads', express.static(DIR_UPLOADS));
 app.use('/cameras_storage', express.static(DIR_CAMERAS));
 app.use('/voice_profiles', express.static(DIR_VOICE_PROFILES));
-app.use('/storage', express.static(path.join(__dirname, 'storage')));
 
 async function uploadToCloudStorage(buffer, filename, folderType) {
     if (!supabase) return null;
@@ -509,17 +577,18 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     }
 });
 
+// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติทุกๆ 5 วินาที
 function captureRtspSnapshot(cameraId, rtspUrl) {
     const outputFilePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     
     ffmpeg(rtspUrl)
         .inputOptions([
-            '-rtsp_transport tcp',
-            '-stimeout 3000000'
+            '-rtsp_transport tcp', // บังคับใช้ TCP เพื่อความเสถียร
+            '-stimeout 3000000'    // Timeout 3 วินาทีกันค้าง
         ])
         .outputOptions([
-            '-vframes 1',
-            '-q:v 2'
+            '-vframes 1',          // ดึงภาพนิ่ง 1 เฟรม
+            '-q:v 2'               // คุณภาพภาพ
         ])
         .output(outputFilePath)
         .on('end', () => {
@@ -537,6 +606,7 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
         .run();
 }
 
+// ⏰ ตั้งเวลาดึงภาพจากกล้องหน้าบ้าน (camera002) ทุกๆ 5 วินาที
 setInterval(() => {
     if (camerasConfig['camera002'] && camerasConfig['camera002'].ip) {
         const rtspUrl = `rtsp://${camerasConfig['camera002'].ip}:554/onvif1`;
@@ -544,7 +614,10 @@ setInterval(() => {
     }
 }, 5000);
 
-app.listen(PORT, () => {
-    console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-    console.log(`[Multi-Camera System] Ready to support camera001, camera002, and Voice Biometrics Profiles 🟢🎙️`);
+// เริ่มรันเซิร์ฟเวอร์หลังจากโหลดค่ากล้องเสร็จ
+initCamerasConfig().then(() => {
+    app.listen(PORT, () => {
+        console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
+        console.log(`[Multi-Camera System] Ready to support camera001, camera002, and beyond 🟢📹`);
+    });
 });
