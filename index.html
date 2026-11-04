@@ -621,31 +621,40 @@ cancelSetupBtn.addEventListener('click', () => {
 
 async function initCameraSystem() {
     try {
-        const initialStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        initialStream.getTracks().forEach(track => track.stop());
+        // ดึงรายชื่อกล้องจากหลังบ้าน (Supabase / Local Config) ที่บันทึกไว้ทั้งหมด
+        const res = await fetch(`${SERVER_URL}/api/cameras/list`);
+        const data = await res.json();
 
-        camerasRegistry = {};
-        videoDevices.forEach((device, index) => {
-            const camId = `camera00${index + 1}`;
-            let customName = device.label || `กล้องตัวที่ ${index + 1}`;
-            if (customName.toLowerCase().includes("obs")) {
-                customName = `OBS Virtual Camera (${index + 1})`;
-            } else if (index === 0) {
-                customName = `กล้องหน้าคอม (Webcam)`;
+        if (data.success && data.cameras) {
+            camerasRegistry = {};
+            
+            // วินิจฉัยแปลงข้อมูลกล้องจากหลังบ้านมาใส่ Registry ของหน้าจอ
+            for (const [camId, camInfo] of Object.entries(data.cameras)) {
+                camerasRegistry[camId] = {
+                    name: camInfo.name,
+                    deviceId: null, // กล้อง IP ภายนอกไม่ต้องใช้ Device ID ของเว็บแคมคอมพิวเตอร์
+                    ip: camInfo.ip,
+                    stream: null
+                };
             }
-            camerasRegistry[camId] = { name: customName, deviceId: device.deviceId, stream: null };
-        });
+        }
 
-        if (Object.keys(camerasRegistry).length === 0) { alert("ไม่พบกล้องในระบบครับ!"); return; }
-        if (!activeCameraId) activeCameraId = Object.keys(camerasRegistry)[0];
+        if (Object.keys(camerasRegistry).length === 0) { 
+            alert("ยังไม่มีข้อมูลกล้องในระบบครับ!"); 
+            return; 
+        }
+
+        if (!activeCameraId || !camerasRegistry[activeCameraId]) {
+            activeCameraId = Object.keys(camerasRegistry)[0];
+        }
 
         updateDropdownUI();
         renderDynamicThumbnails();
         await switchActiveCamera(activeCameraId);
+
     } catch (err) {
-        console.warn("ไม่สามารถค้นหากล้องได้:", err.message);
+        console.warn("ไม่สามารถโหลดรายชื่อกล้องจากหลังบ้านได้:", err.message);
+        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ โหลดกล้องล้มเหลว:</strong> ${err.message}`;
     }
 }
 
