@@ -621,21 +621,37 @@ cancelSetupBtn.addEventListener('click', () => {
 
 async function initCameraSystem() {
     try {
-        // ดึงรายชื่อกล้องจากหลังบ้าน (Supabase / Local Config) ที่บันทึกไว้ทั้งหมด
+        // 1. ขอสิทธิ์และสแกนหาอุปกรณ์กล้องจริงทั้งหมดที่ต่ออยู่กับคอมพิวเตอร์ (รวม OBS Virtual Camera)
+        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        tempStream.getTracks().forEach(track => track.stop()); // ปิดสตรีมชั่วคราวหลังสแกนเสร็จ
+
+        // 2. ดึงรายชื่อกล้องจากหลังบ้าน (Supabase / Local Config)
         const res = await fetch(`${SERVER_URL}/api/cameras/list`);
         const data = await res.json();
 
+        camerasRegistry = {};
+
         if (data.success && data.cameras) {
-            camerasRegistry = {};
-            
-            // วินิจฉัยแปลงข้อมูลกล้องจากหลังบ้านมาใส่ Registry ของหน้าจอ
+            let deviceIndex = 0;
+            // 3. ผูกข้อมูลกล้องจากหลังบ้านเข้ากับ Device ID ของฮาร์ดแวร์จริงในเครื่องตามลำดับ
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
+                let matchedDevice = videoDevices[deviceIndex] || videoDevices[0];
+                
+                // ถ้าชื่อกล้องในระบบตรงกับ OBS ให้พยายามหา device ที่มีคำว่า OBS หรือใช้ตัวถัดไป
+                if (camInfo.name.toLowerCase().includes("obs")) {
+                    const obsDev = videoDevices.find(d => d.label.toLowerCase().includes("obs"));
+                    if (obsDev) matchedDevice = obsDev;
+                }
+
                 camerasRegistry[camId] = {
                     name: camInfo.name,
-                    deviceId: null, // กล้อง IP ภายนอกไม่ต้องใช้ Device ID ของเว็บแคมคอมพิวเตอร์
+                    deviceId: matchedDevice ? matchedDevice.deviceId : null,
                     ip: camInfo.ip,
                     stream: null
                 };
+                deviceIndex++;
             }
         }
 
@@ -653,7 +669,7 @@ async function initCameraSystem() {
         await switchActiveCamera(activeCameraId);
 
     } catch (err) {
-        console.warn("ไม่สามารถโหลดรายชื่อกล้องจากหลังบ้านได้:", err.message);
+        console.warn("ไม่สามารถโหลดรายชื่อกล้องได้:", err.message);
         statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ โหลดกล้องล้มเหลว:</strong> ${err.message}`;
     }
 }
@@ -722,10 +738,13 @@ async function switchActiveCamera(camId) {
     try {
         if (camInfo.stream) camInfo.stream.getTracks().forEach(track => track.stop());
 
-        const newStream = await navigator.mediaDevices.getUserMedia({
-            video: { deviceId: camInfo.deviceId ? { exact: camInfo.deviceId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        // กำหนดเงื่อนไขดึงภาพผ่าน Device ID ของกล้องตัวนั้นๆ (รองรับ OBS Virtual Camera เต็มรูปแบบ)
+        const constraints = {
+            video: camInfo.deviceId ? { deviceId: { exact: camInfo.deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } : true,
             audio: false
-        });
+        };
+
+        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
         camInfo.stream = newStream;
         mainVid.srcObject = newStream;
         await mainVid.play().catch(e => console.log("Auto-play prevented:", e));
