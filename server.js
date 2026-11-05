@@ -52,7 +52,7 @@ async function initCamerasConfig() {
                     camerasConfig[row.camera_id] = {
                         name: row.name,
                         ip: row.ip,
-                        channel: row.channel || '', // 🟢 เพิ่มการดึงค่า channel จาก Supabase
+                        channel: row.channel || '',
                         active: row.active ?? true,
                         updatedAt: row.updated_at
                     };
@@ -114,7 +114,7 @@ app.get('/api/cameras/list', async (req, res) => {
                     cloudCameras[row.camera_id] = {
                         name: row.name,
                         ip: row.ip,
-                        channel: row.channel || '', // 🟢 คืนค่า channel กลับไปให้หน้าบ้าน
+                        channel: row.channel || '',
                         active: row.active ?? true,
                         updatedAt: row.updated_at
                     };
@@ -128,10 +128,10 @@ app.get('/api/cameras/list', async (req, res) => {
     return res.json({ success: true, cameras: camerasConfig });
 });
 
-// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่ (บันทึกลง Supabase)
+// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่
 app.post('/api/cameras/save', async (req, res) => {
     try {
-        const { cameraId, name, ip, channel } = req.body; // 🟢 ดึงตัวแปร channel จาก request body
+        const { cameraId, name, ip, channel } = req.body;
         if (!cameraId || !name) {
             return res.status(400).json({ success: false, message: 'Camera ID and Name are required' });
         }
@@ -140,7 +140,7 @@ app.post('/api/cameras/save', async (req, res) => {
         camerasConfig[cameraId] = {
             name: name,
             ip: ip || 'DHCP/Unknown',
-            channel: channel || '', // 🟢 บันทึกค่า channel ลง memory/local
+            channel: channel || '',
             active: true,
             updatedAt: updatedAt
         };
@@ -152,7 +152,7 @@ app.post('/api/cameras/save', async (req, res) => {
                     camera_id: cameraId, 
                     name: name, 
                     ip: ip || 'DHCP/Unknown', 
-                    channel: channel || '', // 🟢 บันทึกค่า channel ลงคอลัมน์ Supabase
+                    channel: channel || '', 
                     active: true, 
                     updated_at: updatedAt 
                 }, { onConflict: 'camera_id' });
@@ -612,8 +612,9 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
 // ⏰ ตั้งเวลาดึงภาพจากกล้องหน้าบ้าน (camera002) ทุกๆ 5 วินาที
 setInterval(() => {
     if (camerasConfig['camera002'] && camerasConfig['camera002'].ip) {
-        const channelPath = camerasConfig['camera002'].channel ? `Streaming/Channels/${camerasConfig['camera002'].channel}` : 'onvif1';
-        const rtspUrl = `rtsp://${camerasConfig['camera002'].ip}:554/${channelPath}`;
+        const ip = camerasConfig['camera002'].ip;
+        const channel = camerasConfig['camera002'].channel || '602';
+        const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
         captureRtspSnapshot('camera002', rtspUrl);
     }
 }, 5000);
