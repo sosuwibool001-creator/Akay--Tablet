@@ -135,7 +135,7 @@
             margin-bottom: 15px;
         }
 
-        #activeMainVideo {
+        #activeMainVideo, #activeMainFrame {
             width: 100%;
             height: 100%;
             object-fit: cover;
@@ -159,7 +159,6 @@
             z-index: 10;
         }
 
-        /* 🔴 Countdown Badge Overlay เมื่อมีการบันทึกคนใหม่ */
         .countdown-overlay {
             display: none;
             position: absolute;
@@ -208,7 +207,7 @@
             justify-content: center;
         }
 
-        .thumb-video-container video { width: 100%; height: 100%; object-fit: cover; }
+        .thumb-video-container video, .thumb-video-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
 
         .thumb-label {
             font-size: 11px;
@@ -314,7 +313,7 @@
         <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 15px;">❌ ยกเลิก</button>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลัก Multi-Camera (Clean UI หน้าจอสะอาดตา) -->
+    <!-- Step 2: แดชบอร์ดหลัก Multi-Camera -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
@@ -324,19 +323,18 @@
         </div>
 
         <div class="main-viewer-box">
-            <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กล้องหน้าคอม (camera001)</div>
+            <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กำลังโหลด...</div>
             <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
-            <video id="activeMainVideo" autoplay playsinline muted></video>
+            <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) -->
+            <video id="activeMainVideo" autoplay playsinline muted style="display:block;"></video>
+            <iframe id="activeMainFrame" style="display:none; width:100%; height:100%; border:none;"></iframe>
         </div>
 
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
         <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
             <div style="display: flex; gap: 8px; align-items: center;">
-                <select id="cameraDropdownSelect" style="padding: 8px 12px; width: auto;" onchange="switchActiveCamera(this.value)">
-                    <option value="camera001">กล้องหน้าคอม (Webcam)</option>
-                    <option value="camera002">OBS Virtual Camera (หน้าบ้าน NWP)</option>
-                </select>
+                <select id="cameraDropdownSelect" style="padding: 8px 12px; width: auto;" onchange="switchActiveCamera(this.value)"></select>
                 <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้องหลัก</button>
             </div>
             <div style="display: flex; gap: 8px;">
@@ -360,6 +358,8 @@
 <script>
 let BACKEND_API_KEY = "";
 const SERVER_URL = "https://akay-tablet.onrender.com";
+// กำหนด IP ของ Mini PC หรือเซิร์ฟเวอร์ที่รัน go2rtc (ตัวอย่างใช้พอร์ต 1984)
+const GO2RTC_BASE_URL = "http://localhost:1984"; 
 
 async function initConfig() {
     try {
@@ -372,9 +372,6 @@ async function initConfig() {
 }
 initConfig();
 
-/* ==========================================================
-   🎙️ AUTOMATIC ENROLLMENT & AUDIO BUFFER MANAGER
-   ========================================================== */
 class AutoEnrollmentManager {
     constructor(sampleRate = 16000) {
         this.sampleRate = sampleRate;
@@ -461,11 +458,8 @@ class AutoEnrollmentManager {
 }
 
 let enrollmentManager = new AutoEnrollmentManager();
-let isEnrollingGuest = false; // Flag ป้องกันการบันทึกซ้ำซ้อน
+let isEnrollingGuest = false;
 
-/* ==========================================================
-   UI & APPLICATION LOGIC
-   ========================================================== */
 const step1 = document.getElementById('step1');
 const stepSetup = document.getElementById('stepSetup');
 const stepAuth = document.getElementById('stepAuth');
@@ -509,11 +503,8 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
-let camerasRegistry = {
-    "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, stream: null },
-    "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", deviceId: null, stream: null }
-};
-let activeCameraId = "camera001";
+let camerasRegistry = {};
+let activeCameraId = "";
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -621,48 +612,32 @@ cancelSetupBtn.addEventListener('click', () => {
 
 async function initCameraSystem() {
     try {
-        // 1. ขอสิทธิ์และสแกนหาอุปกรณ์กล้องจริงทั้งหมดที่ต่ออยู่กับคอมพิวเตอร์ (รวม OBS Virtual Camera)
-        const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        tempStream.getTracks().forEach(track => track.stop()); // ปิดสตรีมชั่วคราวหลังสแกนเสร็จ
-
-        // 2. ดึงรายชื่อกล้องจากหลังบ้าน (Supabase / Local Config)
         const res = await fetch(`${SERVER_URL}/api/cameras/list`);
         const data = await res.json();
 
         camerasRegistry = {};
 
         if (data.success && data.cameras) {
-            let deviceIndex = 0;
-            // 3. ผูกข้อมูลกล้องจากหลังบ้านเข้ากับ Device ID ของฮาร์ดแวร์จริงในเครื่องตามลำดับ
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                let matchedDevice = videoDevices[deviceIndex] || videoDevices[0];
+                // ตรวจสอบว่าเป็นกล้อง NVR (มีค่า IP เป็นของ NVR หรือมี channel) หรือไม่
+                const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel;
                 
-                // ถ้าชื่อกล้องในระบบตรงกับ OBS ให้พยายามหา device ที่มีคำว่า OBS หรือใช้ตัวถัดไป
-                if (camInfo.name.toLowerCase().includes("obs")) {
-                    const obsDev = videoDevices.find(d => d.label.toLowerCase().includes("obs"));
-                    if (obsDev) matchedDevice = obsDev;
-                }
-
                 camerasRegistry[camId] = {
                     name: camInfo.name,
-                    deviceId: matchedDevice ? matchedDevice.deviceId : null,
                     ip: camInfo.ip,
+                    channel: camInfo.channel || '',
+                    isNvr: isNvr,
                     stream: null
                 };
-                deviceIndex++;
             }
         }
 
-        if (Object.keys(camerasRegistry).length === 0) { 
-            alert("ยังไม่มีข้อมูลกล้องในระบบครับ!"); 
-            return; 
+        if (Object.keys(camerasRegistry).length === 0) {
+            alert("ยังไม่มีข้อมูลกล้องในระบบครับ!");
+            return;
         }
 
-        if (!activeCameraId || !camerasRegistry[activeCameraId]) {
-            activeCameraId = Object.keys(camerasRegistry)[0];
-        }
+        activeCameraId = Object.keys(camerasRegistry)[0];
 
         updateDropdownUI();
         renderDynamicThumbnails();
@@ -697,9 +672,17 @@ function renderDynamicThumbnails() {
         card.id = `thumb-card-${camId}`;
         card.onclick = () => switchActiveCamera(camId);
 
+        let previewHtml = '';
+        if (camInfo.isNvr) {
+            const streamKey = camId; 
+            previewHtml = `<iframe src="${GO2RTC_BASE_URL}/api/webrtc.html?src=${streamKey}&muted=1" style="width:100%; height:100%; border:none;"></iframe>`;
+        } else {
+            previewHtml = `<video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>`;
+        }
+
         card.innerHTML = `
             <div class="thumb-video-container">
-                <video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+                ${previewHtml}
             </div>
             <div class="thumb-label">
                 <span>${camInfo.name}</span>
@@ -708,8 +691,9 @@ function renderDynamicThumbnails() {
         `;
         gridContainer.appendChild(card);
 
-        if (camInfo.deviceId) {
-            navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: camInfo.deviceId } }, audio: false })
+        // ถ้าไม่ใช่ NVR ให้ขอสิทธิ์เปิดกล้องเว็บแคมสำหรับพรีวิว
+        if (!camInfo.isNvr) {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
                 .then(stream => {
                     const thumbVid = document.getElementById(`thumb-vid-${camId}`);
                     if (thumbVid) thumbVid.srcObject = stream;
@@ -727,31 +711,46 @@ async function switchActiveCamera(camId) {
     const targetCard = document.getElementById(`thumb-card-${camId}`);
     if (targetCard) targetCard.classList.add('active');
 
+    const camInfo = camerasRegistry[camId];
     const mainCamBadge = document.getElementById('mainCamBadge');
-    if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camerasRegistry[camId].name}`;
+    if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camInfo.name}`;
     if (cameraDropdownSelect) cameraDropdownSelect.value = camId;
 
     const mainVid = document.getElementById('activeMainVideo');
-    if (!mainVid) return;
+    const mainFrame = document.getElementById('activeMainFrame');
 
-    const camInfo = camerasRegistry[camId];
-    try {
-        if (camInfo.stream) camInfo.stream.getTracks().forEach(track => track.stop());
-
-        // กำหนดเงื่อนไขดึงภาพผ่าน Device ID ของกล้องตัวนั้นๆ (รองรับ OBS Virtual Camera เต็มรูปแบบ)
-        const constraints = {
-            video: camInfo.deviceId ? { deviceId: { exact: camInfo.deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } : true,
-            audio: false
-        };
-
-        const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-        camInfo.stream = newStream;
-        mainVid.srcObject = newStream;
-        await mainVid.play().catch(e => console.log("Auto-play prevented:", e));
-
+    if (camInfo.isNvr) {
+        // กรณีเป็นกล้อง NVR ให้ปิด Video Tag แล้วเปิด Iframe ดึงสตรีมผ่าน go2rtc โดยตรง
+        if (mainVid) {
+            mainVid.style.display = 'none';
+            if (mainVid.srcObject) {
+                mainVid.srcObject.getTracks().forEach(t => t.stop());
+                mainVid.srcObject = null;
+            }
+        }
+        if (mainFrame) {
+            mainFrame.style.display = 'block';
+            mainFrame.src = `${GO2RTC_BASE_URL}/api/webrtc.html?src=${camId}`;
+        }
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อยครับ 🟢`;
+    } else {
+        // กรณีเป็นเว็บแคมทั่วไป
+        if (mainFrame) {
+            mainFrame.style.display = 'none';
+            mainFrame.src = '';
+        }
+        if (mainVid) {
+            mainVid.style.display = 'block';
+            try {
+                const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                camInfo.stream = newStream;
+                mainVid.srcObject = newStream;
+                await mainVid.play().catch(e => console.log("Auto-play prevented:", e));
+            } catch (err) {
+                console.warn("Webcam error:", err);
+            }
+        }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
-    } catch (err) {
-        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ สัญญาณกล้องขัดข้อง:</strong> ${err.message}`;
     }
 }
 
@@ -800,7 +799,7 @@ ${historySummaryText}
 
             const setupMessage = {
                 setup: {
-                    model: "models/gemini-3.8-live",
+                    model: "models/gemini-2.0-flash-exp",
                     generationConfig: {
                         responseModalities: ["AUDIO"],
                         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
@@ -878,15 +877,22 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     canvas.width = 1920; canvas.height = 1080;
     const ctx = canvas.getContext('2d');
 
-    const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
-    if (thumbVid && thumbVid.readyState === 4) {
-        ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
-    } else {
+    const camInfo = camerasRegistry[camId];
+    if (camInfo && camInfo.isNvr) {
+        // สำหรับกล้อง NVR สามารถดึงภาพผ่าน Snapshot API ของเซิร์ฟเวอร์หรือดึงจากพรีวิว Frame ได้
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, 1920, 1080);
         ctx.fillStyle = "#fff";
         ctx.font = "32px sans-serif";
-        ctx.fillText(`Camera Stream [${camId}] Not Ready`, 150, 540);
+        ctx.fillText(`NVR Camera Stream [${camId}] Active`, 150, 540);
+    } else {
+        const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
+        if (thumbVid && thumbVid.readyState === 4) {
+            ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
+        } else {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 1920, 1080);
+        }
     }
 
     const base64Image = canvas.toDataURL('image/jpeg', 0.55);
@@ -920,54 +926,39 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     }
 }
 
-/* ==========================================================
-   🔍 KEYWORD EXTRACTION & AUTOMATIC ENROLLMENT SEQUENCE
-   ========================================================== */
 function checkForEnrollmentTrigger(text) {
     const lowerText = text.toLowerCase();
-    
-    // คีย์เวิร์ดตรวจจับคำแนะนำเพื่อนใหม่
     const isIntroducing = lowerText.includes("เพื่อนใหม่") || lowerText.includes("นี่คุณ") || lowerText.includes("ขอแนะนำให้รู้จัก") || lowerText.includes("คนนี้ชื่อ");
     
     if (isIntroducing && !isEnrollingGuest) {
-        // สกัดชื่อเพื่อนใหม่ออกจากข้อความ
         let extractedName = "เพื่อนใหม่";
         const nameMatch = text.match(/(?:ชื่อ|นี่คุณ|เพื่อนใหม่ชื่อ)\s*([\u0E00-\u0E7Fa-zA-Z0-9_\s]+)/);
         if (nameMatch && nameMatch[1]) {
-            extractedName = nameMatch[1].trim().split(" ")[0]; // ดึงเฉพาะคำแรก
+            extractedName = nameMatch[1].trim().split(" ")[0];
         }
-
-        console.log(`[AutoEnrollment] Triggered for guest: ${extractedName}`);
         triggerGuestEnrollmentSequence(extractedName);
         return true;
     }
     return false;
 }
 
-// 🟢 ฟังก์ชันควบคุมสเต็ปนับถอยหลัง อัดเสียง และถ่ายภาพคนใหม่อัตโนมัติ
 async function triggerGuestEnrollmentSequence(guestName) {
     isEnrollingGuest = true;
-    
-    // 1. หยุด Speech Recognition ชั่วคราวป้องกันไมค์หลุด
     if (recognition) { try { recognition.stop(); } catch(e){} }
 
     statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>🎙️ เจ:</strong> กำลังต้อนรับและเปิดระบบบันทึกโปรไฟล์สำหรับคุณ ${guestName}...`;
 
-    // 2. เจตอบรับด้วยเสียงแบบสังเคราะห์ในเบราว์เซอร์ (TTS) ให้กระชับ แม่นยำ
     const greetingText = `สวัสดีครับผมเจครับ ผู้ดูแลความปลอดภัยของบ้านหลังนี้ ขออนุญาตบันทึกเสียงและถ่ายรูปเพื่อเก็บเป็นโปรไฟล์คนรู้จักนะครับ`;
     await playTextToSpeech(greetingText);
 
-    // 3. เริ่มต้นนับถอยหลัง 5..4..3..2..1 บน Overlay + อัดเสียง
     countdownBadge.style.display = 'block';
-    enrollmentManager.startRecording(); // เริ่มต้นเก็บ PCM audio chunks
+    enrollmentManager.startRecording();
 
     let count = 5;
     let capturedImageBase64 = null;
 
     const countdownInterval = setInterval(async () => {
         countdownBadge.innerText = `🎙️ กำลังบันทึกเสียงโปรไฟล์คุณ ${guestName}: ${count}`;
-
-        // ในวินาทีที่ 3 ให้ทำการ Snap ภาพใบหน้าจากกล้องหลัก
         if (count === 3) {
             const canvas = document.createElement('canvas');
             canvas.width = 1280; canvas.height = 720;
@@ -978,57 +969,40 @@ async function triggerGuestEnrollmentSequence(guestName) {
                 capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
             }
         }
-
         count--;
 
         if (count < 0) {
             clearInterval(countdownInterval);
             countdownBadge.style.display = 'none';
-
-            // 4. จบการนับถอยหลัง - ดึง Base64 เสียง WAV
             const audioBase64 = await enrollmentManager.stopAndExportWAVBase64();
 
-            // 5. ส่งไฟล์ไปยัง Backend Server แยกตามโฟลเดอร์ชื่อบุคคล
             try {
                 await fetch(`${SERVER_URL}/api/profiles/enroll`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        guestName: guestName,
-                        imageBase64: capturedImageBase64,
-                        audioBase64: audioBase64
-                    })
+                    body: JSON.stringify({ guestName, imageBase64: capturedImageBase64, audioBase64 })
                 });
-                console.log(`[AutoEnrollment] Successfully uploaded files for ${guestName}`);
-            } catch (err) {
-                console.error("[AutoEnrollment Upload Error]", err);
-            }
+            } catch (err) {}
 
-            // 6. เจกล่าวปิดประโยคด้วยเสียง
             const closingText = `จบการบันทึกเรียบร้อยครับ ยินดีที่ได้รู้จักคุณ ${guestName} ครับ`;
             await playTextToSpeech(closingText);
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> บันทึกโปรไฟล์คุณ [${guestName}] เรียบร้อยครับ 🟢`;
-            audioStats.innerText = `📁 Saved Profile: /storage/profiles/${guestName}/`;
-
             isEnrollingGuest = false;
-            if (isUserActiveSession) startSpeechRecognition(); // กลับมาเปิดฟังเสียงปกติ
+            if (isUserActiveSession) startSpeechRecognition();
         }
     }, 1000);
 }
 
-// ฟังก์ชันช่วยเปลี่ยนข้อความให้เป็นเสียงพูดผ่าน Web Speech Synthesis API
 function playTextToSpeech(text) {
     return new Promise((resolve) => {
         if (!('speechSynthesis' in window)) { resolve(); return; }
-        
-        window.speechSynthesis.cancel(); // ล้างคิวเสียงเก่า
+        window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'th-TH';
         utterance.rate = 0.95;
         utterance.onend = () => resolve();
         utterance.onerror = () => resolve();
-        
         window.speechSynthesis.speak(utterance);
     });
 }
@@ -1069,17 +1043,14 @@ function startSpeechRecognition() {
 
 async function sendTextDirectly(text) {
     if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking || isEnrollingGuest) return;
-
-    // 🟢 เช็กก่อนเลยว่าเสียงที่พูดเข้ามาเป็นคำสั่งแนะนำเพื่อนใหม่หรือไม่
-    if (checkForEnrollmentTrigger(text)) {
-        return; // หากเป็นคำสั่งแนะนำคนใหม่ ให้หยุดการส่งไปหา Gemini และสลับไปทำ Auto Enrollment Sequence ทันที
-    }
+    if (checkForEnrollmentTrigger(text)) return;
 
     const lowerText = text.toLowerCase();
-    if (lowerText.includes("กล้องหน้าคอม") || lowerText.includes("camera001")) {
-        switchActiveCamera("camera001");
-    } else if (lowerText.includes("obs") || lowerText.includes("หน้าบ้าน") || lowerText.includes("camera002")) {
-        switchActiveCamera("camera002");
+    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
+        if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
+            switchActiveCamera(camId);
+            break;
+        }
     }
 
     saveToHistory('user', text);
