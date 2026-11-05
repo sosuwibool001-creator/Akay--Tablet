@@ -29,17 +29,22 @@
                     <form id="cameraForm">
                         <div class="mb-3">
                             <label class="form-label">รหัสกล้อง (Camera ID)</label>
-                            <input type="text" id="cameraId" class="form-control bg-dark text-white border-secondary" placeholder="เช่น camera003" required>
+                            <input type="text" id="cameraId" class="form-control bg-dark text-white border-secondary" placeholder="เช่น camera002" required>
                             <small class="text-muted">โปรดตั้งรหัสเรียงกัน เช่น camera001, camera002...</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">ชื่อเรียกกล้อง (Camera Name)</label>
-                            <input type="text" id="cameraName" class="form-control bg-dark text-white border-secondary" placeholder="เช่น กล้องห้องนอน" required>
+                            <input type="text" id="cameraName" class="form-control bg-dark text-white border-secondary" placeholder="เช่น กล้องหน้าบ้าน NVR" required>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">IP Address ของกล้อง</label>
-                            <input type="text" id="cameraIp" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 192.168.188.140" required>
+                            <label class="form-label">IP Address ของกล้อง / NVR</label>
+                            <input type="text" id="cameraIp" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 192.168.1.170" required>
                             <small id="ipHelp" class="form-text text-muted">ต้องเป็นรูปแบบ IPv4 ที่ถูกต้อง</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Channel / Stream Path (สำหรับ NVR)</label>
+                            <input type="text" id="cameraChannel" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 602 หรือ Streaming/Channels/602">
+                            <small class="text-muted">ระบุหมายเลขช่อง (ถ้าดึงผ่าน NVR)</small>
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-success flex-grow-1" id="btnSubmit">บันทึกกล้อง</button>
@@ -59,7 +64,7 @@
                                 <tr>
                                     <th>รหัส (ID)</th>
                                     <th>ชื่อเรียก</th>
-                                    <th>IP Address</th>
+                                    <th>IP & Channel</th>
                                     <th class="text-center">การจัดการ</th>
                                 </tr>
                             </thead>
@@ -101,11 +106,12 @@
 
                     keys.forEach(key => {
                         const cam = data.cameras[key];
+                        const channelDisplay = cam.channel ? `<br><small class="text-info">Channel: ${cam.channel}</small>` : '';
                         tbody.innerHTML += `
                             <tr>
                                 <td><b class="text-info">${key}</b></td>
                                 <td>${cam.name}</td>
-                                <td><code>${cam.ip}</code></td>
+                                <td><code>${cam.ip}</code>${channelDisplay}</td>
                                 <td class="text-center">
                                     <button class="btn btn-sm btn-outline-warning me-1" onclick="editCamera('${key}')">✏️ แก้ไข</button>
                                     <button class="btn btn-sm btn-outline-danger" onclick="deleteCamera('${key}', '${cam.name}')">🗑️ ลบ</button>
@@ -132,6 +138,7 @@
             document.getElementById('cameraId').readOnly = true; // ล็อก ID ไว้ ห้ามแก้ ID เดิม
             document.getElementById('cameraName').value = cam.name;
             document.getElementById('cameraIp').value = cam.ip;
+            document.getElementById('cameraChannel').value = cam.channel || '';
             
             document.getElementById('btnSubmit').innerText = 'อัปเดตข้อมูล';
             document.getElementById('btnCancelEdit').classList.remove('d-none');
@@ -176,9 +183,10 @@
             const cameraId = document.getElementById('cameraId').value.trim();
             const name = document.getElementById('cameraName').value.trim();
             const ip = document.getElementById('cameraIp').value.trim();
+            const channel = document.getElementById('cameraChannel').value.trim();
 
             if (!isValidIPv4(ip)) {
-                alert('รูปแบบ IP Address ไม่ถูกต้อง กรุณากรอกให้อยู่ในรูปแบบ เช่น 192.168.1.50');
+                alert('รูปแบบ IP Address ไม่ถูกต้อง กรุณากรอกให้อยู่ในรูปแบบ เช่น 192.168.1.170');
                 return;
             }
 
@@ -186,7 +194,7 @@
                 const res = await fetch(`${API_BASE}/api/cameras/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cameraId, name, ip })
+                    body: JSON.stringify({ cameraId, name, ip, channel })
                 });
 
                 const data = await res.json();
@@ -202,7 +210,8 @@
                 alert('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์เพื่อบันทึกข้อมูล');
             }
         });
+
         loadCameras();
-        </script>
+    </script>
 </body>
 </html>
