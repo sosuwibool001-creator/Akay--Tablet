@@ -52,6 +52,7 @@ async function initCamerasConfig() {
                     camerasConfig[row.camera_id] = {
                         name: row.name,
                         ip: row.ip,
+                        channel: row.channel || '', // 🟢 เพิ่มการดึงค่า channel จาก Supabase
                         active: row.active ?? true,
                         updatedAt: row.updated_at
                     };
@@ -73,8 +74,8 @@ async function initCamerasConfig() {
         }
     } else {
         camerasConfig = {
-            "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", active: true },
-            "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.188.140", active: true }
+            "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", channel: "", active: true },
+            "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.1.170", channel: "602", active: true }
         };
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
     }
@@ -113,6 +114,7 @@ app.get('/api/cameras/list', async (req, res) => {
                     cloudCameras[row.camera_id] = {
                         name: row.name,
                         ip: row.ip,
+                        channel: row.channel || '', // 🟢 คืนค่า channel กลับไปให้หน้าบ้าน
                         active: row.active ?? true,
                         updatedAt: row.updated_at
                     };
@@ -129,7 +131,7 @@ app.get('/api/cameras/list', async (req, res) => {
 // 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่ (บันทึกลง Supabase)
 app.post('/api/cameras/save', async (req, res) => {
     try {
-        const { cameraId, name, ip } = req.body;
+        const { cameraId, name, ip, channel } = req.body; // 🟢 ดึงตัวแปร channel จาก request body
         if (!cameraId || !name) {
             return res.status(400).json({ success: false, message: 'Camera ID and Name are required' });
         }
@@ -138,6 +140,7 @@ app.post('/api/cameras/save', async (req, res) => {
         camerasConfig[cameraId] = {
             name: name,
             ip: ip || 'DHCP/Unknown',
+            channel: channel || '', // 🟢 บันทึกค่า channel ลง memory/local
             active: true,
             updatedAt: updatedAt
         };
@@ -149,6 +152,7 @@ app.post('/api/cameras/save', async (req, res) => {
                     camera_id: cameraId, 
                     name: name, 
                     ip: ip || 'DHCP/Unknown', 
+                    channel: channel || '', // 🟢 บันทึกค่า channel ลงคอลัมน์ Supabase
                     active: true, 
                     updated_at: updatedAt 
                 }, { onConflict: 'camera_id' });
@@ -165,7 +169,7 @@ app.post('/api/cameras/save', async (req, res) => {
             fs.mkdirSync(camDir, { recursive: true });
         }
 
-        console.log(`[Multi-Camera] บันทึก/อัปเดตกล้องสำเร็จ -> [${cameraId}] ${name} (${ip})`);
+        console.log(`[Multi-Camera] บันทึก/อัปเดตกล้องสำเร็จ -> [${cameraId}] ${name} (${ip}) Channel: ${channel || 'N/A'}`);
         return res.json({ success: true, message: `บันทึกกล้อง ${cameraId} (${name}) เรียบร้อยครับ`, cameras: camerasConfig });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
@@ -206,7 +210,7 @@ app.delete('/api/cameras/delete/:cameraId', async (req, res) => {
 // 🗣️ API รับคำสั่งเสียงเพื่อสลับหรือเปิดกล้องตามชื่อที่สั่ง
 app.post('/api/camera/voice-command', async (req, res) => {
     try {
-        const { commandText } = req.body; // เช่น "เปิดกล้องหน้าบ้าน" หรือ "ขอจ้องกล้อง camera003"
+        const { commandText } = req.body;
         if (!commandText) {
             return res.status(400).json({ success: false, message: 'ไม่พบคำสั่งเสียง' });
         }
@@ -214,7 +218,6 @@ app.post('/api/camera/voice-command', async (req, res) => {
         let targetCamId = null;
         let targetCamMeta = null;
 
-        // ค้นหาว่าในข้อความคำสั่งเสียงมีชื่อเรียกหรือรหัสกล้องตัวไหนตรงกันบ้าง
         for (const [camId, cam] of Object.entries(camerasConfig)) {
             if (commandText.includes(camId) || commandText.includes(cam.name)) {
                 targetCamId = camId;
@@ -230,7 +233,6 @@ app.post('/api/camera/voice-command', async (req, res) => {
             });
         }
 
-        // ดึงภาพล่าสุดของกล้องตัวที่เจอ
         const filePath = path.join(DIR_UPLOADS, `realtime_${targetCamId}.jpg`);
         let imageBase64 = null;
         
@@ -246,6 +248,7 @@ app.post('/api/camera/voice-command', async (req, res) => {
             cameraId: targetCamId,
             cameraName: targetCamMeta.name,
             ip: targetCamMeta.ip,
+            channel: targetCamMeta.channel || '',
             imageBase64: imageBase64
         });
 
@@ -583,12 +586,12 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
     
     ffmpeg(rtspUrl)
         .inputOptions([
-            '-rtsp_transport tcp', // บังคับใช้ TCP เพื่อความเสถียร
-            '-stimeout 3000000'    // Timeout 3 วินาทีกันค้าง
+            '-rtsp_transport tcp',
+            '-stimeout 3000000'
         ])
         .outputOptions([
-            '-vframes 1',          // ดึงภาพนิ่ง 1 เฟรม
-            '-q:v 2'               // คุณภาพภาพ
+            '-vframes 1',
+            '-q:v 2'
         ])
         .output(outputFilePath)
         .on('end', () => {
@@ -609,7 +612,8 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
 // ⏰ ตั้งเวลาดึงภาพจากกล้องหน้าบ้าน (camera002) ทุกๆ 5 วินาที
 setInterval(() => {
     if (camerasConfig['camera002'] && camerasConfig['camera002'].ip) {
-        const rtspUrl = `rtsp://${camerasConfig['camera002'].ip}:554/onvif1`;
+        const channelPath = camerasConfig['camera002'].channel ? `Streaming/Channels/${camerasConfig['camera002'].channel}` : 'onvif1';
+        const rtspUrl = `rtsp://${camerasConfig['camera002'].ip}:554/${channelPath}`;
         captureRtspSnapshot('camera002', rtspUrl);
     }
 }, 5000);
