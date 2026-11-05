@@ -587,7 +587,7 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
     ffmpeg(rtspUrl)
         .inputOptions([
             '-rtsp_transport tcp',
-            '-stimeout 3000000'
+            '-timeout 3000000'
         ])
         .outputOptions([
             '-vframes 1',
