@@ -680,7 +680,7 @@ function renderDynamicThumbnails() {
         let previewHtml = '';
         if (camInfo.isNvr) {
             const streamKey = camId; 
-            previewHtml = `<iframe src="${GO2RTC_BASE_URL}/api/webrtc.html?src=${streamKey}&muted=1" style="width:100%; height:100%; border:none;"></iframe>`;
+            previewHtml = `<iframe src="${GO2RTC_BASE_URL}/stream.html?src=${streamKey}&muted=1" style="width:100%; height:100%; border:none;pointer-events:none;"></iframe>`;
         } else {
             previewHtml = `<video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>`;
         }
