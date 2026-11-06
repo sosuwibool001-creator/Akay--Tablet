@@ -625,7 +625,7 @@ async function initCameraSystem() {
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
                 // ตรวจสอบว่าเป็นกล้อง NVR (มีค่า IP เป็นของ NVR หรือมี channel) หรือไม่
-                const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel;
+                const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel || camId === 'camera003' || camInfo.isNvr;;
                 
                 camerasRegistry[camId] = {
                     name: camInfo.name,
