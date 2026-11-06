@@ -617,6 +617,12 @@ setInterval(() => {
         const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
         captureRtspSnapshot('camera002', rtspUrl);
     }
+    if (camerasConfig['camera003'] && camerasConfig['camera003'].ip) {
+        const ip = camerasConfig['camera003'].ip;
+        const channel = camerasConfig['camera003'].channel || '003'; // หรือช่อง 1102 ตามที่ตั้งไว้
+        const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
+        captureRtspSnapshot('camera003', rtspUrl);
+    }
 }, 1000);
 
 // เริ่มรันเซิร์ฟเวอร์หลังจากโหลดค่ากล้องเสร็จ
