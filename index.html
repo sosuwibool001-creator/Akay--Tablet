@@ -731,7 +731,7 @@ async function switchActiveCamera(camId) {
         }
         if (mainFrame) {
             mainFrame.style.display = 'block';
-            mainFrame.src = `${GO2RTC_BASE_URL}/api/webrtc.html?src=${camId}`;
+            mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
         }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อยครับ 🟢`;
     } else {
