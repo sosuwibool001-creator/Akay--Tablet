@@ -617,7 +617,7 @@ setInterval(() => {
         const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
         captureRtspSnapshot('camera002', rtspUrl);
     }
- }, 1000);
+}, 1000);
 
 // เริ่มรันเซิร์ฟเวอร์หลังจากโหลดค่ากล้องเสร็จ
 initCamerasConfig().then(() => {
