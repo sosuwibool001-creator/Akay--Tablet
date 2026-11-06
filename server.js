@@ -619,7 +619,7 @@ setInterval(() => {
     }
     if (camerasConfig['camera003'] && camerasConfig['camera003'].ip) {
         const ip = camerasConfig['camera003'].ip;
-        const channel = camerasConfig['camera003'].channel || '003'; // หรือช่อง 1102 ตามที่ตั้งไว้
+        const channel = camerasConfig['camera003'].channel || '1102'; // หรือช่อง 1102 ตามที่ตั้งไว้
         const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
         captureRtspSnapshot('camera003', rtspUrl);
     }
