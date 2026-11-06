@@ -504,7 +504,11 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
-let camerasRegistry = {};
+let camerasRegistry = {
+    "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, stream: null },
+    "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", deviceId: null, stream: null }
+    "camera003": { name: "OBS Virtual Camera (ห้องรับแขก)", deviceId: null, stream: null }
+};
 let activeCameraId = "";
 
 function saveToHistory(role, text) {
