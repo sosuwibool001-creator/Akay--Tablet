@@ -611,13 +611,17 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
 
 // ⏰ ตั้งเวลาดึงภาพจากกล้องหน้าบ้าน (camera002) ทุกๆ 5 วินาที
 setInterval(() => {
-    if (camerasConfig['camera002'] && camerasConfig['camera002'].ip) {
-        const ip = camerasConfig['camera002'].ip;
-        const channel = camerasConfig['camera002'].channel || '602';
-        const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
-        captureRtspSnapshot('camera002', rtspUrl);
+    for (const [cameraId, cam] of Object.entries(camerasConfig)) {
+        if (cam && cam.ip && cam.ip !== 'DHCP/Unknown') {
+            const ip = cam.ip;
+            const channel = cam.channel || '102'; // ค่า Channel เริ่มต้นเผื่อไม่ได้ใส่
+            const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
+            
+            // เรียกฟังก์ชันดึงภาพ Snapshot ของกล้องตัวนั้นๆ ออกมาบันทึกเป็น realtime_<cameraId>.jpg
+            captureRtspSnapshot(cameraId, rtspUrl);
+        }
     }
-}, 1000);
+}, 3000);
 
 // เริ่มรันเซิร์ฟเวอร์หลังจากโหลดค่ากล้องเสร็จ
 initCamerasConfig().then(() => {
