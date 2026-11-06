@@ -327,8 +327,9 @@
             <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
             <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) -->
             <video id="activeMainVideo" autoplay playsinline muted style="display:block;"></video>
-            <iframe id="activeMainFrame" style="display:none; width:100%; height:100%; border:none;"></iframe>
-        </div>
+            <iframe id="activeMainVideo" src="http://localhost:1984/stream.html?src=camera002&muted=1" 
+            style="width: 100%; height: 100%; border: none; object-fit: cover;" 
+            allowfullscreen></iframe>
 
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
