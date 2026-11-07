@@ -8,7 +8,7 @@ const sharp = require('sharp');
 const FormData = require('form-data');
 const { createClient } = require('@supabase/supabase-js');
 const ffmpeg = require('fluent-ffmpeg');
-
+const ffmpegCommand = `ffmpeg -y -rtsp_transport tcp -i "rtsp://admin_inglobe:Inglobe2026@192.168.1.170:554/Streaming/Channels/602" -vframes 1 -update 1 uploads/realtime_${cameraId}.jpg`;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
