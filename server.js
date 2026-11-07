@@ -8,7 +8,7 @@ const sharp = require('sharp');
 const FormData = require('form-data');
 const { createClient } = require('@supabase/supabase-js');
 const ffmpeg = require('fluent-ffmpeg');
-const ffmpegCommand = `ffmpeg -y -rtsp_transport tcp -i "rtsp://admin_inglobe:Inglobe2026@192.168.1.170:554/Streaming/Channels/602" -vframes 1 -update 1 uploads/realtime_${cameraId}.jpg`;
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -352,7 +352,7 @@ app.get('/api/camera/latest/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
         const filePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
-        
+        const ffmpegCommand = `ffmpeg -y -rtsp_transport tcp -i "rtsp://admin_inglobe:Inglobe2026@192.168.1.170:554/Streaming/Channels/602" -vframes 1 -update 1 uploads/realtime_${cameraId}.jpg`;
         // เช็คเฉพาะไฟล์ภาพของกล้องตัวนั้นๆ เท่านั้น ห้ามแอบไปเอาของกล้องอื่นมาแปะแทน
         if (fs.existsSync(filePath)) {
             const imageBuffer = fs.readFileSync(filePath);
