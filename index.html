@@ -879,7 +879,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     let base64Image = null;
 
     if (camInfo && camInfo.isNvr) {
-        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพตรงจากโฟลเดอร์ uploads ของเซิร์ฟเวอร์
+        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพสดตรงจากโฟลเดอร์ uploads ของเซิร์ฟเวอร์
         try {
             const imageUrl = `${SERVER_URL}/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
             const img = new Image();
@@ -903,13 +903,20 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             console.warn(`ไม่สามารถโหลดภาพ NVR จาก uploads ของ ${camId} ได้:`, err);
         }
     } else {
-        // 💻 สำหรับกล้องหน้าคอม / เว็บแคม (Webcam): ใช้ Canvas แคปเจอร์จากหน้าจอวิดีโอโดยตรง
+        // 💻 สำหรับเว็บแคม: ถ้าเป็นกล้องที่กำลังแสดงผลอยู่ตอนนี้ ให้ดึงจากจอหลัก #activeMainVideo โดยตรงเพื่อความสดใหม่
         const canvas = document.createElement('canvas');
         canvas.width = 1920; canvas.height = 1080;
         const ctx = canvas.getContext('2d');
-        const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
-        if (thumbVid && thumbVid.readyState === 4) {
-            ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
+        
+        let targetVid = null;
+        if (camId === activeCameraId) {
+            targetVid = document.getElementById('activeMainVideo');
+        } else {
+            targetVid = document.getElementById(`thumb-vid-${camId}`);
+        }
+
+        if (targetVid && targetVid.readyState === 4) {
+            ctx.drawImage(targetVid, 0, 0, 1920, 1080);
             base64Image = canvas.toDataURL('image/jpeg', 0.55).replace(/^data:image\/\w+;base64,/, '');
         }
     }
