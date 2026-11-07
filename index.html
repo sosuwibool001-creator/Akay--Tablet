@@ -879,15 +879,16 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     let base64Image = null;
 
     if (camInfo && camInfo.isNvr) {
-        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพตรงจากโฟลเดอร์ uploads ผ่าน URL ปกติ แล้วแปลงเป็น Base64
+        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพตรงจากโฟลเดอร์ uploads ของเซิร์ฟเวอร์
         try {
             const imageUrl = `${SERVER_URL}/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
             const img = new Image();
             img.crossOrigin = "anonymous";
             
             await new Promise((resolve, reject) => {
-                img.onload = resolve;
-                img.onerror = reject;
+                const timer = setTimeout(() => reject(new Error("Timeout loading NVR image")), 3000);
+                img.onload = () => { clearTimeout(timer); resolve(); };
+                img.onerror = (err) => { clearTimeout(timer); reject(err); };
                 img.src = imageUrl;
             });
 
@@ -902,7 +903,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             console.warn(`ไม่สามารถโหลดภาพ NVR จาก uploads ของ ${camId} ได้:`, err);
         }
     } else {
-        // กรณีเป็นเว็บแคมปกติ ใช้ Canvas แคปจากหน้าจอตามปกติ
+        // 💻 สำหรับกล้องหน้าคอม / เว็บแคม (Webcam): ใช้ Canvas แคปเจอร์จากหน้าจอวิดีโอโดยตรง
         const canvas = document.createElement('canvas');
         canvas.width = 1920; canvas.height = 1080;
         const ctx = canvas.getContext('2d');
@@ -919,7 +920,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
         if (base64Image) {
             parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Image } });
         }
-        parts.push({ text: `ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไรบ้าง` });
+        parts.push({ text: `ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไร กำลังทำอะไรอยู่บ้าง` });
 
         const imageMessage = {
             clientContent: {
