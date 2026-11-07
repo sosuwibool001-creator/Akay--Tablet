@@ -791,7 +791,9 @@ async function startMainAppSession() {
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
             audioStats.innerText = `🎙️ Auto Enrollment Engine Ready: ทักเจเมื่อมีเพื่อนใหม่`;
-            
+            const cameraListText = Object.entries(camerasRegistry)
+    .map(([id, info]) => `- ${id}: ${info.name} (${info.isNvr ? 'NVR' : 'Webcam'})`)
+    .join('\n');
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
