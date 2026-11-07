@@ -358,7 +358,9 @@
 
 <script>
 let BACKEND_API_KEY = "";
+// ปรับเปลี่ยนมาใช้ Localhost แทนคลาวด์ Render ตามที่ตกลงกันครับ
 const SERVER_URL = "http://localhost:3000";
+// กำหนด IP ของ Mini PC หรือเซิร์ฟเวอร์ที่รัน go2rtc (ตัวอย่างใช้พอร์ต 1984)
 const GO2RTC_BASE_URL = "http://localhost:1984"; 
 
 async function initConfig() {
@@ -511,22 +513,16 @@ let camerasRegistry = {
 let activeCameraId = "";
 
 function saveToHistory(role, text) {
-    let history = [];
-    try {
-        history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
-    } catch (e) {
-        history = [];
-    }
+    let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
     const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
     history.push({ role: role, text: text, time: nowThai });
     if (history.length > 30) history.shift();
     localStorage.setItem('akay_chat_history_pc', JSON.stringify(history));
 }
 
-// 🟢 ปรับแก้: กำหนดเป็นอาเรย์ว่างแทนการลบทิ้ง เพื่อป้องกัน Error
 clearMemBtn.addEventListener('click', () => {
-    localStorage.setItem('akay_chat_history_pc', JSON.stringify([]));
-    alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ! ระบบพร้อมทำงานต่อ");
+    localStorage.removeItem('akay_chat_history_pc');
+    alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
 });
 
 startAuthBtn.addEventListener('click', async () => {
@@ -758,20 +754,6 @@ async function switchActiveCamera(camId) {
         }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
     }
-
-    // 🟢 แจ้งเจผ่าน WebSocket ทุกครั้งที่มีการสลับกล้อง
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        const notifyMsg = {
-            clientContent: {
-                turns: [{
-                    role: "user",
-                    parts: [{ text: `[ระบบ] สลับการแสดงผลหลักมาที่กล้อง [${camId}: ${camInfo.name}] เรียบร้อยแล้ว` }]
-                }],
-                turnComplete: true
-            }
-        };
-        ws.send(JSON.stringify(notifyMsg));
-    }
 }
 
 switchCamBtn.addEventListener('click', () => {
@@ -800,21 +782,12 @@ async function startMainAppSession() {
         ws = new WebSocket(url);
 
         ws.onopen = () => {
-            let savedHistory = [];
-            try {
-                savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
-            } catch (e) {
-                savedHistory = [];
-            }
+            let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
             const currentThaiTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'full', timeStyle: 'medium' });
 
             let historySummaryText = savedHistory.length > 0 
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
-
-            const cameraListText = Object.entries(camerasRegistry)
-                .map(([id, info]) => `- ${id}: ${info.name} (${info.isNvr ? 'NVR' : 'Webcam'})`)
-                .join('\n');
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
             audioStats.innerText = `🎙️ Auto Enrollment Engine Ready: ทักเจเมื่อมีเพื่อนใหม่`;
@@ -823,10 +796,6 @@ async function startMainAppSession() {
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
-
-รายการกล้องทั้งหมดที่เชื่อมต่ออยู่ในระบบตอนนี้:
-${cameraListText}
-
 ${historySummaryText}
 `;
 
@@ -929,12 +898,16 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
             
-            base64Image = canvas.toDataURL('image/jpeg', 0.8).replace(/^data:image\/\w+;base64,/, '');
+            base64Image = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
         } catch (err) {
             console.warn(`ไม่สามารถโหลดภาพ NVR จาก uploads ของ ${camId} ได้:`, err);
         }
     } else {
-        // 💻 สำหรับเว็บแคม (กล้องหน้าคอม): ใช้ความละเอียดจริง (Native Resolution) เพื่อความคมชัด
+        // 💻 สำหรับเว็บแคม: ถ้าเป็นกล้องที่กำลังแสดงผลอยู่ตอนนี้ ให้ดึงจากจอหลัก #activeMainVideo โดยตรงเพื่อความสดใหม่
+        const canvas = document.createElement('canvas');
+        canvas.width = 1920; canvas.height = 1080;
+        const ctx = canvas.getContext('2d');
+        
         let targetVid = null;
         if (camId === activeCameraId) {
             targetVid = document.getElementById('activeMainVideo');
@@ -942,15 +915,9 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             targetVid = document.getElementById(`thumb-vid-${camId}`);
         }
 
-        if (targetVid && targetVid.readyState >= 2) {
-            const canvas = document.createElement('canvas');
-            canvas.width = targetVid.videoWidth || 1280;
-            canvas.height = targetVid.videoHeight || 720;
-            
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(targetVid, 0, 0, canvas.width, canvas.height);
-            
-            base64Image = canvas.toDataURL('image/jpeg', 0.85).replace(/^data:image\/\w+;base64,/, '');
+        if (targetVid && targetVid.readyState === 4) {
+            ctx.drawImage(targetVid, 0, 0, 1920, 1080);
+            base64Image = canvas.toDataURL('image/jpeg', 0.55).replace(/^data:image\/\w+;base64,/, '');
         }
     }
 
@@ -960,7 +927,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
         if (base64Image) {
             parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Image } });
         }
-        parts.push({ text: `[คำสั่งด่วน: วิเคราะห์เฉพาะภาพปัจจุบันที่แนบมานี้เท่านั้น ห้ามอ้างอิงภาพในอดีต] ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไร และกำลังถืออะไรอยู่บ้าง ห้ามคาดเดาสิ่งที่มองไม่เห็น` });
+        parts.push({ text: `ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไร กำลังทำอะไรอยู่บ้าง` });
 
         const imageMessage = {
             clientContent: {
