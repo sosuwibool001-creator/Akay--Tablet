@@ -327,10 +327,10 @@
             <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
             <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) -->
             <video id="activeMainVideo" autoplay playsinline muted style="display:block;"></video>
-            <iframe id="activeMainVideo" src="http://localhost:1984/stream.html?src=camera002&muted=1" 
-            style="width: 100%; height: 100%; border: none; object-fit: cover;" 
+            <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=1" 
+            style="width: 100%; height: 100%; border: none; object-fit: cover; display:none;" 
             allowfullscreen></iframe>
-           </div>
+        </div>
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
         <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
@@ -358,7 +358,8 @@
 
 <script>
 let BACKEND_API_KEY = "";
-const SERVER_URL = "https://akay-tablet.onrender.com";
+// ปรับเปลี่ยนมาใช้ Localhost แทนคลาวด์ Render ตามที่ตกลงกันครับ
+const SERVER_URL = "http://localhost:3000";
 // กำหนด IP ของ Mini PC หรือเซิร์ฟเวอร์ที่รัน go2rtc (ตัวอย่างใช้พอร์ต 1984)
 const GO2RTC_BASE_URL = "http://localhost:1984"; 
 
@@ -506,7 +507,7 @@ let speechTimeout = null;
 
 let camerasRegistry = {
     "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, isNvr: false, stream: null },
-    "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", isNvr: true, stream: null }, // 👈 ต้องมีเครื่องหมายคอมม่า (,) ตรงนี้ครับ
+    "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", isNvr: true, stream: null },
     "camera003": { name: "OBS Virtual Camera (ห้องรับแขก) (NVR)", isNvr: true, stream: null }
 };
 let activeCameraId = "";
@@ -624,7 +625,6 @@ async function initCameraSystem() {
 
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                // ตรวจสอบว่าเป็นกล้อง NVR (มีค่า IP เป็นของ NVR หรือมี channel) หรือไม่
                 const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel || camInfo.isNvr;
                 
                 camerasRegistry[camId] = {
@@ -696,7 +696,6 @@ function renderDynamicThumbnails() {
         `;
         gridContainer.appendChild(card);
 
-        // ถ้าไม่ใช่ NVR ให้ขอสิทธิ์เปิดกล้องเว็บแคมสำหรับพรีวิว
         if (!camInfo.isNvr) {
             navigator.mediaDevices.getUserMedia({ video: true, audio: false })
                 .then(stream => {
@@ -725,7 +724,6 @@ async function switchActiveCamera(camId) {
     const mainFrame = document.getElementById('activeMainFrame');
 
     if (camInfo.isNvr) {
-        // กรณีเป็นกล้อง NVR ให้ปิด Video Tag แล้วเปิด Iframe ดึงสตรีมผ่าน go2rtc โดยตรง
         if (mainVid) {
             mainVid.style.display = 'none';
             if (mainVid.srcObject) {
@@ -739,7 +737,6 @@ async function switchActiveCamera(camId) {
         }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อยครับ 🟢`;
     } else {
-        // กรณีเป็นเว็บแคมทั่วไป
         if (mainFrame) {
             mainFrame.style.display = 'none';
             mainFrame.src = '';
@@ -884,7 +881,6 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
 
     const camInfo = camerasRegistry[camId];
     if (camInfo && camInfo.isNvr) {
-        // สำหรับกล้อง NVR สามารถดึงภาพผ่าน Snapshot API ของเซิร์ฟเวอร์หรือดึงจากพรีวิว Frame ได้
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, 1920, 1080);
         ctx.fillStyle = "#fff";
