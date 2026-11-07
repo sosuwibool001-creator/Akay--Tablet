@@ -509,10 +509,12 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     }
 });
 
-// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP (เพิ่ม -ss ข้ามเฟรมดำตั้งต้น)
+// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติและเซฟทับไฟล์หลักสำหรับให้ AI/หน้าบ้านเรียกดู
 function captureRtspSnapshot(cameraId, rtspUrl) {
+    // เซฟทับไฟล์หลักสำหรับแสดงผลและให้ AI ตรวจสอบทันที (realtime_<cameraId>.jpg)
     const realtimeOutputPath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     
+    // และเซฟเก็บใส่โฟลเดอร์ประวัติแยกตามกล้องด้วย (cameras_storage/<cameraId>/...)
     const camDir = path.join(DIR_CAMERAS, cameraId);
     if (!fs.existsSync(camDir)) fs.mkdirSync(camDir, { recursive: true });
     
@@ -524,16 +526,17 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
     ffmpeg(rtspUrl)
         .inputOptions([
             '-rtsp_transport tcp',
-            '-timeout 3000000',
-            '-ss 00:00:01' // 👈 ทีเด็ดตรงนี้: กระโดดข้าม 1 วินาทีแรกที่เป็นภาพดำ/ตั้งต้น
+            '-timeout 3000000'
         ])
         .outputOptions([
             '-vframes 1',
             '-q:v 2',
+            '-update 1',
             '-y'
         ])
         .output(realtimeOutputPath)
         .on('end', () => {
+            // สำเนาเก็บไว้ในโฟลเดอร์ประวัติแบบไม่ทับกัน
             try {
                 fs.copyFileSync(realtimeOutputPath, archiveOutputPath);
             } catch (e) {}
@@ -544,7 +547,7 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
                     fs.copyFileSync(realtimeOutputPath, homePath);
                 }
             }
-            console.log(`[RTSP Stream] ดึงภาพจากกล้อง [${cameraId}] สำเร็จและได้ภาพชัดเจนแล้ว 🟢`);
+            console.log(`[RTSP Stream] ดึงภาพจากกล้อง [${cameraId}] สำเร็จและอัปเดตไฟล์ Local แล้ว 🟢`);
         })
         .on('error', (err) => {
             console.log(`[RTSP Warning] กล้อง [${cameraId}] กำลังเชื่อมต่อหรือสัญญาณสะดุด: ${err.message}`);
