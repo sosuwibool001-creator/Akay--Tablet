@@ -352,13 +352,11 @@ app.get('/api/camera/latest/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
         const filePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
-        const ffmpegCommand = `ffmpeg -y -rtsp_transport tcp -i "rtsp://admin_inglobe:Inglobe2026@192.168.1.170:554/Streaming/Channels/602" -vframes 1 -update 1 uploads/realtime_${cameraId}.jpg`;
-        // เช็คเฉพาะไฟล์ภาพของกล้องตัวนั้นๆ เท่านั้น ห้ามแอบไปเอาของกล้องอื่นมาแปะแทน
+        
         if (fs.existsSync(filePath)) {
             const imageBuffer = fs.readFileSync(filePath);
             return res.json({ success: true, imageBase64: imageBuffer.toString('base64') });
         } else {
-            // ถ้ายังไม่มีไฟล์ ให้ตอบกลับตรงๆ ว่ายังไม่มีภาพสดจากกล้องนี้ เพื่อเราจะได้เช็กลูปเบื้องหลังถูก
             return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId} (ไฟล์ยังไม่ถูกสร้าง)` });
         }
     } catch (err) {
@@ -577,7 +575,7 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     }
 });
 
-// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติทุกๆ 5 วินาที
+// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติ (เพิ่ม -update 1 และ -y เรียบร้อย)
 function captureRtspSnapshot(cameraId, rtspUrl) {
     const outputFilePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     
@@ -588,7 +586,9 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
         ])
         .outputOptions([
             '-vframes 1',
-            '-q:v 2'
+            '-q:v 2',
+            '-update 1',
+            '-y'
         ])
         .output(outputFilePath)
         .on('end', () => {
@@ -606,15 +606,14 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
         .run();
 }
 
-// ⏰ ตั้งเวลาดึงภาพจากกล้องหน้าบ้าน (camera002) ทุกๆ 5 วินาที
+// ⏰ ตั้งเวลาดึงภาพจากกล้องทุกตัวในระบบ ทุกๆ 3 วินาที
 setInterval(() => {
     for (const [cameraId, cam] of Object.entries(camerasConfig)) {
         if (cam && cam.ip && cam.ip !== 'DHCP/Unknown') {
             const ip = cam.ip;
-            const channel = cam.channel || '102'; // ค่า Channel เริ่มต้นเผื่อไม่ได้ใส่
+            const channel = cam.channel || '102'; 
             const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
             
-            // เรียกฟังก์ชันดึงภาพ Snapshot ของกล้องตัวนั้นๆ ออกมาบันทึกเป็น realtime_<cameraId>.jpg
             captureRtspSnapshot(cameraId, rtspUrl);
         }
     }
