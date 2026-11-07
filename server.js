@@ -1,4 +1,4 @@
-// server.js - Project-J Smart Guardian Server (Multi-Camera & Real-time Live Switch Support)
+// server.js - Project-J Smart Guardian Server (Local-First Multi-Camera Version)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -12,16 +12,16 @@ const ffmpeg = require('fluent-ffmpeg');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ตั้งค่าการเชื่อมต่อ Supabase Cloud Storage
+// ตั้งค่าการเชื่อมต่อ Supabase (เก็บบันทึกไฟล์ Event / Cloud Storage สำรองเท่านั้น ไม่ใช้ Database Table)
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
 let supabase = null;
 
 if (SUPABASE_URL && SUPABASE_KEY) {
     supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    console.log('[Cloud Storage] เชื่อมต่อกับ Supabase สำเร็จ 🟢');
+    console.log('[Cloud Storage] เชื่อมต่อกับ Supabase สำเร็จ (ใช้สำหรับเก็บไฟล์ภาพ Event) 🟢');
 } else {
-    console.log('[Cloud Storage Warning] ไม่พบค่า SUPABASE_URL หรือ SUPABASE_KEY ระบบจะบันทึกแบบ Local ชั่วคราว');
+    console.log('[Cloud Storage Warning] ไม่พบค่า SUPABASE_URL หรือ SUPABASE_KEY ระบบจะบันทึกแบบ Local 100%');
 }
 
 // โฟลเดอร์สำรองบนเครื่อง (Local Fallback Directories)
@@ -40,35 +40,14 @@ const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
     }
 });
 
-// โหลดหรือสร้างค่าตั้งค่ากล้องเริ่มต้น (Default Cameras)
+// โหลดค่าตั้งค่ากล้องจากไฟล์ Local JSON โดยตรง (ไม่พึ่ง Supabase Table)
 let camerasConfig = {};
 
 async function initCamerasConfig() {
-    if (supabase) {
-        try {
-            const { data, error } = await supabase.from('cameras_config').select('*');
-            if (!error && data && data.length > 0) {
-                data.forEach(row => {
-                    camerasConfig[row.camera_id] = {
-                        name: row.name,
-                        ip: row.ip,
-                        channel: row.channel || '',
-                        active: row.active ?? true,
-                        updatedAt: row.updated_at
-                    };
-                });
-                console.log('[Supabase DB] โหลดรายชื่อกล้องจาก Supabase สำเร็จ 🟢');
-                return;
-            }
-        } catch (err) {
-            console.error('[Supabase DB Error] ไม่สามารถโหลดจาก Supabase ได้, โหลดจาก Local แทน:', err.message);
-        }
-    }
-
-    // Fallback ใช้ Local JSON
     if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
         try {
             camerasConfig = JSON.parse(fs.readFileSync(CAMERAS_CONFIG_PATH, 'utf8'));
+            console.log('[Local DB] โหลดรายชื่อกล้องจาก cameras_config.json สำเร็จ 🟢');
         } catch (e) {
             camerasConfig = {};
         }
@@ -78,6 +57,7 @@ async function initCamerasConfig() {
             "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.1.170", channel: "602", active: true }
         };
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
+        console.log('[Local DB] สร้างไฟล์ cameras_config.json เริ่มต้นสำเร็จ 🟢');
     }
 }
 
@@ -103,32 +83,12 @@ app.use(express.static(__dirname));
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
 const VISITOR_WHITELIST = ["คุณน้า", "ช่างไฟ", "เพื่อนบ้าน", "Guest"];
 
-// 📷 API จัดการกล้อง: ดึงรายชื่อกล้องทั้งหมด
+// 📷 API จัดการกล้อง: ดึงรายชื่อกล้องทั้งหมดจาก Local JSON
 app.get('/api/cameras/list', async (req, res) => {
-    if (supabase) {
-        try {
-            const { data, error } = await supabase.from('cameras_config').select('*');
-            if (!error && data) {
-                const cloudCameras = {};
-                data.forEach(row => {
-                    cloudCameras[row.camera_id] = {
-                        name: row.name,
-                        ip: row.ip,
-                        channel: row.channel || '',
-                        active: row.active ?? true,
-                        updatedAt: row.updated_at
-                    };
-                });
-                camerasConfig = cloudCameras;
-            }
-        } catch (err) {
-            console.error('Fetch cloud cameras error:', err.message);
-        }
-    }
     return res.json({ success: true, cameras: camerasConfig });
 });
 
-// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้องตัวใหม่
+// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้อง (บันทึกลง Local JSON ทันที)
 app.post('/api/cameras/save', async (req, res) => {
     try {
         const { cameraId, name, ip, channel } = req.body;
@@ -145,23 +105,7 @@ app.post('/api/cameras/save', async (req, res) => {
             updatedAt: updatedAt
         };
 
-        if (supabase) {
-            const { error } = await supabase
-                .from('cameras_config')
-                .upsert({ 
-                    camera_id: cameraId, 
-                    name: name, 
-                    ip: ip || 'DHCP/Unknown', 
-                    channel: channel || '', 
-                    active: true, 
-                    updated_at: updatedAt 
-                }, { onConflict: 'camera_id' });
-
-            if (error) {
-                console.error('[Supabase Save Error]:', error.message);
-            }
-        }
-
+        // บันทึกลงไฟล์ Local JSON
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 
         const camDir = path.join(DIR_CAMERAS, cameraId);
@@ -176,7 +120,7 @@ app.post('/api/cameras/save', async (req, res) => {
     }
 });
 
-// 📷 API จัดการกล้อง: ลบกล้องออกจากระบบ
+// 📷 API จัดการกล้อง: ลบกล้องออกจากระบบ Local JSON
 app.delete('/api/cameras/delete/:cameraId', async (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -187,17 +131,7 @@ app.delete('/api/cameras/delete/:cameraId', async (req, res) => {
         const deletedName = camerasConfig[cameraId].name;
         delete camerasConfig[cameraId];
 
-        if (supabase) {
-            const { error } = await supabase
-                .from('cameras_config')
-                .delete()
-                .eq('camera_id', cameraId);
-
-            if (error) {
-                console.error('[Supabase Delete Error]:', error.message);
-            }
-        }
-
+        // บันทึกไฟล์ Local JSON ใหม่
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 
         console.log(`[Multi-Camera] ลบกล้องสำเร็จ -> [${cameraId}] ${deletedName}`);
@@ -352,13 +286,11 @@ app.get('/api/camera/latest/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
         const filePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
-        const ffmpegCommand = `ffmpeg -y -rtsp_transport tcp -i "rtsp://admin_inglobe:Inglobe2026@192.168.1.170:554/Streaming/Channels/602" -vframes 1 -update 1 uploads/realtime_${cameraId}.jpg`;
-        // เช็คเฉพาะไฟล์ภาพของกล้องตัวนั้นๆ เท่านั้น ห้ามแอบไปเอาของกล้องอื่นมาแปะแทน
+        
         if (fs.existsSync(filePath)) {
             const imageBuffer = fs.readFileSync(filePath);
             return res.json({ success: true, imageBase64: imageBuffer.toString('base64') });
         } else {
-            // ถ้ายังไม่มีไฟล์ ให้ตอบกลับตรงๆ ว่ายังไม่มีภาพสดจากกล้องนี้ เพื่อเราจะได้เช็กลูปเบื้องหลังถูก
             return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId} (ไฟล์ยังไม่ถูกสร้าง)` });
         }
     } catch (err) {
@@ -577,7 +509,7 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     }
 });
 
-// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติทุกๆ 5 วินาที
+// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติ (ใส่ -update 1 และ -y สำหรับทับไฟล์ภาพ)
 function captureRtspSnapshot(cameraId, rtspUrl) {
     const outputFilePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     
@@ -588,7 +520,9 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
         ])
         .outputOptions([
             '-vframes 1',
-            '-q:v 2'
+            '-q:v 2',
+            '-update 1',
+            '-y'
         ])
         .output(outputFilePath)
         .on('end', () => {
@@ -606,7 +540,7 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
         .run();
 }
 
-// ⏰ ตั้งเวลาดึงภาพจากกล้องหน้าบ้าน (camera002) ทุกๆ 5 วินาที
+// ⏰ ตั้งเวลาดึงภาพจากกล้องทุกๆ 3 วินาที (ข้าม camera001 ที่เป็นกล้องหน้าคอม)
 setInterval(() => {
     for (const [cameraId, cam] of Object.entries(camerasConfig)) {
         if (cameraId === 'camera001' || cam.ip === '127.0.0.1') {
@@ -614,10 +548,9 @@ setInterval(() => {
         }        
         if (cam && cam.ip && cam.ip !== 'DHCP/Unknown') {
             const ip = cam.ip;
-            const channel = cam.channel || '102'; // ค่า Channel เริ่มต้นเผื่อไม่ได้ใส่
+            const channel = cam.channel || '102'; 
             const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
             
-            // เรียกฟังก์ชันดึงภาพ Snapshot ของกล้องตัวนั้นๆ ออกมาบันทึกเป็น realtime_<cameraId>.jpg
             captureRtspSnapshot(cameraId, rtspUrl);
         }
     }
@@ -627,6 +560,6 @@ setInterval(() => {
 initCamerasConfig().then(() => {
     app.listen(PORT, () => {
         console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-        console.log(`[Multi-Camera System] Ready to support camera001, camera002, and beyond 🟢📹`);
+        console.log(`[Multi-Camera System (Local-First)] Ready to support cameras smoothly 🟢📹`);
     });
 });
