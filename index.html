@@ -875,25 +875,42 @@ function startRemoteCaptureListener() {
 }
 
 async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
+    const camInfo = camerasRegistry[camId];
+
+    // ถ้าเป็นกล้อง NVR ให้หลังบ้านจัดการดึงภาพ RTSP อยู่แล้ว ไม่ต้องอัปโหลดภาพกล่องดำทับ
+    if (camInfo && camInfo.isNvr) {
+        if (isManualTrigger) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const imageMessage = {
+                    clientContent: {
+                        turns: [{
+                            role: "user",
+                            parts: [
+                                { text: `ช่วยตรวจสอบภาพจากกล้อง NVR [${camId}: ${camInfo.name}] ล่าสุดจากเซิร์ฟเวอร์ให้หน่อยครับ` }
+                            ]
+                        }],
+                        turnComplete: true
+                    }
+                };
+                ws.send(JSON.stringify(imageMessage));
+            }
+            saveToHistory('user', '[ขอให้เจตรวจสอบภาพจากกล้อง NVR]');
+            statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังดึงภาพล่าสุดจากกล้อง NVR ${camId}...`;
+        }
+        return;
+    }
+
+    // กรณีเป็นเว็บแคมปกติ (คอมพิวเตอร์) ถึงจะใช้ Canvas แคปเจอร์หน้าจอส่ง
     const canvas = document.createElement('canvas');
     canvas.width = 1920; canvas.height = 1080;
     const ctx = canvas.getContext('2d');
 
-    const camInfo = camerasRegistry[camId];
-    if (camInfo && camInfo.isNvr) {
+    const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
+    if (thumbVid && thumbVid.readyState === 4) {
+        ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
+    } else {
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, 1920, 1080);
-        ctx.fillStyle = "#fff";
-        ctx.font = "32px sans-serif";
-        ctx.fillText(`NVR Camera Stream [${camId}] Active`, 150, 540);
-    } else {
-        const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
-        if (thumbVid && thumbVid.readyState === 4) {
-            ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
-        } else {
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0, 0, 1920, 1080);
-        }
     }
 
     const base64Image = canvas.toDataURL('image/jpeg', 0.55);
