@@ -353,16 +353,13 @@ app.get('/api/camera/latest/:cameraId', (req, res) => {
         const { cameraId } = req.params;
         const filePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
         
+        // เช็คเฉพาะไฟล์ภาพของกล้องตัวนั้นๆ เท่านั้น ห้ามแอบไปเอาของกล้องอื่นมาแปะแทน
         if (fs.existsSync(filePath)) {
             const imageBuffer = fs.readFileSync(filePath);
             return res.json({ success: true, imageBase64: imageBuffer.toString('base64') });
         } else {
-            const fallbackPath = path.join(DIR_UPLOADS, 'realtime_home.jpg');
-            if (fs.existsSync(fallbackPath)) {
-                const fallbackBuffer = fs.readFileSync(fallbackPath);
-                return res.json({ success: true, imageBase64: fallbackBuffer.toString('base64') });
-            }
-            return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId}` });
+            // ถ้ายังไม่มีไฟล์ ให้ตอบกลับตรงๆ ว่ายังไม่มีภาพสดจากกล้องนี้ เพื่อเราจะได้เช็กลูปเบื้องหลังถูก
+            return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId} (ไฟล์ยังไม่ถูกสร้าง)` });
         }
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
