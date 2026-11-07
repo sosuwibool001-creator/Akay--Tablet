@@ -879,7 +879,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     let base64Image = null;
 
     if (camInfo && camInfo.isNvr) {
-        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพสดตรงจากโฟลเดอร์ uploads ของเซิร์ฟเวอร์
+        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพตรงจากโฟลเดอร์ uploads ของเซิร์ฟเวอร์
         try {
             const imageUrl = `${SERVER_URL}/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
             const img = new Image();
@@ -898,30 +898,19 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0);
             
-            base64Image = canvas.toDataURL('image/jpeg', 0.8).replace(/^data:image\/\w+;base64,/, '');
+            base64Image = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
         } catch (err) {
             console.warn(`ไม่สามารถโหลดภาพ NVR จาก uploads ของ ${camId} ได้:`, err);
         }
     } else {
-        // 💻 สำหรับเว็บแคม (กล้องหน้าคอม): ใช้ความละเอียดจริง (Native Resolution) เพื่อความคมชัด ไม่เบลอ
-        let targetVid = null;
-        if (camId === activeCameraId) {
-            targetVid = document.getElementById('activeMainVideo');
-        } else {
-            targetVid = document.getElementById(`thumb-vid-${camId}`);
-        }
-
-        if (targetVid && targetVid.readyState >= 2) {
-            const canvas = document.createElement('canvas');
-            // ใช้ขนาดความกว้าง/สูงจริงของวิดีโอจากกล้อง เพื่อป้องกันภาพยืดหรือแตก
-            canvas.width = targetVid.videoWidth || 1280;
-            canvas.height = targetVid.videoHeight || 720;
-            
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(targetVid, 0, 0, canvas.width, canvas.height);
-            
-            // ปรับคุณภาพ JPEG เป็น 0.85 ให้ภาพคมชัด รายละเอียดครบถ้วนสำหรับ AI
-            base64Image = canvas.toDataURL('image/jpeg', 0.85).replace(/^data:image\/\w+;base64,/, '');
+        // 💻 สำหรับกล้องหน้าคอม / เว็บแคม (Webcam): ใช้ Canvas แคปเจอร์จากหน้าจอวิดีโอโดยตรง
+        const canvas = document.createElement('canvas');
+        canvas.width = 1920; canvas.height = 1080;
+        const ctx = canvas.getContext('2d');
+        const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
+        if (thumbVid && thumbVid.readyState === 4) {
+            ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
+            base64Image = canvas.toDataURL('image/jpeg', 0.55).replace(/^data:image\/\w+;base64,/, '');
         }
     }
 
@@ -931,7 +920,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
         if (base64Image) {
             parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Image } });
         }
-        parts.push({ text: `ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไร และกำลังถืออะไรอยู่บ้าง` });
+        parts.push({ text: `ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไร กำลังทำอะไรอยู่บ้าง` });
 
         const imageMessage = {
             clientContent: {
@@ -941,7 +930,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
         };
         ws.send(JSON.stringify(imageMessage));
         saveToHistory('user', `[กดส่งภาพสดจากกล้อง ${camId} ให้เจตรวจสอบ]`);
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังวิเคราะห์ภาพความละเอียดสูงจากกล้อง ${camId}...`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังวิเคราะห์ภาพสดจากกล้อง ${camId}...`;
     }
 }
 
