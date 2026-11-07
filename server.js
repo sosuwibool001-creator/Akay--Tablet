@@ -509,10 +509,20 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     }
 });
 
-// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติ (ใส่ -update 1 และ -y สำหรับทับไฟล์ภาพ)
+// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติและเซฟทับไฟล์หลักสำหรับให้ AI/หน้าบ้านเรียกดู
 function captureRtspSnapshot(cameraId, rtspUrl) {
-    const outputFilePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
+    // เซฟทับไฟล์หลักสำหรับแสดงผลและให้ AI ตรวจสอบทันที (realtime_<cameraId>.jpg)
+    const realtimeOutputPath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     
+    // และเซฟเก็บใส่โฟลเดอร์ประวัติแยกตามกล้องด้วย (cameras_storage/<cameraId>/...)
+    const camDir = path.join(DIR_CAMERAS, cameraId);
+    if (!fs.existsSync(camDir)) fs.mkdirSync(camDir, { recursive: true });
+    
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+    const timeStr = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
+    const archiveOutputPath = path.join(camDir, `${cameraId}_${dateStr}_${timeStr}.jpg`);
+
     ffmpeg(rtspUrl)
         .inputOptions([
             '-rtsp_transport tcp',
@@ -524,15 +534,20 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
             '-update 1',
             '-y'
         ])
-        .output(outputFilePath)
+        .output(realtimeOutputPath)
         .on('end', () => {
+            // สำเนาเก็บไว้ในโฟลเดอร์ประวัติแบบไม่ทับกัน
+            try {
+                fs.copyFileSync(realtimeOutputPath, archiveOutputPath);
+            } catch (e) {}
+
             if (cameraId === 'camera002') {
                 const homePath = path.join(DIR_UPLOADS, 'realtime_home.jpg');
-                if (fs.existsSync(outputFilePath)) {
-                    fs.copyFileSync(outputFilePath, homePath);
+                if (fs.existsSync(realtimeOutputPath)) {
+                    fs.copyFileSync(realtimeOutputPath, homePath);
                 }
             }
-            console.log(`[RTSP Stream] ดึงภาพจากกล้อง [${cameraId}] สำเร็จ 🟢`);
+            console.log(`[RTSP Stream] ดึงภาพจากกล้อง [${cameraId}] สำเร็จและอัปเดตไฟล์ Local แล้ว 🟢`);
         })
         .on('error', (err) => {
             console.log(`[RTSP Warning] กล้อง [${cameraId}] กำลังเชื่อมต่อหรือสัญญาณสะดุด: ${err.message}`);
