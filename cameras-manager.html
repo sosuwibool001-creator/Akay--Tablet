@@ -79,16 +79,15 @@
     </div>
 
     <script>
-        const API_BASE = 'https://akay-care-tablet.onrender.com';
+        // ปรับให้วิ่งเข้า Localhost บนเครื่องตัวเอง 100%
+        const API_BASE = 'http://localhost:3000';
         let currentCameras = {};
 
-        // ฟังก์ชันตรวจสอบรูปแบบ IP Address (IPv4)
         function isValidIPv4(ip) {
             const regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
             return regex.test(ip);
         }
 
-        // โหลดรายการกล้องทั้งหมดมาแสดงในตาราง
         async function loadCameras() {
             try {
                 const res = await fetch(`${API_BASE}/api/cameras/list`);
@@ -128,14 +127,13 @@
             }
         }
 
-        // โหลดข้อมูลกล้องขึ้นฟอร์มเพื่อแก้ไข
         function editCamera(key) {
             const cam = currentCameras[key];
             if (!cam) return;
 
             document.getElementById('formTitle').innerText = '✏️ แก้ไขข้อมูลกล้อง';
             document.getElementById('cameraId').value = key;
-            document.getElementById('cameraId').readOnly = true; // ล็อก ID ไว้ ห้ามแก้ ID เดิม
+            document.getElementById('cameraId').readOnly = true;
             document.getElementById('cameraName').value = cam.name;
             document.getElementById('cameraIp').value = cam.ip;
             document.getElementById('cameraChannel').value = cam.channel || '';
@@ -144,7 +142,6 @@
             document.getElementById('btnCancelEdit').classList.remove('d-none');
         }
 
-        // รีเซ็ตฟอร์มกลับเป็นโหมดเพิ่มกล้องปกติ
         function resetForm() {
             document.getElementById('formTitle').innerText = '➕ เพิ่ม/แก้ไขข้อมูลกล้อง';
             document.getElementById('cameraForm').reset();
@@ -153,7 +150,6 @@
             document.getElementById('btnCancelEdit').classList.add('d-none');
         }
 
-        // สั่งลบกล้องออกจากระบบ
         async function deleteCamera(key, name) {
             if (!confirm(`คุณต้องการลบกล้อง "${name}" (${key}) ออกจากระบบใช่หรือไม่?`)) {
                 return;
@@ -177,7 +173,6 @@
             }
         }
 
-        // กดบันทึก/อัปเดตกล้อง
         document.getElementById('cameraForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const cameraId = document.getElementById('cameraId').value.trim();
