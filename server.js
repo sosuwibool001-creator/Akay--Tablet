@@ -1,4 +1,4 @@
-// server.js - Project-J Smart Guardian Server (Local-First Multi-Camera Version + RAM Buffering)
+// server.js - Project-J Smart Guardian Server (Full Multi-Camera + Security Mode & RAM Buffering)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -39,6 +39,9 @@ const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
         fs.mkdirSync(dir, { recursive: true });
     }
 });
+
+// 🧠 ระบบจัดการสถานะของบ้าน (State Machine) - เริ่มต้นที่ CARE Mode (ป้องกันกล้องโรงงานทักทายมั่ว)
+let currentSystemMode = 'CARE'; // ค่าที่เป็นไปได้: 'CARE' หรือ 'SECURITY'
 
 // โหลดค่าตั้งค่ากล้องจากไฟล์ Local JSON โดยตรง (ไม่พึ่ง Supabase Table)
 let camerasConfig = {};
@@ -83,6 +86,21 @@ app.use(express.static(__dirname));
 
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
 const VISITOR_WHITELIST = ["คุณน้า", "ช่างไฟ", "เพื่อนบ้าน", "Guest"];
+
+// 🎛️ API ควบคุมและตรวจสอบสถานะโหมดของระบบ (System Mode API)
+app.get('/api/system/mode', (req, res) => {
+    return res.json({ success: true, mode: currentSystemMode });
+});
+
+app.post('/api/system/mode', (req, res) => {
+    const { mode } = req.body; // รับค่า 'SECURITY' หรือ 'CARE'
+    if (mode === 'SECURITY' || mode === 'CARE') {
+        currentSystemMode = mode;
+        console.log(`[System Mode] เปลี่ยนสถานะระบบเรียบร้อย -> โหมด [${currentSystemMode}] 🟢`);
+        return res.json({ success: true, mode: currentSystemMode, message: `เปลี่ยนเป็นโหมด ${currentSystemMode} เรียบร้อยครับ` });
+    }
+    return res.status(400).json({ success: false, message: 'Invalid mode specified. Use SECURITY or CARE.' });
+});
 
 // 📷 API จัดการกล้อง: ดึงรายชื่อกล้องทั้งหมดจาก Local JSON
 app.get('/api/cameras/list', async (req, res) => {
@@ -142,12 +160,23 @@ app.delete('/api/cameras/delete/:cameraId', async (req, res) => {
     }
 });
 
-// 🗣️ API รับคำสั่งเสียงเพื่อสลับหรือเปิดกล้องตามชื่อที่สั่ง
+// 🗣️ API รับคำสั่งเสียงเพื่อสลับหรือเปิดกล้องตามชื่อที่สั่ง (รวมคำสั่งเปลี่ยนโหมด)
 app.post('/api/camera/voice-command', async (req, res) => {
     try {
         const { commandText } = req.body;
         if (!commandText) {
             return res.status(400).json({ success: false, message: 'ไม่พบคำสั่งเสียง' });
+        }
+
+        // รองรับคำสั่งเสียงเปลี่ยนโหมด
+        if (commandText.includes('โหมดรักษาความปลอดภัย') || commandText.includes('เปิดระบบกันขโมย')) {
+            currentSystemMode = 'SECURITY';
+            console.log(`[Voice Command] สั่งเปิด Security Mode ผ่านเสียงสำเร็จ 🛡️`);
+            return res.json({ success: true, message: 'เปิดโหมดรักษาความปลอดภัยเรียบร้อยครับเพื่อนเอก', mode: currentSystemMode });
+        } else if (commandText.includes('โหมดดูแล') || commandText.includes('โหมดปกติ')) {
+            currentSystemMode = 'CARE';
+            console.log(`[Voice Command] สั่งเปิด Care Mode ผ่านเสียงสำเร็จ 🟢`);
+            return res.json({ success: true, message: 'สลับกลับสู่โหมดดูแลเรียบร้อยครับ', mode: currentSystemMode });
         }
 
         let targetCamId = null;
@@ -427,7 +456,7 @@ async function sendTelegramAlertWithPhoto(imageInput, caption) {
     }
 }
 
-// 📸 API หลักสำหรับรับ Snapshot และแยกแยะตามกล้อง (cameraId)
+// 📸 API หลักสำหรับรับ Snapshot พร้อมระบบคัดกรองตาม Security Mode และบีบขอบเขตเฉพาะกล้องหน้าบ้าน (camera002)
 app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -441,8 +470,26 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
 
-        // 🧠 เก็บภาพเหตุการณ์ใส่ RAM Buffer ด้วย
+        // 🧠 เก็บภาพเหตุการณ์ใส่ RAM Buffer เสมอ
         inMemoryRAMStore[cameraId] = buffer;
+
+        // 🛑 เงื่อนไขที่ 1: ถ้ายังไม่ได้เปิด Security Mode -> ปิดการดักจับและทักทายทุกกรณี (กันรบกวนคนในโรงงาน)
+        if (currentSystemMode !== 'SECURITY') {
+            return res.status(200).json({ 
+                success: true, 
+                mode: currentSystemMode, 
+                message: 'ระบบอยู่ในโหมดปกติ (CARE Mode) ข้ามการทักทายและแจ้งเตือนผู้บุกรุก' 
+            });
+        }
+
+        // 🛑 เงื่อนไขที่ 2: บีบขอบเขตเฉพาะ "กล้องหน้าบ้าน" (camera002) เท่านั้นที่จะรันฟังก์ชันทักทายและนับถอยหลัง 15 วินาที
+        const TARGET_SECURITY_CAMERA = 'camera002';
+        if (cameraId !== TARGET_SECURITY_CAMERA) {
+            return res.status(200).json({ 
+                success: true, 
+                message: `กล้อง ${cameraId} ไม่ได้อยู่ในขอบเขตการทักทายผู้บุกรุก (เปิดเฉพาะ ${TARGET_SECURITY_CAMERA})` 
+            });
+        }
 
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -488,6 +535,11 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
         if (isConfirmedFamily) personCategory = 'family';
         else if (isConfirmedVisitor) personCategory = 'visitor';
 
+        // 🛑 ด่านที่ 1: ถ้าเป็นคนในครอบครัว (Family Whitelist) -> ตัดจบ ไม่แจ้งเตือน
+        if (personCategory === 'family') {
+            return res.status(200).json({ success: true, filtered: 'family-whitelist-passed', category: 'family' });
+        }
+
         if (hasImportantMotion || recognizedName) {
             const cloudUrl = await uploadToCloudStorage(buffer, snapshotFilename, cameraId);
             const alertImageSource = cloudUrl || snapshotFilePath;
@@ -499,6 +551,9 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
                 const sessionId = `verify_${cameraId}_${timestamp}`;
                 pendingAudioVerifications[sessionId] = { imagePath: alertImageSource, cameraId, status: 'waiting' };
 
+                console.log(`[Security Action] 🔔 ตรวจพบคนแปลกหน้าหน้ากล้อง [${camMeta.name}] เริ่มส่งเสียงทักทายและจับเวลา 15 วินาที...`);
+
+                // ⏱️ ชาเลนจ์ 15 วินาที: รอการยืนยันตัวตนก่อนยิง Telegram จริง
                 setTimeout(async () => {
                     if (pendingAudioVerifications[sessionId]) {
                         delete pendingAudioVerifications[sessionId];
@@ -506,17 +561,15 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
                             lastTelegramAlertTime[cameraId] = nowTime;
                             await sendTelegramAlertWithPhoto(
                                 alertImageSource, 
-                                `🚨 *แจ้งเตือนด่วน! พบผู้บุกรุก*\nกล้อง: *[${cameraId}] ${camMeta.name}* (IP: ${camMeta.ip}) ❌`
+                                `🚨 *แจ้งเตือน Security Mode (กล้องหน้าบ้าน)*\nพบผู้บุกรุกไม่แสดงตัวตนภายใน 15 วินาที!\nกล้อง: *[${cameraId}] ${camMeta.name}* (IP: ${camMeta.ip}) ❌`
                             );
                         }
                     }
-                }, 12000);
+                }, 15000); // 15 วินาทีทองตามที่ตกลงกัน
             } else {
                 if (nowTime - lastTelegramAlertTime[cameraId] > TELEGRAM_ALERT_COOLDOWN) {
                     lastTelegramAlertTime[cameraId] = nowTime;
-                    let alertCaption = personCategory === 'family' 
-                        ? `🏠 *แจ้งเตือนครอบครัว Project-J*\nกล้อง: *[${cameraId}] ${camMeta.name}*\nพบบุคคล: *คุณ ${recognizedName}* 🟢`
-                        : `🎴 *แจ้งเตือนแขก / คนรู้จัก*\nกล้อง: *[${cameraId}] ${camMeta.name}*\nพบคุณ *${recognizedName}* 🔵`;
+                    let alertCaption = `🎴 *แจ้งเตือนแขก / คนรู้จัก (กล้องหน้าบ้าน)*\nพบคุณ *${recognizedName}* 🔵`;
                     await sendTelegramAlertWithPhoto(alertImageSource, alertCaption);
                 }
             }
@@ -526,6 +579,7 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
             success: true,
             filename: snapshotFilename,
             camera: camMeta.name,
+            mode: currentSystemMode,
             filteredAsMotion: hasImportantMotion,
             category: personCategory
         });
@@ -606,5 +660,6 @@ initCamerasConfig().then(() => {
     app.listen(PORT, () => {
         console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
         console.log(`[Multi-Camera System (Local-First + RAM Buffering)] Ready 🟢📹⚡`);
+        console.log(`[Initial System Mode]: ${currentSystemMode} (Safe for factory testing)`);
     });
 });
