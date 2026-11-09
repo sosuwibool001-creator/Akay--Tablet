@@ -1,4 +1,4 @@
-// server.js - Project-J Smart Guardian Server (Full Multi-Camera + Security Mode & RAM Buffering & Burst Capture)
+// server.js - Project-J Smart Guardian Server (Full Multi-Camera + Security Mode & RAM Buffering & Burst Capture + Greeting Templates)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -31,6 +31,7 @@ const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles');
 
 const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
 const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
+const GREETINGS_CONFIG_PATH = path.join(__dirname, 'greetings_config.json'); // 🟢 เพิ่มไฟล์เก็บ Template ประโยคทักทาย 0 Token
 
 [
     DIR_CAMERAS, DIR_UPLOADS, DIR_VOICE_PROFILES
@@ -45,8 +46,10 @@ let currentSystemMode = 'CARE'; // ค่าที่เป็นไปได้
 
 // โหลดค่าตั้งค่ากล้องจากไฟล์ Local JSON โดยตรง
 let camerasConfig = {};
+let greetingsConfig = {}; // 🟢 ตัวแปรเก็บเทมเพลตคำทักทาย
 
-async function initCamerasConfig() {
+async function initSystemConfigs() {
+    // 1. โหลดค่ากล้อง
     if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
         try {
             camerasConfig = JSON.parse(fs.readFileSync(CAMERAS_CONFIG_PATH, 'utf8'));
@@ -61,6 +64,24 @@ async function initCamerasConfig() {
         };
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
         console.log('[Local DB] สร้างไฟล์ cameras_config.json เริ่มต้นสำเร็จ 🟢');
+    }
+
+    // 2. โหลดหรือสร้างเทมเพลตคำทักทายหน้าบ้าน (0 Token Local Templates)
+    if (fs.existsSync(GREETINGS_CONFIG_PATH)) {
+        try {
+            greetingsConfig = JSON.parse(fs.readFileSync(GREETINGS_CONFIG_PATH, 'utf8'));
+            console.log('[Local DB] โหลดเทมเพลตคำทักทายสำเร็จ 🟢');
+        } catch (e) {
+            greetingsConfig = {};
+        }
+    } else {
+        greetingsConfig = {
+            "care_mode_greeting": "สวัสดีครับ ไม่ทราบว่ามาติดต่อใคร หรือมีธุระอะไรหรือเปล่าครับ บอกเจได้เลยนะครับ",
+            "security_mode_warning": "แจ้งเตือน: ขณะนี้บ้านอยู่ในโหมดรักษาความปลอดภัย กรุณาแสดงตัวตนหรือถอยออกไปครับ",
+            "delivery_indoor_announcement": "เรียนคนในบ้านครับ ตอนนี้มีผู้มาติดต่อหรือมีพัสดุมาส่งที่หน้าบ้านครับ รบกวนออกมาพบผู้มาติดต่อด้วยครับ"
+        };
+        fs.writeFileSync(GREETINGS_CONFIG_PATH, JSON.stringify(greetingsConfig, null, 2));
+        console.log('[Local DB] สร้างไฟล์ greetings_config.json เริ่มต้นสำเร็จ 🟢');
     }
 }
 
@@ -305,7 +326,6 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
             return res.status(400).json({ success: false, message: 'Missing imageBase64' });
         }
 
-        const camMeta = camerasConfig[cameraId] || { name: cameraId };
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
         
@@ -474,13 +494,11 @@ async function triggerSecurityBurstCapture(cameraId, camMeta, initialBuffer) {
         const filename = `sec_${cameraId}_${dateStr}_${timeStr}_shot${i}.jpg`;
         const savePath = path.join(eventFolder, filename);
 
-        // ใช้ภาพปัจจุบันหรือดึงภาพใหม่จาก RAM Buffer มาเซฟต่อเนื่อง
         const frameToSave = (i === 1 && initialBuffer) ? initialBuffer : (inMemoryRAMStore[cameraId] || initialBuffer);
         if (frameToSave) {
             fs.writeFileSync(savePath, frameToSave);
         }
 
-        // หน่วงเวลา 600 มิลลิวินาทีระหว่างแต่ละช็อตในชุด Burst
         if (i < 5) {
             await new Promise(resolve => setTimeout(resolve, 600));
         }
@@ -488,11 +506,11 @@ async function triggerSecurityBurstCapture(cameraId, camMeta, initialBuffer) {
     console.log(`[Security Burst] ✅ บันทึกชุดภาพหลักฐาน 5 ช็อตลงโฟลเดอร์สำเร็จ`);
 }
 
-// 📸 API หลักสำหรับรับ Snapshot พร้อมระบบคัดกรองตาม Security Mode
+// 📸 API หลักสำหรับรับ Snapshot พร้อมระบบคัดกรองตาม Security Mode และ CARE Mode (รองรับ Template คำทักทาย 0 Token)
 app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     try {
         const { cameraId } = req.params;
-        const { imageBase64, recognizedName, isFamily } = req.body;
+        const { imageBase64, recognizedName, isFamily, visitorResponse } = req.body;
         
         if (!imageBase64) {
             return res.status(400).json({ success: false, message: 'No image data provided' });
@@ -504,14 +522,41 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
 
         inMemoryRAMStore[cameraId] = buffer;
 
-        if (currentSystemMode !== 'SECURITY') {
+        // 🟢 [CARE Mode Logic] หากอยู่ในโหมดแคร์ และเป็นกล้องหน้าบ้าน (camera002)
+        if (currentSystemMode === 'CARE') {
+            if (cameraId === 'camera002') {
+                // หากมีการส่งเสียงตอบกลับมาจากผู้มาติดต่อ (Visitor Response ผ่าน STT)
+                if (visitorResponse) {
+                    console.log(`[CARE Mode] ผู้มาติดต่อตอบกลับมาว่า: "${visitorResponse}"`);
+                    let indoorMsg = greetingsConfig.delivery_indoor_announcement || "เรียนคนในบ้านครับ มีผู้มาติดต่อหรือมีพัสดุมาส่งที่หน้าบ้านครับ";
+                    
+                    return res.status(200).json({
+                        success: true,
+                        mode: 'CARE',
+                        action: 'announce_indoor',
+                        announcementText: indoorMsg,
+                        message: 'ส่งเสียงประกาศเตือนคนในบ้านเรียบร้อยครับ'
+                    });
+                }
+
+                // ส่งคำทักทายเริ่มต้นจาก Local Database (0 Token) กลับไปให้ลำโพงหน้าบ้านพูดทันที
+                return res.status(200).json({ 
+                    success: true, 
+                    mode: 'CARE', 
+                    action: 'greet_visitor',
+                    greetingText: greetingsConfig.care_mode_greeting || "สวัสดีครับ ไม่ทราบว่ามาติดต่อใคร หรือมีธุระอะไรหรือเปล่าครับ บอกเจได้เลยนะครับ",
+                    message: 'ส่งประโยคทักทาย CARE Mode สำเร็จ (0 Token)' 
+                });
+            }
+
             return res.status(200).json({ 
                 success: true, 
-                mode: currentSystemMode, 
-                message: 'ระบบอยู่ในโหมดปกติ (CARE Mode) ข้ามการทักทาย' 
+                mode: 'CARE', 
+                message: 'ระบบอยู่ในโหมดดูแล (CARE Mode) กล้องจุดอื่นปกติ' 
             });
         }
 
+        // 🛡️ [SECURITY Mode Logic]
         const TARGET_SECURITY_CAMERA = 'camera002';
         if (cameraId !== TARGET_SECURITY_CAMERA) {
             return res.status(200).json({ success: true, message: `กล้องนอกขอบเขต Security` });
@@ -533,7 +578,7 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
         if (!rollingBuffers[cameraId]) rollingBuffers[cameraId] = [];
         rollingBuffers[cameraId].push(buffer);
         if (rollingBuffers[cameraId].length > 3) {
-            rollingBuffers[cameraId].shift(); // รักษาขนาดไว้ที่ 3 เฟรมล่าสุด
+            rollingBuffers[cameraId].shift();
         }
 
         let hasImportantMotion = false;
@@ -692,10 +737,10 @@ setInterval(() => {
 }, 500);
 
 // เริ่มรันเซิร์ฟเวอร์
-initCamerasConfig().then(() => {
+initSystemConfigs().then(() => {
     app.listen(PORT, () => {
         console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-        console.log(`[Multi-Camera System (Local-First + RAM Buffering + Burst Capture)] Ready 🟢📹⚡`);
+        console.log(`[Multi-Camera System (Local-First + RAM Buffering + Burst Capture + Templates)] Ready 🟢📹⚡`);
         console.log(`[Initial System Mode]: ${currentSystemMode}`);
     });
 });
