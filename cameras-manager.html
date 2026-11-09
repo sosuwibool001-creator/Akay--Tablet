@@ -46,6 +46,24 @@
                             <input type="text" id="cameraChannel" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 602 หรือ Streaming/Channels/602">
                             <small class="text-muted">ระบุหมายเลขช่อง (ถ้าดึงผ่าน NVR)</small>
                         </div>
+
+                        <!-- 🟢🛡️ เพิ่มส่วนเลือกโหมดการทำงานของกล้องแต่ละตัว -->
+                        <div class="mb-3 p-3 bg-dark border border-secondary rounded">
+                            <label class="form-label text-warning mb-2">⚙️ กำหนดโหมดการทำงานของกล้อง</label>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input bg-dark border-secondary" type="checkbox" id="careMode" checked>
+                                <label class="form-check-label" for="careMode">
+                                    🟢 รองรับโหมดดูแล (Care Mode)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input bg-dark border-secondary" type="checkbox" id="securityMode" checked>
+                                <label class="form-check-label" for="securityMode">
+                                    🛡️ รองรับโหมดรักษาความปลอดภัย (Security)
+                                </label>
+                            </div>
+                        </div>
+
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-success flex-grow-1" id="btnSubmit">บันทึกกล้อง</button>
                             <button type="button" class="btn btn-secondary d-none" id="btnCancelEdit" onclick="resetForm()">ยกเลิก</button>
@@ -64,7 +82,7 @@
                                 <tr>
                                     <th>รหัส (ID)</th>
                                     <th>ชื่อเรียก</th>
-                                    <th>IP & Channel</th>
+                                    <th>IP & Channel / โหมด</th>
                                     <th class="text-center">การจัดการ</th>
                                 </tr>
                             </thead>
@@ -79,7 +97,6 @@
     </div>
 
     <script>
-        // ปรับให้วิ่งเข้า Localhost บนเครื่องตัวเอง 100%
         const API_BASE = 'http://localhost:3000';
         let currentCameras = {};
 
@@ -106,11 +123,17 @@
                     keys.forEach(key => {
                         const cam = data.cameras[key];
                         const channelDisplay = cam.channel ? `<br><small class="text-info">Channel: ${cam.channel}</small>` : '';
+                        
+                        // แสดงป้ายบอกโหมดของกล้องตัวนั้นๆ
+                        const careBadge = cam.careMode !== false ? '<span class="badge bg-success me-1">Care</span>' : '';
+                        const secBadge = cam.securityMode !== false ? '<span class="badge bg-danger">Security</span>' : '';
+                        const modeBadges = `<br><div class="mt-1">${careBadge}${secBadge}</div>`;
+
                         tbody.innerHTML += `
                             <tr>
                                 <td><b class="text-info">${key}</b></td>
                                 <td>${cam.name}</td>
-                                <td><code>${cam.ip}</code>${channelDisplay}</td>
+                                <td><code>${cam.ip}</code>${channelDisplay}${modeBadges}</td>
                                 <td class="text-center">
                                     <button class="btn btn-sm btn-outline-warning me-1" onclick="editCamera('${key}')">✏️ แก้ไข</button>
                                     <button class="btn btn-sm btn-outline-danger" onclick="deleteCamera('${key}', '${cam.name}')">🗑️ ลบ</button>
@@ -138,6 +161,10 @@
             document.getElementById('cameraIp').value = cam.ip;
             document.getElementById('cameraChannel').value = cam.channel || '';
             
+            // โหลดค่าสถานะโหมดเดิมของกล้อง
+            document.getElementById('careMode').checked = cam.careMode !== undefined ? cam.careMode : true;
+            document.getElementById('securityMode').checked = cam.securityMode !== undefined ? cam.securityMode : true;
+
             document.getElementById('btnSubmit').innerText = 'อัปเดตข้อมูล';
             document.getElementById('btnCancelEdit').classList.remove('d-none');
         }
@@ -146,6 +173,8 @@
             document.getElementById('formTitle').innerText = '➕ เพิ่ม/แก้ไขข้อมูลกล้อง';
             document.getElementById('cameraForm').reset();
             document.getElementById('cameraId').readOnly = false;
+            document.getElementById('careMode').checked = true;
+            document.getElementById('securityMode').checked = true;
             document.getElementById('btnSubmit').innerText = 'บันทึกกล้อง';
             document.getElementById('btnCancelEdit').classList.add('d-none');
         }
@@ -179,6 +208,8 @@
             const name = document.getElementById('cameraName').value.trim();
             const ip = document.getElementById('cameraIp').value.trim();
             const channel = document.getElementById('cameraChannel').value.trim();
+            const careMode = document.getElementById('careMode').checked;
+            const securityMode = document.getElementById('securityMode').checked;
 
             if (!isValidIPv4(ip)) {
                 alert('รูปแบบ IP Address ไม่ถูกต้อง กรุณากรอกให้อยู่ในรูปแบบ เช่น 192.168.1.170');
@@ -189,7 +220,7 @@
                 const res = await fetch(`${API_BASE}/api/cameras/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cameraId, name, ip, channel })
+                    body: JSON.stringify({ cameraId, name, ip, channel, careMode, securityMode })
                 });
 
                 const data = await res.json();
