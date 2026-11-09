@@ -87,6 +87,16 @@ app.use(express.static(__dirname));
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
 const VISITOR_WHITELIST = ["คุณน้า", "ช่างไฟ", "เพื่อนบ้าน", "Guest"];
 
+// 🎙️📷 API สำหรับตรวจสอบความพร้อมของอุปกรณ์ไมค์และกล้องจากฝั่ง Client
+app.get('/api/media/permissions-check', (req, res) => {
+    return res.json({
+        success: true,
+        message: "ระบบพร้อมรองรับการเปิดใช้งานไมโครโฟนและกล้องสองทาง 🎙️📷",
+        supportedCodecs: ["audio/pcm", "audio/wav", "image/jpeg"],
+        sampleRate: 24000
+    });
+});
+
 // 🎛️ API ควบคุมและตรวจสอบสถานะโหมดของระบบ (System Mode API)
 app.get('/api/system/mode', (req, res) => {
     return res.json({ success: true, mode: currentSystemMode });
