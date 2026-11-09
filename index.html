@@ -917,18 +917,39 @@ async function startMainAppSession() {
 ${historySummaryText}
 `;
 
-            const setupMessage = {
-                setup: {
-                    model: "models/gemini-3.8-live",
-                    generationConfig: {
-                        responseModalities: ["AUDIO"],
-                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
-                    },
-                    tools: [{ googleSearch: {} }],
-                    systemInstruction: { parts: [{ text: dynamicToneInstructions }] }
-                }
-            };
-            ws.send(JSON.stringify(setupMessage));
+           const setupMessage = {
+    setup: {
+        model: "models/gemini-3.8-live",
+        generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
+        },
+        tools: [
+            { googleSearch: {} },
+            {
+                functionDeclarations: [
+                    {
+                        name: "setSystemMode",
+                        description: "สลับโหมดการทำงานของระบบระหว่าง โหมดดูแล (CARE) และ โหมดรักษาความปลอดภัย (SECURITY)",
+                        parameters: {
+                            type: "OBJECT",
+                            properties: {
+                                mode: {
+                                    type: "STRING",
+                                    enum: ["CARE", "SECURITY"],
+                                    description: "โหมดที่ต้องการเปลี่ยน เช่น SECURITY หรือ CARE"
+                                }
+                            },
+                            required: ["mode"]
+                        }
+                    }
+                ]
+            }
+        ],
+        systemInstruction: { parts: [{ text: dynamicToneInstructions }] }
+    }
+};
+ws.send(JSON.stringify(setupMessage));
 
             startSpeechRecognition();
             startKeepAlivePing();
@@ -943,24 +964,53 @@ ${historySummaryText}
         };
 
         ws.onmessage = async (event) => {
-            let responseText = "";
-            try {
-                let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
-                if (data.serverContent && data.serverContent.modelTurn) {
-                    const parts = data.serverContent.modelTurn.parts;
-                    for (const part of parts) {
-                        if (part.text) responseText += part.text;
-                        if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
-                    }
-                    if (responseText) {
-                        saveToHistory('model', responseText);
-                        statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
-                    }
+    try {
+        let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
+        
+        // 🟢 ตรวจสอบว่า AI เรียกใช้งาน Function หรือไม่
+        if (data.toolCall) {
+            for (const call of data.toolCall.functionCalls) {
+                if (call.name === "setSystemMode") {
+                    const requestedMode = call.args.mode;
+                    
+                    // ส่งคำสั่งไปเปลี่ยนโหมดที่เซิร์ฟเวอร์
+                    await fetch(`${SERVER_URL}/api/system/set-mode`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ mode: requestedMode })
+                    });
+
+                    // อัปเดต UI หน้าจอทันที
+                    updateSystemModeIndicator();
+
+                    // ส่งผลลัพธ์กลับไปบอก AI ว่าทำสำเร็จแล้ว
+                    const toolResponse = {
+                        toolResponse: {
+                            functionResponses: [
+                                {
+                                    response: { output: { success: true, currentMode: requestedMode } },
+                                    id: call.id
+                                }
+                            ]
+                        }
+                    };
+                    ws.send(JSON.stringify(toolResponse));
                 }
-            } catch (e) {
-                console.error("Error parsing message:", e);
             }
-        };
+        }
+
+        // จัดการเสียงและข้อความตอบกลับตามปกติเดิม
+        if (data.serverContent && data.serverContent.modelTurn) {
+            const parts = data.serverContent.modelTurn.parts;
+            for (const part of parts) {
+                if (part.text) responseText += part.text;
+                if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
+            }
+        }
+    } catch (e) {
+        console.error("Error parsing message:", e);
+    }
+};
 
         ws.onerror = (error) => { console.error("WebSocket Error:", error); };
         ws.onclose = () => {
