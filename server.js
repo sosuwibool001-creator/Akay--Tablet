@@ -42,7 +42,10 @@ const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
 
 // 🧠 ระบบจัดการสถานะของบ้าน (State Machine) - เริ่มต้นที่ CARE Mode (ป้องกันกล้องโรงงานทักทายมั่ว)
 let currentSystemMode = 'CARE'; // ค่าที่เป็นไปได้: 'CARE' หรือ 'SECURITY'
-
+// API ดึงสถานะโหมดปัจจุบัน
+app.get('/api/system/mode', (req, res) => {
+    res.json({ success: true, mode: currentSystemMode });
+});
 // โหลดค่าตั้งค่ากล้องจากไฟล์ Local JSON โดยตรง (ไม่พึ่ง Supabase Table)
 let camerasConfig = {};
 
@@ -102,14 +105,15 @@ app.get('/api/system/mode', (req, res) => {
     return res.json({ success: true, mode: currentSystemMode });
 });
 
-app.post('/api/system/mode', (req, res) => {
-    const { mode } = req.body; // รับค่า 'SECURITY' หรือ 'CARE'
-    if (mode === 'SECURITY' || mode === 'CARE') {
+app.post('/api/system/set-mode', (req, res) => {
+    const { mode } = req.body;
+    if (mode === "SECURITY" || mode === "CARE") {
         currentSystemMode = mode;
-        console.log(`[System Mode] เปลี่ยนสถานะระบบเรียบร้อย -> โหมด [${currentSystemMode}] 🟢`);
-        return res.json({ success: true, mode: currentSystemMode, message: `เปลี่ยนเป็นโหมด ${currentSystemMode} เรียบร้อยครับ` });
+        console.log(`🛡️ ระบบเปลี่ยนโหมดเป็น: ${currentSystemMode}`);
+        res.json({ success: true, mode: currentSystemMode });
+    } else {
+        res.status(400).json({ success: false, message: "Invalid mode" });
     }
-    return res.status(400).json({ success: false, message: 'Invalid mode specified. Use SECURITY or CARE.' });
 });
 
 // 📷 API จัดการกล้อง: ดึงรายชื่อกล้องทั้งหมดจาก Local JSON
