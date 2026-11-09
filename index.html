@@ -316,8 +316,14 @@
     <!-- Step 2: แดชบอร์ดหลัก Multi-Camera -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
+            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span>Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
+                
+                <!-- 🟢🔴 ไฟสถานะโหมดระบบแบบเรียบหรู อัปเดตอัตโนมัติ -->
+                <div id="systemModeBadge" style="font-size: 12px; font-weight: 500; background: #fafafa; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-color);">
+                    <span id="modeDot" style="width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px rgba(52,199,89,0.4);"></span>
+                    <span id="modeText" style="color: #1d1d1f;">โหมดดูแล (CARE)</span>
+                </div>
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
@@ -496,6 +502,7 @@ let masterMediaStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null;
+let modeCheckInterval = null;
 let recognition = null;
 let isUserActiveSession = false;
 let authenticatedUser = "เพื่อนเอก (Ake)";
@@ -511,6 +518,34 @@ let camerasRegistry = {
     "camera003": { name: "OBS Virtual Camera (ห้องรับแขก) (NVR)", isNvr: true, stream: null }
 };
 let activeCameraId = "";
+
+// 🟢 ฟังก์ชันคอยดึงสถานะโหมดจากเซิร์ฟเวอร์มาอัปเดตไฟสถานะแบบเรียลไทม์
+async function updateSystemModeIndicator() {
+    try {
+        const res = await fetch(`${SERVER_URL}/api/system/mode`);
+        const data = await res.json();
+        if (data.success) {
+            const modeDot = document.getElementById('modeDot');
+            const modeText = document.getElementById('modeText');
+            
+            if (data.mode === 'SECURITY') {
+                if (modeDot) {
+                    modeDot.style.backgroundColor = 'var(--accent-red)';
+                    modeDot.style.boxShadow = '0 0 6px rgba(255,59,48,0.5)';
+                }
+                if (modeText) modeText.innerText = 'โหมดรักษาความปลอดภัย (SECURITY)';
+            } else {
+                if (modeDot) {
+                    modeDot.style.backgroundColor = 'var(--accent-green)';
+                    modeDot.style.boxShadow = '0 0 6px rgba(52,199,89,0.4)';
+                }
+                if (modeText) modeText.innerText = 'โหมดดูแล (CARE)';
+            }
+        }
+    } catch (err) {
+        // ข้ามข้อผิดพลาดกรณีการเชื่อมต่อชั่วคราว
+    }
+}
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -814,6 +849,11 @@ ${historySummaryText}
             startSpeechRecognition();
             startKeepAlivePing();
             startRemoteCaptureListener(); 
+            
+            // 🟢 เริ่มระบบเช็กไฟสถานะโหมดทุกๆ 3 วินาที
+            updateSystemModeIndicator();
+            if (modeCheckInterval) clearInterval(modeCheckInterval);
+            modeCheckInterval = setInterval(updateSystemModeIndicator, 3000);
         };
 
         ws.onmessage = async (event) => {
@@ -1139,6 +1179,7 @@ function stopSession() {
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
+    if (modeCheckInterval) { clearInterval(modeCheckInterval); modeCheckInterval = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
