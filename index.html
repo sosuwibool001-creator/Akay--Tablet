@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Auto Enrollment Engine)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Security & Auto Enrollment)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -272,8 +272,8 @@
 <div class="container">
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
-        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Auto Enrollment</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (PC Version - Hands-Free Profile Enrollment)</div>
+        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Security Edition</span></div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลความปลอดภัย (PC Version - Security & Motion Challenge)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -357,16 +357,14 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน...</div>
-            <div id="audioStats" class="debug-stats">🎙️ Auto Enrollment Engine: พร้อมบันทึกเสียงและถ่ายภาพคนใหม่อัตโนมัติ</div>
+            <div id="audioStats" class="debug-stats">🎙️ Security & Auto Enrollment Engine: พร้อมทำงานตรวจสอบความเคลื่อนไหว</div>
         </div>
     </div>
 </div>
 
 <script>
 let BACKEND_API_KEY = "";
-// ปรับเปลี่ยนมาใช้ Localhost แทนคลาวด์ Render ตามที่ตกลงกันครับ
 const SERVER_URL = "http://localhost:3000";
-// กำหนด IP ของ Mini PC หรือเซิร์ฟเวอร์ที่รัน go2rtc (ตัวอย่างใช้พอร์ต 1984)
 const GO2RTC_BASE_URL = "http://localhost:1984"; 
 
 async function initConfig() {
@@ -503,6 +501,7 @@ let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null;
 let modeCheckInterval = null;
+let securityMotionCheckInterval = null;
 let recognition = null;
 let isUserActiveSession = false;
 let authenticatedUser = "เพื่อนเอก (Ake)";
@@ -512,6 +511,11 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
+// ตัวแปรสำหรับคุมสถานะ Security Challenge 15 วิ
+let isSecurityChallenging = false;
+let securityChallengeTimer = null;
+let currentSystemMode = "CARE";
+
 let camerasRegistry = {
     "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, isNvr: false, stream: null },
     "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", isNvr: true, stream: null },
@@ -519,12 +523,13 @@ let camerasRegistry = {
 };
 let activeCameraId = "";
 
-// 🟢 ฟังก์ชันคอยดึงสถานะโหมดจากเซิร์ฟเวอร์มาอัปเดตไฟสถานะแบบเรียลไทม์
+// 🟢 ฟังก์ชันดึงสถานะโหมดระบบ และควบคุมระบบตรวจจับการเคลื่อนไหวในโหมด SECURITY
 async function updateSystemModeIndicator() {
     try {
         const res = await fetch(`${SERVER_URL}/api/system/mode`);
         const data = await res.json();
         if (data.success) {
+            currentSystemMode = data.mode;
             const modeDot = document.getElementById('modeDot');
             const modeText = document.getElementById('modeText');
             
@@ -540,10 +545,88 @@ async function updateSystemModeIndicator() {
                     modeDot.style.boxShadow = '0 0 6px rgba(52,199,89,0.4)';
                 }
                 if (modeText) modeText.innerText = 'โหมดดูแล (CARE)';
+                // รีเซ็ตสถานะ Challenge ถ้าเปลี่ยนกลับเป็น CARE
+                if (isSecurityChallenging) {
+                    isSecurityChallenging = false;
+                    if (securityChallengeTimer) clearTimeout(securityChallengeTimer);
+                }
             }
         }
+    } catch (err) {}
+}
+
+// 🚨 ฟังก์ชันตรวจสอบการเคลื่อนไหวหน้าบ้านในโหมด SECURITY พร้อมระบบสอบถาม 15 วิ และแจ้งเตือน Telegram
+function startSecurityMotionMonitor() {
+    if (securityMotionCheckInterval) clearInterval(securityMotionCheckInterval);
+    
+    securityMotionCheckInterval = setInterval(async () => {
+        if (!isUserActiveSession || currentSystemMode !== 'SECURITY' || isSecurityChallenging || isEnrollingGuest) return;
+
+        try {
+            // เช็กสถานะตรวจพบการเคลื่อนไหวจากฝั่ง Backend หรือตรวจจับภาพกล้องหน้าบ้าน (camera002)
+            const res = await fetch(`${SERVER_URL}/api/security/motion-check`);
+            const data = await res.json();
+
+            if (data && data.motionDetected) {
+                triggerSecurityChallengeProtocol("กล้องหน้าบ้าน");
+            }
+        } catch (e) {
+            // สำรอง: กรณีจำลองการตรวจจับอัตโนมัติหาก Backend ยังไม่ได้เปิด endpoint นี้ สามารถเช็กผ่าน AI / สภาพแวดล้อมได้
+        }
+    }, 5000);
+}
+
+// 🎙️ โปรโตคอลทักทายสอบถาม และนับถอยหลัง 15 วินาที ถ้าไม่ตอบส่ง Telegram
+async function triggerSecurityChallengeProtocol(cameraName) {
+    if (isSecurityChallenging) return;
+    isSecurityChallenging = true;
+
+    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-red);"></span><strong>🚨 ตรวจพบความเคลื่อนไหว [${cameraName}]:</strong> เจกำลังทักทายและขอการยืนยันตัวตน...`;
+    
+    // 1. เจพูดสอบถามเบื้องต้น
+    const challengeText = `สวัสดีครับ ระบบรักษาความปลอดภัยกำลังทำงาน กรุณาระบุตัวตนหรือแจ้งชื่อให้เจทราบภายในสิบห้าวินาทีครับ`;
+    await playTextToSpeech(challengeText);
+
+    countdownBadge.style.display = 'block';
+    let timeLeft = 15;
+
+    // เริ่มจับเวลา 15 วินาที
+    securityChallengeTimer = setInterval(() => {
+        countdownBadge.innerText = `🚨 รอการยืนยันตัวตน: ${timeLeft}s`;
+        timeLeft--;
+
+        if (timeLeft < 0) {
+            clearInterval(securityChallengeTimer);
+            countdownBadge.style.display = 'none';
+            isSecurityChallenging = false;
+
+            // 2. ถ้าหมดเวลา 15 วิ ไม่มีใครตอบกลับ -> ส่งแจ้งเตือน Telegram ผ่าน Backend
+            sendTelegramSecurityAlert(cameraName);
+        }
+    }, 1000);
+}
+
+// ฟังก์ชันยกเลิก Timer ทันทีเมื่อมีเสียงตอบรับจากผู้ใช้ถูกต้อง
+function cancelSecurityChallengeIfResponded() {
+    if (isSecurityChallenging) {
+        isSecurityChallenging = false;
+        if (securityChallengeTimer) clearInterval(securityChallengeTimer);
+        countdownBadge.style.display = 'none';
+        statusText.innerHTML = `<span class="status-dot"></span><strong>✅ ยืนยันตัวตนผ่าน:</strong> ยกเลิกการแจ้งเตือนฉุกเฉินเรียบร้อย`;
+    }
+}
+
+async function sendTelegramSecurityAlert(cameraName) {
+    try {
+        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>⚠️ หมดเวลา 15 วินาที:</strong> กำลังส่งแจ้งเตือนด่วนทาง Telegram...`;
+        await fetch(`${SERVER_URL}/api/telegram/alert`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: `🚨 แจ้งเตือนความปลอดภัย: ตรวจพบการเคลื่อนไหวผิดปกติที่ [${cameraName}] และไม่มีการตอบกลับยืนยันตัวตนภายใน 15 วินาที!` })
+        });
+        await playTextToSpeech("ไม่มีการตอบกลับภายในเวลาที่กำหนด เจได้ส่งภาพและแจ้งเตือนไปยังเทเลแกรมเรียบร้อยแล้วครับ");
     } catch (err) {
-        // ข้ามข้อผิดพลาดกรณีการเชื่อมต่อชั่วคราว
+        console.error("Failed to send Telegram alert:", err);
     }
 }
 
@@ -560,6 +643,7 @@ clearMemBtn.addEventListener('click', () => {
     alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
 });
 
+// 🎙️📷 ปรับการขออนุญาตสิทธิ์ใช้งาน ให้เปิดทั้งกล้องและไมโครโฟนพร้อมกันตั้งแต่เริ่มต้น
 startAuthBtn.addEventListener('click', async () => {
     if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
         alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
@@ -573,16 +657,16 @@ startAuthBtn.addEventListener('click', async () => {
 
         if (!data.registered) {
             stepSetup.style.display = 'flex';
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
             setupVideo.srcObject = authStream;
         } else {
             stepAuth.style.display = 'flex';
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
             authVideo.srcObject = authStream;
             runAutoVerification(data.owner.name);
         }
     } catch (err) {
-        alert("ไม่สามารถเชื่อมต่อกล้องหรือเซิร์ฟเวอร์ได้: " + err.message);
+        alert("ไม่สามารถเชื่อมต่อกล้องหรือไมโครโฟนได้: " + err.message);
         step1.style.display = 'flex';
     }
 });
@@ -825,7 +909,7 @@ async function startMainAppSession() {
                 : "ไม่มีประวัติคุยเก่า";
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `🎙️ Auto Enrollment Engine Ready: ทักเจเมื่อมีเพื่อนใหม่`;
+            audioStats.innerText = `🎙️ Security & Auto Enrollment Engine Ready`;
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
@@ -850,10 +934,12 @@ ${historySummaryText}
             startKeepAlivePing();
             startRemoteCaptureListener(); 
             
-            // 🟢 เริ่มระบบเช็กไฟสถานะโหมดทุกๆ 3 วินาที
+            // 🟢 เริ่มระบบเช็กไฟสถานะโหมดทุกๆ 3 วินาที และตรวจจับการเคลื่อนไหวโหมด Security
             updateSystemModeIndicator();
             if (modeCheckInterval) clearInterval(modeCheckInterval);
             modeCheckInterval = setInterval(updateSystemModeIndicator, 3000);
+
+            startSecurityMotionMonitor();
         };
 
         ws.onmessage = async (event) => {
@@ -918,7 +1004,6 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     let base64Image = null;
 
     if (camInfo && camInfo.isNvr) {
-        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพสดตรงจากโฟลเดอร์ uploads ของเซิร์ฟเวอร์
         try {
             const imageUrl = `${SERVER_URL}/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
             const img = new Image();
@@ -942,7 +1027,6 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             console.warn(`ไม่สามารถโหลดภาพ NVR จาก uploads ของ ${camId} ได้:`, err);
         }
     } else {
-        // 💻 สำหรับเว็บแคม: ถ้าเป็นกล้องที่กำลังแสดงผลอยู่ตอนนี้ ให้ดึงจากจอหลัก #activeMainVideo โดยตรงเพื่อความสดใหม่
         const canvas = document.createElement('canvas');
         canvas.width = 1920; canvas.height = 1080;
         const ctx = canvas.getContext('2d');
@@ -960,7 +1044,6 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
         }
     }
 
-    // ส่งภาพ Base64 นี้เข้าไปหาเจผ่าน WebSocket
     if (isManualTrigger && ws && ws.readyState === WebSocket.OPEN) {
         const parts = [];
         if (base64Image) {
@@ -1084,6 +1167,8 @@ function startSpeechRecognition() {
                 let finalTextToSend = speechBuffer.trim();
                 speechBuffer = "";
                 if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
+                    // หากอยู่ในช่วง Security Challenge แล้วมีการพูดตอบกลับ ให้ยกเลิก Timer ฉุกเฉินทันที
+                    cancelSecurityChallengeIfResponded();
                     sendTextDirectly(finalTextToSend);
                 }
             }, 800);
@@ -1180,6 +1265,8 @@ function stopSession() {
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
     if (modeCheckInterval) { clearInterval(modeCheckInterval); modeCheckInterval = null; }
+    if (securityMotionCheckInterval) { clearInterval(securityMotionCheckInterval); securityMotionCheckInterval = null; }
+    if (securityChallengeTimer) { clearTimeout(securityChallengeTimer); securityChallengeTimer = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
