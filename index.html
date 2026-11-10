@@ -749,13 +749,14 @@ async function initCameraSystem() {
 
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel || camInfo.isNvr;
+                // 🟢 ตรวจสอบว่าถ้าเป็น IP 127.0.0.1 ให้ตั้งค่า isNvr เป็น false (ใช้กล้องเว็บแคมคอม)
+                const isNvr = (camInfo.ip === '127.0.0.1' || camInfo.ip === 'DHCP/Unknown') ? false : (camInfo.channel || camInfo.isNvr);
                 
                 camerasRegistry[camId] = {
                     name: camInfo.name,
                     ip: camInfo.ip,
                     channel: camInfo.channel || '',
-                    isNvr: isNvr,
+                    isNvr: isNvr ? true : false,
                     stream: null
                 };
             }
@@ -770,6 +771,8 @@ async function initCameraSystem() {
 
         updateDropdownUI();
         renderDynamicThumbnails();
+        
+        // 🟢 สั่งเปิดสตรีมกล้องตัวแรกทันทีที่เข้าสู่หน้าจอหลัก
         await switchActiveCamera(activeCameraId);
 
     } catch (err) {
@@ -832,6 +835,13 @@ function renderDynamicThumbnails() {
 
 async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
+    
+    // 🟢 ปิดสตรีมกล้องเว็บแคมตัวเก่าก่อนเปลี่ยน เพื่อป้องกันกล้องชนกัน
+    if (activeCameraId && camerasRegistry[activeCameraId] && camerasRegistry[activeCameraId].stream) {
+        camerasRegistry[activeCameraId].stream.getTracks().forEach(track => track.stop());
+        camerasRegistry[activeCameraId].stream = null;
+    }
+
     activeCameraId = camId;
 
     document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active'));
@@ -856,7 +866,6 @@ async function switchActiveCamera(camId) {
         }
         if (mainFrame) {
             mainFrame.style.display = 'block';
-            // 🟢 ปลดล็อกเสียง NVR เป็น muted=0 และอนุญาตสิทธิ์ microphone และ camera
             mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=0`;
             mainFrame.setAttribute('allow', 'microphone; camera; autoplay');
         }
@@ -869,11 +878,18 @@ async function switchActiveCamera(camId) {
         if (mainVid) {
             mainVid.style.display = 'block';
             try {
-                const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                // 🟢 ขอสิทธิ์และเปิดเว็บแคมหน้าคอมพิวเตอร์เข้าสู่แท็กวิดีโอหลัก
+                const newStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    audio: false 
+                });
                 camInfo.stream = newStream;
                 mainVid.srcObject = newStream;
                 await mainVid.play().catch(e => {});
-            } catch (err) {}
+            } catch (err) {
+                console.error("Webcam stream error:", err);
+                statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เปิดกล้องหน้าคอมไม่สำเร็จ:</strong> ${err.message}`;
+            }
         }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
     }
