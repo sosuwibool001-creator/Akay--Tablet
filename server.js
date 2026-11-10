@@ -1,4 +1,4 @@
-// server.js - Project-J Smart Guardian Server (Full Multi-Camera + Security Mode & RAM Buffering & Burst Capture + Greeting Templates + go2rtc Auto-Sync)
+// server.js - Project-J Smart Guardian Server (Full Multi-Camera + Security Mode & RAM Buffering)
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -31,8 +31,6 @@ const DIR_VOICE_PROFILES = path.join(__dirname, 'voice_profiles');
 
 const OWNER_CONFIG_PATH = path.join(__dirname, 'owner_config.json');
 const CAMERAS_CONFIG_PATH = path.join(__dirname, 'cameras_config.json');
-const GREETINGS_CONFIG_PATH = path.join(__dirname, 'greetings_config.json');
-const GO2RTC_CONFIG_PATH = path.join(__dirname, 'go2rtc.yaml'); // 📹 เส้นทางไฟล์ตั้งค่า go2rtc
 
 [
     DIR_CAMERAS, DIR_UPLOADS, DIR_VOICE_PROFILES
@@ -42,36 +40,16 @@ const GO2RTC_CONFIG_PATH = path.join(__dirname, 'go2rtc.yaml'); // 📹 เส�
     }
 });
 
-// 🧠 ระบบจัดการสถานะของบ้าน (State Machine) - เริ่มต้นที่ CARE Mode
+// 🧠 ระบบจัดการสถานะของบ้าน (State Machine) - เริ่มต้นที่ CARE Mode (ป้องกันกล้องโรงงานทักทายมั่ว)
 let currentSystemMode = 'CARE'; // ค่าที่เป็นไปได้: 'CARE' หรือ 'SECURITY'
-
-// โหลดค่าตั้งค่ากล้องจากไฟล์ Local JSON โดยตรง
+// API ดึงสถานะโหมดปัจจุบัน
+app.get('/api/system/mode', (req, res) => {
+    res.json({ success: true, mode: currentSystemMode });
+});
+// โหลดค่าตั้งค่ากล้องจากไฟล์ Local JSON โดยตรง (ไม่พึ่ง Supabase Table)
 let camerasConfig = {};
-let greetingsConfig = {};
 
-// 📹 ฟังก์ชันพิเศษ: อัปเดตไฟล์ go2rtc.yaml อัตโนมัติทุกครั้งที่มีการเปลี่ยนแปลงกล้อง
-function updateGo2RtcYaml(camerasObj) {
-    try {
-        let streamsConfig = "streams:\n";
-        let count = 0;
-
-        for (const [camId, cam] of Object.entries(camerasObj)) {
-            if (cam.ip && cam.ip !== '127.0.0.1' && cam.ip !== 'DHCP/Unknown') {
-                const channel = cam.channel || '102';
-                streamsConfig += `  ${camId}: rtsp://admin_inglobe:Inglobe2026@${cam.ip}:554/Streaming/Channels/${channel}\n`;
-                count++;
-            }
-        }
-
-        fs.writeFileSync(GO2RTC_CONFIG_PATH, streamsConfig, 'utf8');
-        console.log(`[go2rtc Auto-Sync] ซิงค์สตรีมกล้อง ${count} ตัวลงใน go2rtc.yaml สำเร็จ 🟢`);
-    } catch (err) {
-        console.error('[go2rtc Auto-Sync Error]:', err.message);
-    }
-}
-
-async function initSystemConfigs() {
-    // 1. โหลดค่ากล้อง
+async function initCamerasConfig() {
     if (fs.existsSync(CAMERAS_CONFIG_PATH)) {
         try {
             camerasConfig = JSON.parse(fs.readFileSync(CAMERAS_CONFIG_PATH, 'utf8'));
@@ -81,48 +59,26 @@ async function initSystemConfigs() {
         }
     } else {
         camerasConfig = {
-            "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", channel: "", careMode: true, securityMode: true, active: true },
-            "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.1.170", channel: "602", careMode: true, securityMode: true, active: true }
+            "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", channel: "", active: true },
+            "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.1.170", channel: "602", active: true }
         };
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
         console.log('[Local DB] สร้างไฟล์ cameras_config.json เริ่มต้นสำเร็จ 🟢');
-    }
-
-    // ซิงค์สตรีมไปที่ go2rtc.yaml ทันทีตอนสตาร์ตระบบ
-    updateGo2RtcYaml(camerasConfig);
-
-    // 2. โหลดหรือสร้างเทมเพลตคำทักทายหน้าบ้าน (0 Token Local Templates)
-    if (fs.existsSync(GREETINGS_CONFIG_PATH)) {
-        try {
-            greetingsConfig = JSON.parse(fs.readFileSync(GREETINGS_CONFIG_PATH, 'utf8'));
-            console.log('[Local DB] โหลดเทมเพลตคำทักทายสำเร็จ 🟢');
-        } catch (e) {
-            greetingsConfig = {};
-        }
-    } else {
-        greetingsConfig = {
-            "care_mode_greeting": "สวัสดีครับ ไม่ทราบว่ามาติดต่อใคร หรือมีธุระอะไรหรือเปล่าครับ บอกเจได้เลยนะครับ",
-            "security_mode_warning": "แจ้งเตือน: ขณะนี้บ้านอยู่ในโหมดรักษาความปลอดภัย กรุณาแสดงตัวตนหรือถอยออกไปครับ",
-            "delivery_indoor_announcement": "เรียนคนในบ้านครับ ตอนนี้มีผู้มาติดต่อหรือมีพัสดุมาส่งที่หน้าบ้านครับ รบกวนออกมาพบผู้มาติดต่อด้วยครับ"
-        };
-        fs.writeFileSync(GREETINGS_CONFIG_PATH, JSON.stringify(greetingsConfig, null, 2));
-        console.log('[Local DB] สร้างไฟล์ greetings_config.json เริ่มต้นสำเร็จ 🟢');
     }
 }
 
 // สร้างโฟลเดอร์ย่อยสำหรับเก็บภาพของแต่ละกล้องอัตโนมัติ
 Object.keys(camerasConfig).forEach(camId => {
     const camDir = path.join(DIR_CAMERAS, camId);
-    const securityEventDir = path.join(camDir, 'security_events');
-    if (!fs.existsSync(camDir)) fs.mkdirSync(camDir, { recursive: true });
-    if (!fs.existsSync(securityEventDir)) fs.mkdirSync(securityEventDir, { recursive: true });
+    if (!fs.existsSync(camDir)) {
+        fs.mkdirSync(camDir, { recursive: true });
+    }
 });
 
 const lastFrames = {};
-const inMemoryRAMStore = {};
-const rollingBuffers = {};
+const inMemoryRAMStore = {}; // 🧠 In-Memory RAM Buffer สำหรับเก็บภาพสแนปชอตล่าสุดของแต่ละกล้อง
 const lastTelegramAlertTime = {};
-const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000;
+const TELEGRAM_ALERT_COOLDOWN = 5 * 60 * 1000; // 5 นาที
 
 let cameraRequestState = { requested: false };
 let pendingAudioVerifications = {};
@@ -134,7 +90,7 @@ app.use(express.static(__dirname));
 const FAMILY_WHITELIST = ["เพื่อนเอก", "คุณแม่", "Ake", "Mother"];
 const VISITOR_WHITELIST = ["คุณน้า", "ช่างไฟ", "เพื่อนบ้าน", "Guest"];
 
-// 🎙️📷 API ตรวจสอบอุปกรณ์
+// 🎙️📷 API สำหรับตรวจสอบความพร้อมของอุปกรณ์ไมค์และกล้องจากฝั่ง Client
 app.get('/api/media/permissions-check', (req, res) => {
     return res.json({
         success: true,
@@ -144,7 +100,7 @@ app.get('/api/media/permissions-check', (req, res) => {
     });
 });
 
-// 🎛️ API ควบคุมและตรวจสอบสถานะโหมดระบบ
+// 🎛️ API ควบคุมและตรวจสอบสถานะโหมดของระบบ (System Mode API)
 app.get('/api/system/mode', (req, res) => {
     return res.json({ success: true, mode: currentSystemMode });
 });
@@ -160,15 +116,15 @@ app.post('/api/system/set-mode', (req, res) => {
     }
 });
 
-// 📷 API จัดการกล้อง: ดึงรายการกล้อง
+// 📷 API จัดการกล้อง: ดึงรายชื่อกล้องทั้งหมดจาก Local JSON
 app.get('/api/cameras/list', async (req, res) => {
     return res.json({ success: true, cameras: camerasConfig });
 });
 
-// 📷 API จัดการกล้อง: เพิ่ม/แก้ไขข้อมูลกล้อง (พร้อมบันทึกโหมด Care/Security และ Auto-Sync go2rtc)
+// 📷 API จัดการกล้อง: เพิ่มหรือแก้ไขข้อมูลกล้อง (บันทึกลง Local JSON ทันที)
 app.post('/api/cameras/save', async (req, res) => {
     try {
-        const { cameraId, name, ip, channel, careMode, securityMode } = req.body;
+        const { cameraId, name, ip, channel } = req.body;
         if (!cameraId || !name) {
             return res.status(400).json({ success: false, message: 'Camera ID and Name are required' });
         }
@@ -178,21 +134,17 @@ app.post('/api/cameras/save', async (req, res) => {
             name: name,
             ip: ip || 'DHCP/Unknown',
             channel: channel || '',
-            careMode: careMode !== undefined ? careMode : true,
-            securityMode: securityMode !== undefined ? securityMode : true,
             active: true,
             updatedAt: updatedAt
         };
 
+        // บันทึกลงไฟล์ Local JSON
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 
-        // 🟢 อัปเดตสตรีมลง go2rtc.yaml อัตโนมัติ
-        updateGo2RtcYaml(camerasConfig);
-
         const camDir = path.join(DIR_CAMERAS, cameraId);
-        const secDir = path.join(camDir, 'security_events');
-        if (!fs.existsSync(camDir)) fs.mkdirSync(camDir, { recursive: true });
-        if (!fs.existsSync(secDir)) fs.mkdirSync(secDir, { recursive: true });
+        if (!fs.existsSync(camDir)) {
+            fs.mkdirSync(camDir, { recursive: true });
+        }
 
         console.log(`[Multi-Camera] บันทึก/อัปเดตกล้องสำเร็จ -> [${cameraId}] ${name} (${ip}) Channel: ${channel || 'N/A'}`);
         return res.json({ success: true, message: `บันทึกกล้อง ${cameraId} (${name}) เรียบร้อยครับ`, cameras: camerasConfig });
@@ -201,7 +153,7 @@ app.post('/api/cameras/save', async (req, res) => {
     }
 });
 
-// 📷 API จัดการกล้อง: ลบกล้องออกจากระบบ (พร้อม Auto-Sync go2rtc)
+// 📷 API จัดการกล้อง: ลบกล้องออกจากระบบ Local JSON
 app.delete('/api/cameras/delete/:cameraId', async (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -212,10 +164,8 @@ app.delete('/api/cameras/delete/:cameraId', async (req, res) => {
         const deletedName = camerasConfig[cameraId].name;
         delete camerasConfig[cameraId];
 
+        // บันทึกไฟล์ Local JSON ใหม่
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
-
-        // 🟢 อัปเดตสตรีมลง go2rtc.yaml อัตโนมัติหลังลบ
-        updateGo2RtcYaml(camerasConfig);
 
         console.log(`[Multi-Camera] ลบกล้องสำเร็จ -> [${cameraId}] ${deletedName}`);
         return res.json({ success: true, message: `ลบกล้อง ${deletedName} เรียบร้อยแล้วครับ`, cameras: camerasConfig });
@@ -224,7 +174,7 @@ app.delete('/api/cameras/delete/:cameraId', async (req, res) => {
     }
 });
 
-// 🗣️ API คำสั่งเสียงสลับกล้อง / เปลี่ยนโหมด
+// 🗣️ API รับคำสั่งเสียงเพื่อสลับหรือเปิดกล้องตามชื่อที่สั่ง (รวมคำสั่งเปลี่ยนโหมด)
 app.post('/api/camera/voice-command', async (req, res) => {
     try {
         const { commandText } = req.body;
@@ -232,6 +182,7 @@ app.post('/api/camera/voice-command', async (req, res) => {
             return res.status(400).json({ success: false, message: 'ไม่พบคำสั่งเสียง' });
         }
 
+        // รองรับคำสั่งเสียงเปลี่ยนโหมด
         if (commandText.includes('โหมดรักษาความปลอดภัย') || commandText.includes('เปิดระบบกันขโมย')) {
             currentSystemMode = 'SECURITY';
             console.log(`[Voice Command] สั่งเปิด Security Mode ผ่านเสียงสำเร็จ 🛡️`);
@@ -261,6 +212,7 @@ app.post('/api/camera/voice-command', async (req, res) => {
         }
 
         let imageBase64 = null;
+        // 🧠 ดึงจาก RAM Buffer เป็นหลัก
         if (inMemoryRAMStore[targetCamId]) {
             imageBase64 = inMemoryRAMStore[targetCamId].toString('base64');
         } else {
@@ -288,7 +240,7 @@ app.post('/api/camera/voice-command', async (req, res) => {
     }
 });
 
-// 🔍 API เช็กเจ้าของเครื่อง
+// 🔍 API ตรวจสอบว่าระบบมีเจ้าของเครื่องลงทะเบียนไว้หรือยัง
 app.get('/api/owner/check', (req, res) => {
     if (fs.existsSync(OWNER_CONFIG_PATH)) {
         try {
@@ -301,10 +253,10 @@ app.get('/api/owner/check', (req, res) => {
     return res.json({ registered: false });
 });
 
-// 👤 API บันทึกเจ้าของเครื่อง
+// 👤 API บันทึกเจ้าของเครื่องตัวจริงครั้งแรก
 app.post('/api/owner/register', (req, res) => {
     try {
-        const { ownerName } = req.body;
+        const { ownerName, imageBase64 } = req.body;
         if (!ownerName) {
             return res.status(400).json({ success: false, message: 'Owner name required' });
         }
@@ -336,7 +288,7 @@ app.get('/api/config/apikey', (req, res) => {
     res.json({ apiKey: apiKey });
 });
 
-// 🖥️ เส้นทางหน้าจอหลัก
+// 🖥️ เส้นทางหน้าจอหลัก (PC / Desktop) และหน้าจอแท็บเล็ต
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -349,7 +301,7 @@ app.get('/tablet', (req, res) => {
     res.sendFile(path.join(__dirname, 'index-tablet.html'));
 });
 
-// 📸 API อัปโหลดภาพสดลง RAM Buffer
+// 📸 API รองรับการรับภาพสดแยกตามรหัสกล้อง (อัปเดตลง RAM Buffer)
 app.post('/api/camera/upload/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -359,14 +311,17 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
             return res.status(400).json({ success: false, message: 'Missing imageBase64' });
         }
 
+        const camMeta = camerasConfig[cameraId] || { name: cameraId };
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const imageBuffer = Buffer.from(base64Data, 'base64');
         
+        // 🧠 1. บันทึกลง RAM Buffer ทันที (In-Memory Access)
         inMemoryRAMStore[cameraId] = imageBuffer;
         if (cameraId === 'camera001' || cameraId === 'camera002') {
             inMemoryRAMStore['home'] = imageBuffer;
         }
 
+        // 💾 2. บันทึกลง Disk สำรอง
         const latestCamPath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
         fs.writeFileSync(latestCamPath, imageBuffer);
 
@@ -374,17 +329,20 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
             fs.writeFileSync(path.join(DIR_UPLOADS, 'realtime_home.jpg'), imageBuffer);
         }
 
+        console.log(`[${new Date().toLocaleTimeString('th-TH')}] 📸 อัปเดตภาพสดจาก [${cameraId}: ${camMeta.name}] ลง RAM & Local สำเร็จ ⚡`);
         return res.json({ success: true, url: `/uploads/realtime_${cameraId}.jpg`, timestamp: Date.now() });
     } catch (err) {
+        console.error('Save camera image error:', err);
         return res.status(500).json({ success: false, message: err.message });
     }
 });
 
-// 📸 API ดึงภาพสดล่าสุด
+// 📸 API ดึงภาพล่าสุดของกล้องแต่ละตัวไปแสดงผล (ดึงจาก RAM Buffer เป็นหลัก)
 app.get('/api/camera/latest/:cameraId', (req, res) => {
     try {
         const { cameraId } = req.params;
         
+        // 🧠 ดึงตรงจาก RAM Buffer ทันที (เสี้ยววินาที ไม่เกิด File I/O Lock)
         if (inMemoryRAMStore[cameraId]) {
             return res.json({ 
                 success: true, 
@@ -393,20 +351,21 @@ app.get('/api/camera/latest/:cameraId', (req, res) => {
             });
         }
 
+        // 💾 Fallback: อ่านจากไฟล์ Disk หากยังไม่มีข้อมูลใน RAM
         const filePath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
         if (fs.existsSync(filePath)) {
             const imageBuffer = fs.readFileSync(filePath);
-            inMemoryRAMStore[cameraId] = imageBuffer;
+            inMemoryRAMStore[cameraId] = imageBuffer; // โหลดเข้า RAM
             return res.json({ success: true, imageBase64: imageBuffer.toString('base64'), source: 'disk-fallback' });
         } else {
-            return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId}` });
+            return res.status(404).json({ success: false, message: `ยังไม่มีภาพสดจาก ${cameraId} (ไฟล์ยังไม่ถูกสร้าง)` });
         }
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// 📡 API ส่งสัญญาณ On-Demand
+// 📡 API ส่งสัญญาณ On-Demand ระหว่างแท็บเล็ตและคอมพิวเตอร์
 app.get('/api/camera/check-request', (req, res) => {
     return res.json(cameraRequestState);
 });
@@ -422,7 +381,7 @@ app.post('/api/camera/clear-request', (req, res) => {
     return res.json({ success: true });
 });
 
-// 🎙️ API บันทึกเสียงตัวอย่าง
+// 🎙️ API บันทึกเสียงตัวอย่างรายบุคคล
 app.post('/api/voice/register-sample', (req, res) => {
     try {
         const { personName, audioBase64 } = req.body;
@@ -440,6 +399,7 @@ app.post('/api/voice/register-sample', (req, res) => {
         const filename = `sample_${Date.now()}.wav`;
         fs.writeFileSync(path.join(personDir, filename), audioBuffer);
 
+        console.log(`🎙️ [Voice Registration]: บันทึกเสียงตัวอย่างของ [${personName}] สำเร็จ`);
         if (!FAMILY_WHITELIST.includes(personName) && !VISITOR_WHITELIST.includes(personName)) {
             FAMILY_WHITELIST.push(personName);
         }
@@ -510,87 +470,39 @@ async function sendTelegramAlertWithPhoto(imageInput, caption) {
     }
 }
 
-// 🚨 ฟังก์ชันพิเศษ: บันทึกภาพชุด Burst Capture 5 ช็อต
-async function triggerSecurityBurstCapture(cameraId, camMeta, initialBuffer) {
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
-    const eventFolder = path.join(DIR_CAMERAS, cameraId, 'security_events');
-    
-    if (!fs.existsSync(eventFolder)) {
-        fs.mkdirSync(eventFolder, { recursive: true });
-    }
-
-    console.log(`[Security Burst] 🚨 ตรวจพบการบุกรุกที่ [${camMeta.name}]! เริ่มบันทึกภาพชุดหลักฐาน 5 ช็อต...`);
-
-    for (let i = 1; i <= 5; i++) {
-        const timeStr = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok' }).replace(/:/g, '-');
-        const filename = `sec_${cameraId}_${dateStr}_${timeStr}_shot${i}.jpg`;
-        const savePath = path.join(eventFolder, filename);
-
-        const frameToSave = (i === 1 && initialBuffer) ? initialBuffer : (inMemoryRAMStore[cameraId] || initialBuffer);
-        if (frameToSave) {
-            fs.writeFileSync(savePath, frameToSave);
-        }
-
-        if (i < 5) {
-            await new Promise(resolve => setTimeout(resolve, 600));
-        }
-    }
-    console.log(`[Security Burst] ✅ บันทึกชุดภาพหลักฐาน 5 ช็อตลงโฟลเดอร์สำเร็จ`);
-}
-
-// 📸 API รับ Snapshot คัดกรองตาม CARE Mode และ SECURITY Mode (รองรับ Template คำทักทาย 0 Token)
+// 📸 API หลักสำหรับรับ Snapshot พร้อมระบบคัดกรองตาม Security Mode และบีบขอบเขตเฉพาะกล้องหน้าบ้าน (camera002)
 app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     try {
         const { cameraId } = req.params;
-        const { imageBase64, recognizedName, isFamily, visitorResponse } = req.body;
+        const { imageBase64, recognizedName, isFamily } = req.body;
         
         if (!imageBase64) {
             return res.status(400).json({ success: false, message: 'No image data provided' });
         }
 
-        const camMeta = camerasConfig[cameraId] || { name: cameraId, careMode: true, securityMode: true };
+        const camMeta = camerasConfig[cameraId] || { name: cameraId };
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         const buffer = Buffer.from(base64Data, 'base64');
 
+        // 🧠 เก็บภาพเหตุการณ์ใส่ RAM Buffer เสมอ
         inMemoryRAMStore[cameraId] = buffer;
 
-        // 🟢 [CARE Mode Logic]
-        if (currentSystemMode === 'CARE') {
-            if (cameraId === 'camera002' && camMeta.careMode !== false) {
-                if (visitorResponse) {
-                    console.log(`[CARE Mode] ผู้มาติดต่อตอบกลับมาว่า: "${visitorResponse}"`);
-                    let indoorMsg = greetingsConfig.delivery_indoor_announcement || "เรียนคนในบ้านครับ มีผู้มาติดต่อหรือมีพัสดุมาส่งที่หน้าบ้านครับ";
-                    
-                    return res.status(200).json({
-                        success: true,
-                        mode: 'CARE',
-                        action: 'announce_indoor',
-                        announcementText: indoorMsg,
-                        message: 'ส่งเสียงประกาศเตือนคนในบ้านเรียบร้อยครับ'
-                    });
-                }
-
-                return res.status(200).json({ 
-                    success: true, 
-                    mode: 'CARE', 
-                    action: 'greet_visitor',
-                    greetingText: greetingsConfig.care_mode_greeting || "สวัสดีครับ ไม่ทราบว่ามาติดต่อใคร หรือมีธุระอะไรหรือเปล่าครับ บอกเจได้เลยนะครับ",
-                    message: 'ส่งประโยคทักทาย CARE Mode สำเร็จ (0 Token)' 
-                });
-            }
-
+        // 🛑 เงื่อนไขที่ 1: ถ้ายังไม่ได้เปิด Security Mode -> ปิดการดักจับและทักทายทุกกรณี (กันรบกวนคนในโรงงาน)
+        if (currentSystemMode !== 'SECURITY') {
             return res.status(200).json({ 
                 success: true, 
-                mode: 'CARE', 
-                message: 'ระบบอยู่ในโหมดดูแล (CARE Mode) กล้องจุดอื่นปกติ' 
+                mode: currentSystemMode, 
+                message: 'ระบบอยู่ในโหมดปกติ (CARE Mode) ข้ามการทักทายและแจ้งเตือนผู้บุกรุก' 
             });
         }
 
-        // 🛡️ [SECURITY Mode Logic]
+        // 🛑 เงื่อนไขที่ 2: บีบขอบเขตเฉพาะ "กล้องหน้าบ้าน" (camera002) เท่านั้นที่จะรันฟังก์ชันทักทายและนับถอยหลัง 15 วินาที
         const TARGET_SECURITY_CAMERA = 'camera002';
-        if (cameraId !== TARGET_SECURITY_CAMERA || camMeta.securityMode === false) {
-            return res.status(200).json({ success: true, message: `กล้องนอกขอบเขต Security` });
+        if (cameraId !== TARGET_SECURITY_CAMERA) {
+            return res.status(200).json({ 
+                success: true, 
+                message: `กล้อง ${cameraId} ไม่ได้อยู่ในขอบเขตการทักทายผู้บุกรุก (เปิดเฉพาะ ${TARGET_SECURITY_CAMERA})` 
+            });
         }
 
         const now = new Date();
@@ -605,26 +517,19 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
         const snapshotFilePath = path.join(camDir, snapshotFilename);
         fs.writeFileSync(snapshotFilePath, buffer);
 
-        // 🧠 จัดการ RAM Rolling Buffer (เก็บ 3 เฟรมล่าสุดเพื่อเทียบ Pixel Diff)
-        if (!rollingBuffers[cameraId]) rollingBuffers[cameraId] = [];
-        rollingBuffers[cameraId].push(buffer);
-        if (rollingBuffers[cameraId].length > 3) {
-            rollingBuffers[cameraId].shift();
-        }
+        const previousBuffer = lastFrames[cameraId];
+        lastFrames[cameraId] = buffer;
 
         let hasImportantMotion = false;
-        const currentBuffer = rollingBuffers[cameraId][rollingBuffers[cameraId].length - 1];
-        const previousBuffer = rollingBuffers[cameraId].length >= 2 ? rollingBuffers[cameraId][rollingBuffers[cameraId].length - 2] : null;
-
         if (previousBuffer) {
             let diffCount = 0;
             const sampleStep = 50;
-            const checkLength = Math.min(currentBuffer.length, previousBuffer.length);
+            const checkLength = Math.min(buffer.length, previousBuffer.length);
             let totalSamples = 0;
 
             for (let i = 0; i < checkLength; i += sampleStep) {
                 totalSamples++;
-                if (Math.abs(currentBuffer[i] - previousBuffer[i]) > 35) diffCount++;
+                if (Math.abs(buffer[i] - previousBuffer[i]) > 35) diffCount++;
             }
             hasImportantMotion = (diffCount / totalSamples) > 0.35;
         }
@@ -644,13 +549,12 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
         if (isConfirmedFamily) personCategory = 'family';
         else if (isConfirmedVisitor) personCategory = 'visitor';
 
+        // 🛑 ด่านที่ 1: ถ้าเป็นคนในครอบครัว (Family Whitelist) -> ตัดจบ ไม่แจ้งเตือน
         if (personCategory === 'family') {
             return res.status(200).json({ success: true, filtered: 'family-whitelist-passed', category: 'family' });
         }
 
         if (hasImportantMotion || recognizedName) {
-            await triggerSecurityBurstCapture(cameraId, camMeta, currentBuffer);
-
             const cloudUrl = await uploadToCloudStorage(buffer, snapshotFilename, cameraId);
             const alertImageSource = cloudUrl || snapshotFilePath;
 
@@ -661,8 +565,9 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
                 const sessionId = `verify_${cameraId}_${timestamp}`;
                 pendingAudioVerifications[sessionId] = { imagePath: alertImageSource, cameraId, status: 'waiting' };
 
-                console.log(`[Security Action] 🔔 ตรวจพบคนแปลกหน้าหน้ากล้อง [${camMeta.name}] เริ่มนับถอยหลัง 15 วินาที...`);
+                console.log(`[Security Action] 🔔 ตรวจพบคนแปลกหน้าหน้ากล้อง [${camMeta.name}] เริ่มส่งเสียงทักทายและจับเวลา 15 วินาที...`);
 
+                // ⏱️ ชาเลนจ์ 15 วินาที: รอการยืนยันตัวตนก่อนยิง Telegram จริง
                 setTimeout(async () => {
                     if (pendingAudioVerifications[sessionId]) {
                         delete pendingAudioVerifications[sessionId];
@@ -674,7 +579,7 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
                             );
                         }
                     }
-                }, 15000);
+                }, 15000); // 15 วินาทีทองตามที่ตกลงกัน
             } else {
                 if (nowTime - lastTelegramAlertTime[cameraId] > TELEGRAM_ALERT_COOLDOWN) {
                     lastTelegramAlertTime[cameraId] = nowTime;
@@ -699,14 +604,12 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     }
 });
 
-// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติ
+// 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติและเซฟทับไฟล์หลักพร้อมเก็บลง RAM
 function captureRtspSnapshot(cameraId, rtspUrl) {
     const realtimeOutputPath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     
     const camDir = path.join(DIR_CAMERAS, cameraId);
-    const secDir = path.join(camDir, 'security_events');
     if (!fs.existsSync(camDir)) fs.mkdirSync(camDir, { recursive: true });
-    if (!fs.existsSync(secDir)) fs.mkdirSync(secDir, { recursive: true });
     
     const now = new Date();
     const dateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
@@ -727,6 +630,7 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
         .output(realtimeOutputPath)
         .on('end', () => {
             try {
+                // 🧠 อ่านภาพเข้า RAM Buffer ทันทีเพื่อเสิร์ฟฝั่ง Client เสี้ยววินาที
                 if (fs.existsSync(realtimeOutputPath)) {
                     const imageBuffer = fs.readFileSync(realtimeOutputPath);
                     inMemoryRAMStore[cameraId] = imageBuffer;
@@ -740,38 +644,36 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
 
                 fs.copyFileSync(realtimeOutputPath, archiveOutputPath);
             } catch (e) {}
+
+            console.log(`[RTSP Stream] ดึงภาพจากกล้อง [${cameraId}] สำเร็จและอัปเดต RAM/Local แล้ว 🟢⚡`);
         })
-        .on('error', (err) => {})
+        .on('error', (err) => {
+            console.log(`[RTSP Warning] กล้อง [${cameraId}] กำลังเชื่อมต่อหรือสัญญาณสะดุด: ${err.message}`);
+        })
         .run();
 }
 
-let lastLoopTime = Date.now();
+// ⏰ ตั้งเวลาดึงภาพจากกล้องทุกๆ 3 วินาที (ข้าม camera001 ที่เป็นกล้องหน้าคอม)
 setInterval(() => {
-    const intervalTime = currentSystemMode === 'SECURITY' ? 1000 : 3000;
-    const now = Date.now();
-    
-    if (now - lastLoopTime >= intervalTime) {
-        lastLoopTime = now;
-        for (const [cameraId, cam] of Object.entries(camerasConfig)) {
-            // 🟢 เพิ่มเงื่อนไขข้าม camera001 หรือไอพี 127.0.0.1 ไม่ให้ดึง RTSP วนลูปผิดพลาด
-            if (cameraId === 'camera001' || cam.ip === '127.0.0.1') continue;        
+    for (const [cameraId, cam] of Object.entries(camerasConfig)) {
+        if (cameraId === 'camera001' || cam.ip === '127.0.0.1') {
+            continue; 
+        }        
+        if (cam && cam.ip && cam.ip !== 'DHCP/Unknown') {
+            const ip = cam.ip;
+            const channel = cam.channel || '102'; 
+            const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
             
-            if (cam && cam.ip && cam.ip !== 'DHCP/Unknown') {
-                const ip = cam.ip;
-                const channel = cam.channel || '102'; 
-                const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
-                
-                captureRtspSnapshot(cameraId, rtspUrl);
-            }
+            captureRtspSnapshot(cameraId, rtspUrl);
         }
     }
-}, 500);
+}, 3000);
 
-// เริ่มรันเซิร์ฟเวอร์
-initSystemConfigs().then(() => {
+// เริ่มรันเซิร์ฟเวอร์หลังจากโหลดค่ากล้องเสร็จ
+initCamerasConfig().then(() => {
     app.listen(PORT, () => {
         console.log(`[Project-J Guardian Server] Running on http://localhost:${PORT}`);
-        console.log(`[Multi-Camera System (Local-First + RAM Buffering + Burst Capture + Templates + go2rtc Auto-Sync)] Ready 🟢📹⚡`);
-        console.log(`[Initial System Mode]: ${currentSystemMode}`);
+        console.log(`[Multi-Camera System (Local-First + RAM Buffering)] Ready 🟢📹⚡`);
+        console.log(`[Initial System Mode]: ${currentSystemMode} (Safe for factory testing)`);
     });
 });
