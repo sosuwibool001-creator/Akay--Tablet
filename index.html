@@ -331,11 +331,11 @@
         <div class="main-viewer-box">
             <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กำลังโหลด...</div>
             <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
-            <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) -->
+            <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) พร้อมรองรับเสียงพูดออก NVR ผ่าน go2rtc backchannel -->
             <video id="activeMainVideo" autoplay playsinline muted style="display:block;"></video>
-            <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=1" 
+            <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=0" 
             style="width: 100%; height: 100%; border: none; object-fit: cover; display:none;" 
-            allowfullscreen></iframe>
+            allow="microphone; camera; autoplay" allowfullscreen></iframe>
         </div>
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
@@ -545,7 +545,6 @@ async function updateSystemModeIndicator() {
                     modeDot.style.boxShadow = '0 0 6px rgba(52,199,89,0.4)';
                 }
                 if (modeText) modeText.innerText = 'โหมดดูแล (CARE)';
-                // รีเซ็ตสถานะ Challenge ถ้าเปลี่ยนกลับเป็น CARE
                 if (isSecurityChallenging) {
                     isSecurityChallenging = false;
                     if (securityChallengeTimer) clearTimeout(securityChallengeTimer);
@@ -563,16 +562,13 @@ function startSecurityMotionMonitor() {
         if (!isUserActiveSession || currentSystemMode !== 'SECURITY' || isSecurityChallenging || isEnrollingGuest) return;
 
         try {
-            // เช็กสถานะตรวจพบการเคลื่อนไหวจากฝั่ง Backend หรือตรวจจับภาพกล้องหน้าบ้าน (camera002)
             const res = await fetch(`${SERVER_URL}/api/security/motion-check`);
             const data = await res.json();
 
             if (data && data.motionDetected) {
                 triggerSecurityChallengeProtocol("กล้องหน้าบ้าน");
             }
-        } catch (e) {
-            // สำรอง: กรณีจำลองการตรวจจับอัตโนมัติหาก Backend ยังไม่ได้เปิด endpoint นี้ สามารถเช็กผ่าน AI / สภาพแวดล้อมได้
-        }
+        } catch (e) {}
     }, 5000);
 }
 
@@ -581,16 +577,14 @@ async function triggerSecurityChallengeProtocol(cameraName) {
     if (isSecurityChallenging) return;
     isSecurityChallenging = true;
 
-    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-red);"></span><strong>🚨 ตรวจพบความเคลื่อนไหว [${cameraName}]:</strong> เจกำลังทักทายและขอการยืนยันตัวตน...`;
+    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-red);"></span><strong>🚨 ตรวจพบความเคลื่อนไหว [${cameraName}]:</strong> เจกำลังทักทายผ่านไมค์ NVR หน้าบ้านและขอการยืนยันตัวตน...`;
     
-    // 1. เจพูดสอบถามเบื้องต้น
     const challengeText = `สวัสดีครับ ระบบรักษาความปลอดภัยกำลังทำงาน กรุณาระบุตัวตนหรือแจ้งชื่อให้เจทราบภายในสิบห้าวินาทีครับ`;
-    await playTextToSpeech(challengeText);
+    await playTextToSpeechAndNVR(challengeText, cameraName);
 
     countdownBadge.style.display = 'block';
     let timeLeft = 15;
 
-    // เริ่มจับเวลา 15 วินาที
     securityChallengeTimer = setInterval(() => {
         countdownBadge.innerText = `🚨 รอการยืนยันตัวตน: ${timeLeft}s`;
         timeLeft--;
@@ -599,14 +593,28 @@ async function triggerSecurityChallengeProtocol(cameraName) {
             clearInterval(securityChallengeTimer);
             countdownBadge.style.display = 'none';
             isSecurityChallenging = false;
-
-            // 2. ถ้าหมดเวลา 15 วิ ไม่มีใครตอบกลับ -> ส่งแจ้งเตือน Telegram ผ่าน Backend
             sendTelegramSecurityAlert(cameraName);
         }
     }, 1000);
 }
 
-// ฟังก์ชันยกเลิก Timer ทันทีเมื่อมีเสียงตอบรับจากผู้ใช้ถูกต้อง
+// 🔊 ฟังก์ชันสั่งพูดออกลำโพงคอมและส่งเสียงผ่าน Backchannel ไปออกไมค์ NVR หน้าบ้าน
+async function playTextToSpeechAndNVR(text, cameraName) {
+    // 1. เล่นเสียงออกลำโพงคอมตามปกติ
+    await playTextToSpeech(text);
+
+    // 2. ส่งคำสั่งให้ go2rtc ส่งเสียงพูดออกไปยังลำโพง/ไมค์ของกล้อง NVR หน้าบ้าน (camera002)
+    try {
+        await fetch(`${GO2RTC_BASE_URL}/api/audio?src=camera002`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain' },
+            body: text
+        });
+    } catch (e) {
+        console.warn("NVR Audio Backchannel error:", e);
+    }
+}
+
 function cancelSecurityChallengeIfResponded() {
     if (isSecurityChallenging) {
         isSecurityChallenging = false;
@@ -625,9 +633,7 @@ async function sendTelegramSecurityAlert(cameraName) {
             body: JSON.stringify({ message: `🚨 แจ้งเตือนความปลอดภัย: ตรวจพบการเคลื่อนไหวผิดปกติที่ [${cameraName}] และไม่มีการตอบกลับยืนยันตัวตนภายใน 15 วินาที!` })
         });
         await playTextToSpeech("ไม่มีการตอบกลับภายในเวลาที่กำหนด เจได้ส่งภาพและแจ้งเตือนไปยังเทเลแกรมเรียบร้อยแล้วครับ");
-    } catch (err) {
-        console.error("Failed to send Telegram alert:", err);
-    }
+    } catch (err) {}
 }
 
 function saveToHistory(role, text) {
@@ -643,7 +649,6 @@ clearMemBtn.addEventListener('click', () => {
     alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
 });
 
-// 🎙️📷 ปรับการขออนุญาตสิทธิ์ใช้งาน ให้เปิดทั้งกล้องและไมโครโฟนพร้อมกันตั้งแต่เริ่มต้น
 startAuthBtn.addEventListener('click', async () => {
     if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
         alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
@@ -768,7 +773,6 @@ async function initCameraSystem() {
         await switchActiveCamera(activeCameraId);
 
     } catch (err) {
-        console.warn("ไม่สามารถโหลดรายชื่อกล้องได้:", err.message);
         statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ โหลดกล้องล้มเหลว:</strong> ${err.message}`;
     }
 }
@@ -821,7 +825,7 @@ function renderDynamicThumbnails() {
                     const thumbVid = document.getElementById(`thumb-vid-${camId}`);
                     if (thumbVid) thumbVid.srcObject = stream;
                 })
-                .catch(e => console.warn(`ไม่สามารถเปิดพรีวิว ${camId}:`, e.message));
+                .catch(e => {});
         }
     }
 }
@@ -852,9 +856,11 @@ async function switchActiveCamera(camId) {
         }
         if (mainFrame) {
             mainFrame.style.display = 'block';
-            mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
+            // 🟢 ปลดล็อกเสียง NVR เป็น muted=0 และอนุญาตสิทธิ์ microphone และ camera
+            mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=0`;
+            mainFrame.setAttribute('allow', 'microphone; camera; autoplay');
         }
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อยครับ 🟢`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] พร้อมเปิดไมค์สื่อสาร 🟢`;
     } else {
         if (mainFrame) {
             mainFrame.style.display = 'none';
@@ -866,10 +872,8 @@ async function switchActiveCamera(camId) {
                 const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 camInfo.stream = newStream;
                 mainVid.srcObject = newStream;
-                await mainVid.play().catch(e => console.log("Auto-play prevented:", e));
-            } catch (err) {
-                console.warn("Webcam error:", err);
-            }
+                await mainVid.play().catch(e => {});
+            } catch (err) {}
         }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
     }
@@ -924,7 +928,28 @@ ${historySummaryText}
                         responseModalities: ["AUDIO"],
                         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
                     },
-                    tools: [{ googleSearch: {} }],
+                    tools: [
+                        { googleSearch: {} },
+                        {
+                            functionDeclarations: [
+                                {
+                                    name: "setSystemMode",
+                                    description: "สลับโหมดการทำงานของระบบระหว่าง โหมดดูแล (CARE) และ โหมดรักษาความปลอดภัย (SECURITY)",
+                                    parameters: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            mode: {
+                                                type: "STRING",
+                                                enum: ["CARE", "SECURITY"],
+                                                description: "โหมดที่ต้องการเปลี่ยน เช่น SECURITY หรือ CARE"
+                                            }
+                                        },
+                                        required: ["mode"]
+                                    }
+                                }
+                            ]
+                        }
+                    ],
                     systemInstruction: { parts: [{ text: dynamicToneInstructions }] }
                 }
             };
@@ -934,7 +959,6 @@ ${historySummaryText}
             startKeepAlivePing();
             startRemoteCaptureListener(); 
             
-            // 🟢 เริ่มระบบเช็กไฟสถานะโหมดทุกๆ 3 วินาที และตรวจจับการเคลื่อนไหวโหมด Security
             updateSystemModeIndicator();
             if (modeCheckInterval) clearInterval(modeCheckInterval);
             modeCheckInterval = setInterval(updateSystemModeIndicator, 3000);
@@ -946,6 +970,39 @@ ${historySummaryText}
             let responseText = "";
             try {
                 let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
+                
+                // 🟢 ตรวจสอบว่า AI เรียกใช้งาน Function setSystemMode หรือไม่
+                if (data.toolCall) {
+                    for (const call of data.toolCall.functionCalls) {
+                        if (call.name === "setSystemMode") {
+                            const requestedMode = call.args.mode;
+                            
+                            // ส่งคำสั่งไปเปลี่ยนโหมดที่เซิร์ฟเวอร์
+                            await fetch(`${SERVER_URL}/api/system/mode`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ mode: requestedMode })
+                            });
+
+                            // อัปเดต UI หน้าจอทันที
+                            await updateSystemModeIndicator();
+
+                            // ส่งผลลัพธ์กลับไปบอก AI
+                            const toolResponse = {
+                                toolResponse: {
+                                    functionResponses: [
+                                        {
+                                            response: { output: { success: true, currentMode: requestedMode } },
+                                            id: call.id
+                                        }
+                                    ]
+                                }
+                            };
+                            ws.send(JSON.stringify(toolResponse));
+                        }
+                    }
+                }
+
                 if (data.serverContent && data.serverContent.modelTurn) {
                     const parts = data.serverContent.modelTurn.parts;
                     for (const part of parts) {
@@ -1023,9 +1080,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             ctx.drawImage(img, 0, 0);
             
             base64Image = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
-        } catch (err) {
-            console.warn(`ไม่สามารถโหลดภาพ NVR จาก uploads ของ ${camId} ได้:`, err);
-        }
+        } catch (err) {}
     } else {
         const canvas = document.createElement('canvas');
         canvas.width = 1920; canvas.height = 1080;
@@ -1167,7 +1222,6 @@ function startSpeechRecognition() {
                 let finalTextToSend = speechBuffer.trim();
                 speechBuffer = "";
                 if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
-                    // หากอยู่ในช่วง Security Challenge แล้วมีการพูดตอบกลับ ให้ยกเลิก Timer ฉุกเฉินทันที
                     cancelSecurityChallengeIfResponded();
                     sendTextDirectly(finalTextToSend);
                 }
