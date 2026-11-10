@@ -614,11 +614,13 @@ async function startSecurityMotionMonitor() {
     securityMotionCheckInterval = setInterval(async () => {
         if (!isUserActiveSession || currentSystemMode !== 'SECURITY' || isSecurityChallenging || isEnrollingGuest) return;
 
-        // จำลองการดึงภาพหน้าบ้านส่งเข้าหลังบ้านแบบ RAM Buffer ตรวจสอบ Pixel Diff
+        // ดึงภาพจากกล้องหน้าคอมพิวเตอร์ (Webcam) หรือแท็ก activeMainVideo เพื่อรัน Pixel Diff
         const canvas = document.createElement('canvas');
         canvas.width = 640; canvas.height = 360;
         const ctx = canvas.getContext('2d');
         const mainVid = document.getElementById('activeMainVideo');
+        
+        // 🟢 ปรับปรุง: ดึงภาพจากสตรีมวิดีโอหน้าคอมพิวเตอร์มาส่งเข้า RAM Buffer ตรวจ Pixel Diff ได้สม่ำเสมอ
         if (mainVid && mainVid.readyState === 4) {
             ctx.drawImage(mainVid, 0, 0, 640, 360);
             const base64Img = canvas.toDataURL('image/jpeg', 0.4);
@@ -668,7 +670,7 @@ async function playTextToSpeechAndNVR(text, cameraName) {
 function cancelSecurityChallengeIfResponded() {
     if (isSecurityChallenging) {
         isSecurityChallenging = false;
-        if (securityChallengeTimer) clearInterval(securityChallengeTimer);
+        if (securityChallengeTimer) clearTimeout(securityChallengeTimer);
         countdownBadge.style.display = 'none';
         statusText.innerHTML = `<span class="status-dot"></span><strong>✅ ยืนยันตัวตนผ่าน:</strong> ยกเลิกการแจ้งเตือนฉุกเฉินเรียบร้อย`;
     }
@@ -799,13 +801,14 @@ async function initCameraSystem() {
 
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel || camInfo.isNvr;
+                // แยกแยะว่าเป็นกล้อง NVR หรือกล้องเว็บแคม (127.0.0.1 หรือ local)
+                const isNvr = (camInfo.ip === '127.0.0.1' || camInfo.ip === 'DHCP/Unknown') ? false : (camInfo.channel || camInfo.isNvr);
                 
                 camerasRegistry[camId] = {
                     name: camInfo.name,
                     ip: camInfo.ip,
                     channel: camInfo.channel || '',
-                    isNvr: isNvr,
+                    isNvr: isNvr ? true : false,
                     stream: null
                 };
             }
@@ -820,6 +823,8 @@ async function initCameraSystem() {
 
         updateDropdownUI();
         renderDynamicThumbnails();
+
+        // 🟢 บังคับสั่งเปิดสตรีมกล้องตัวแรกทันที (เปิดสตรีม Webcam ภาพขึ้นหน้าจอทันทีเมื่อเริ่มต้น)
         await switchActiveCamera(activeCameraId);
 
     } catch (err) {
@@ -918,11 +923,16 @@ async function switchActiveCamera(camId) {
         if (mainVid) {
             mainVid.style.display = 'block';
             try {
-                const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                const newStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    audio: false 
+                });
                 camInfo.stream = newStream;
                 mainVid.srcObject = newStream;
                 await mainVid.play().catch(e => {});
-            } catch (err) {}
+            } catch (err) {
+                console.error("Webcam stream error:", err);
+            }
         }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
     }
