@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Security & Auto Enrollment)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Auto Enrollment Engine)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -272,8 +272,8 @@
 <div class="container">
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
-        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Security Edition</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลความปลอดภัย (PC Version - Security & Motion Challenge)</div>
+        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Auto Enrollment</span></div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลผู้สูงอายุ (PC Version - Hands-Free Profile Enrollment)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -316,14 +316,8 @@
     <!-- Step 2: แดชบอร์ดหลัก Multi-Camera -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <span>Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
-                
-                <!-- 🟢🔴 ไฟสถานะโหมดระบบแบบเรียบหรู อัปเดตอัตโนมัติ -->
-                <div id="systemModeBadge" style="font-size: 12px; font-weight: 500; background: #fafafa; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-color);">
-                    <span id="modeDot" style="width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px rgba(52,199,89,0.4);"></span>
-                    <span id="modeText" style="color: #1d1d1f;">โหมดดูแล (CARE)</span>
-                </div>
+            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
+                Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
@@ -331,11 +325,11 @@
         <div class="main-viewer-box">
             <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กำลังโหลด...</div>
             <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
-            <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) พร้อมรองรับเสียงพูดออก NVR ผ่าน go2rtc backchannel -->
+            <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) -->
             <video id="activeMainVideo" autoplay playsinline muted style="display:block;"></video>
-            <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=0" 
+            <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=1" 
             style="width: 100%; height: 100%; border: none; object-fit: cover; display:none;" 
-            allow="microphone; camera; autoplay" allowfullscreen></iframe>
+            allowfullscreen></iframe>
         </div>
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
@@ -357,14 +351,16 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน...</div>
-            <div id="audioStats" class="debug-stats">🎙️ Security & Auto Enrollment Engine: พร้อมทำงานตรวจสอบความเคลื่อนไหว</div>
+            <div id="audioStats" class="debug-stats">🎙️ Auto Enrollment Engine: พร้อมบันทึกเสียงและถ่ายภาพคนใหม่อัตโนมัติ</div>
         </div>
     </div>
 </div>
 
 <script>
 let BACKEND_API_KEY = "";
+// ปรับเปลี่ยนมาใช้ Localhost แทนคลาวด์ Render ตามที่ตกลงกันครับ
 const SERVER_URL = "http://localhost:3000";
+// กำหนด IP ของ Mini PC หรือเซิร์ฟเวอร์ที่รัน go2rtc (ตัวอย่างใช้พอร์ต 1984)
 const GO2RTC_BASE_URL = "http://localhost:1984"; 
 
 async function initConfig() {
@@ -500,8 +496,6 @@ let masterMediaStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null;
-let modeCheckInterval = null;
-let securityMotionCheckInterval = null;
 let recognition = null;
 let isUserActiveSession = false;
 let authenticatedUser = "เพื่อนเอก (Ake)";
@@ -511,130 +505,12 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
-// ตัวแปรสำหรับคุมสถานะ Security Challenge 15 วิ
-let isSecurityChallenging = false;
-let securityChallengeTimer = null;
-let currentSystemMode = "CARE";
-
 let camerasRegistry = {
     "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, isNvr: false, stream: null },
     "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", isNvr: true, stream: null },
     "camera003": { name: "OBS Virtual Camera (ห้องรับแขก) (NVR)", isNvr: true, stream: null }
 };
 let activeCameraId = "";
-
-// 🟢 ฟังก์ชันดึงสถานะโหมดระบบ และควบคุมระบบตรวจจับการเคลื่อนไหวในโหมด SECURITY
-async function updateSystemModeIndicator() {
-    try {
-        const res = await fetch(`${SERVER_URL}/api/system/mode`);
-        const data = await res.json();
-        if (data.success) {
-            currentSystemMode = data.mode;
-            const modeDot = document.getElementById('modeDot');
-            const modeText = document.getElementById('modeText');
-            
-            if (data.mode === 'SECURITY') {
-                if (modeDot) {
-                    modeDot.style.backgroundColor = 'var(--accent-red)';
-                    modeDot.style.boxShadow = '0 0 6px rgba(255,59,48,0.5)';
-                }
-                if (modeText) modeText.innerText = 'โหมดรักษาความปลอดภัย (SECURITY)';
-            } else {
-                if (modeDot) {
-                    modeDot.style.backgroundColor = 'var(--accent-green)';
-                    modeDot.style.boxShadow = '0 0 6px rgba(52,199,89,0.4)';
-                }
-                if (modeText) modeText.innerText = 'โหมดดูแล (CARE)';
-                if (isSecurityChallenging) {
-                    isSecurityChallenging = false;
-                    if (securityChallengeTimer) clearTimeout(securityChallengeTimer);
-                }
-            }
-        }
-    } catch (err) {}
-}
-
-// 🚨 ฟังก์ชันตรวจสอบการเคลื่อนไหวหน้าบ้านในโหมด SECURITY พร้อมระบบสอบถาม 15 วิ และแจ้งเตือน Telegram
-function startSecurityMotionMonitor() {
-    if (securityMotionCheckInterval) clearInterval(securityMotionCheckInterval);
-    
-    securityMotionCheckInterval = setInterval(async () => {
-        if (!isUserActiveSession || currentSystemMode !== 'SECURITY' || isSecurityChallenging || isEnrollingGuest) return;
-
-        try {
-            const res = await fetch(`${SERVER_URL}/api/security/motion-check`);
-            const data = await res.json();
-
-            if (data && data.motionDetected) {
-                triggerSecurityChallengeProtocol("กล้องหน้าบ้าน");
-            }
-        } catch (e) {}
-    }, 5000);
-}
-
-// 🎙️ โปรโตคอลทักทายสอบถาม และนับถอยหลัง 15 วินาที ถ้าไม่ตอบส่ง Telegram
-async function triggerSecurityChallengeProtocol(cameraName) {
-    if (isSecurityChallenging) return;
-    isSecurityChallenging = true;
-
-    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-red);"></span><strong>🚨 ตรวจพบความเคลื่อนไหว [${cameraName}]:</strong> เจกำลังทักทายผ่านไมค์ NVR หน้าบ้านและขอการยืนยันตัวตน...`;
-    
-    const challengeText = `สวัสดีครับ ระบบรักษาความปลอดภัยกำลังทำงาน กรุณาระบุตัวตนหรือแจ้งชื่อให้เจทราบภายในสิบห้าวินาทีครับ`;
-    await playTextToSpeechAndNVR(challengeText, cameraName);
-
-    countdownBadge.style.display = 'block';
-    let timeLeft = 15;
-
-    securityChallengeTimer = setInterval(() => {
-        countdownBadge.innerText = `🚨 รอการยืนยันตัวตน: ${timeLeft}s`;
-        timeLeft--;
-
-        if (timeLeft < 0) {
-            clearInterval(securityChallengeTimer);
-            countdownBadge.style.display = 'none';
-            isSecurityChallenging = false;
-            sendTelegramSecurityAlert(cameraName);
-        }
-    }, 1000);
-}
-
-// 🔊 ฟังก์ชันสั่งพูดออกลำโพงคอมและส่งเสียงผ่าน Backchannel ไปออกไมค์ NVR หน้าบ้าน
-async function playTextToSpeechAndNVR(text, cameraName) {
-    // 1. เล่นเสียงออกลำโพงคอมตามปกติ
-    await playTextToSpeech(text);
-
-    // 2. ส่งคำสั่งให้ go2rtc ส่งเสียงพูดออกไปยังลำโพง/ไมค์ของกล้อง NVR หน้าบ้าน (camera002)
-    try {
-        await fetch(`${GO2RTC_BASE_URL}/api/audio?src=camera002`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: text
-        });
-    } catch (e) {
-        console.warn("NVR Audio Backchannel error:", e);
-    }
-}
-
-function cancelSecurityChallengeIfResponded() {
-    if (isSecurityChallenging) {
-        isSecurityChallenging = false;
-        if (securityChallengeTimer) clearInterval(securityChallengeTimer);
-        countdownBadge.style.display = 'none';
-        statusText.innerHTML = `<span class="status-dot"></span><strong>✅ ยืนยันตัวตนผ่าน:</strong> ยกเลิกการแจ้งเตือนฉุกเฉินเรียบร้อย`;
-    }
-}
-
-async function sendTelegramSecurityAlert(cameraName) {
-    try {
-        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>⚠️ หมดเวลา 15 วินาที:</strong> กำลังส่งแจ้งเตือนด่วนทาง Telegram...`;
-        await fetch(`${SERVER_URL}/api/telegram/alert`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `🚨 แจ้งเตือนความปลอดภัย: ตรวจพบการเคลื่อนไหวผิดปกติที่ [${cameraName}] และไม่มีการตอบกลับยืนยันตัวตนภายใน 15 วินาที!` })
-        });
-        await playTextToSpeech("ไม่มีการตอบกลับภายในเวลาที่กำหนด เจได้ส่งภาพและแจ้งเตือนไปยังเทเลแกรมเรียบร้อยแล้วครับ");
-    } catch (err) {}
-}
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -662,16 +538,16 @@ startAuthBtn.addEventListener('click', async () => {
 
         if (!data.registered) {
             stepSetup.style.display = 'flex';
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
+            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
             setupVideo.srcObject = authStream;
         } else {
             stepAuth.style.display = 'flex';
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
+            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
             authVideo.srcObject = authStream;
             runAutoVerification(data.owner.name);
         }
     } catch (err) {
-        alert("ไม่สามารถเชื่อมต่อกล้องหรือไมโครโฟนได้: " + err.message);
+        alert("ไม่สามารถเชื่อมต่อกล้องหรือเซิร์ฟเวอร์ได้: " + err.message);
         step1.style.display = 'flex';
     }
 });
@@ -749,14 +625,13 @@ async function initCameraSystem() {
 
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                // 🟢 ตรวจสอบว่าถ้าเป็น IP 127.0.0.1 ให้ตั้งค่า isNvr เป็น false (ใช้กล้องเว็บแคมคอม)
-                const isNvr = (camInfo.ip === '127.0.0.1' || camInfo.ip === 'DHCP/Unknown') ? false : (camInfo.channel || camInfo.isNvr);
+                const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel || camInfo.isNvr;
                 
                 camerasRegistry[camId] = {
                     name: camInfo.name,
                     ip: camInfo.ip,
                     channel: camInfo.channel || '',
-                    isNvr: isNvr ? true : false,
+                    isNvr: isNvr,
                     stream: null
                 };
             }
@@ -771,11 +646,10 @@ async function initCameraSystem() {
 
         updateDropdownUI();
         renderDynamicThumbnails();
-        
-        // 🟢 สั่งเปิดสตรีมกล้องตัวแรกทันทีที่เข้าสู่หน้าจอหลัก
         await switchActiveCamera(activeCameraId);
 
     } catch (err) {
+        console.warn("ไม่สามารถโหลดรายชื่อกล้องได้:", err.message);
         statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ โหลดกล้องล้มเหลว:</strong> ${err.message}`;
     }
 }
@@ -828,20 +702,13 @@ function renderDynamicThumbnails() {
                     const thumbVid = document.getElementById(`thumb-vid-${camId}`);
                     if (thumbVid) thumbVid.srcObject = stream;
                 })
-                .catch(e => {});
+                .catch(e => console.warn(`ไม่สามารถเปิดพรีวิว ${camId}:`, e.message));
         }
     }
 }
 
 async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
-    
-    // 🟢 ปิดสตรีมกล้องเว็บแคมตัวเก่าก่อนเปลี่ยน เพื่อป้องกันกล้องชนกัน
-    if (activeCameraId && camerasRegistry[activeCameraId] && camerasRegistry[activeCameraId].stream) {
-        camerasRegistry[activeCameraId].stream.getTracks().forEach(track => track.stop());
-        camerasRegistry[activeCameraId].stream = null;
-    }
-
     activeCameraId = camId;
 
     document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active'));
@@ -866,10 +733,9 @@ async function switchActiveCamera(camId) {
         }
         if (mainFrame) {
             mainFrame.style.display = 'block';
-            mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=0`;
-            mainFrame.setAttribute('allow', 'microphone; camera; autoplay');
+            mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
         }
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] พร้อมเปิดไมค์สื่อสาร 🟢`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อยครับ 🟢`;
     } else {
         if (mainFrame) {
             mainFrame.style.display = 'none';
@@ -878,17 +744,12 @@ async function switchActiveCamera(camId) {
         if (mainVid) {
             mainVid.style.display = 'block';
             try {
-                // 🟢 ขอสิทธิ์และเปิดเว็บแคมหน้าคอมพิวเตอร์เข้าสู่แท็กวิดีโอหลัก
-                const newStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
-                    audio: false 
-                });
+                const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 camInfo.stream = newStream;
                 mainVid.srcObject = newStream;
-                await mainVid.play().catch(e => {});
+                await mainVid.play().catch(e => console.log("Auto-play prevented:", e));
             } catch (err) {
-                console.error("Webcam stream error:", err);
-                statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เปิดกล้องหน้าคอมไม่สำเร็จ:</strong> ${err.message}`;
+                console.warn("Webcam error:", err);
             }
         }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
@@ -929,7 +790,7 @@ async function startMainAppSession() {
                 : "ไม่มีประวัติคุยเก่า";
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `🎙️ Security & Auto Enrollment Engine Ready`;
+            audioStats.innerText = `🎙️ Auto Enrollment Engine Ready: ทักเจเมื่อมีเพื่อนใหม่`;
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
@@ -944,28 +805,7 @@ ${historySummaryText}
                         responseModalities: ["AUDIO"],
                         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
                     },
-                    tools: [
-                        { googleSearch: {} },
-                        {
-                            functionDeclarations: [
-                                {
-                                    name: "setSystemMode",
-                                    description: "สลับโหมดการทำงานของระบบระหว่าง โหมดดูแล (CARE) และ โหมดรักษาความปลอดภัย (SECURITY)",
-                                    parameters: {
-                                        type: "OBJECT",
-                                        properties: {
-                                            mode: {
-                                                type: "STRING",
-                                                enum: ["CARE", "SECURITY"],
-                                                description: "โหมดที่ต้องการเปลี่ยน เช่น SECURITY หรือ CARE"
-                                            }
-                                        },
-                                        required: ["mode"]
-                                    }
-                                }
-                            ]
-                        }
-                    ],
+                    tools: [{ googleSearch: {} }],
                     systemInstruction: { parts: [{ text: dynamicToneInstructions }] }
                 }
             };
@@ -974,51 +814,12 @@ ${historySummaryText}
             startSpeechRecognition();
             startKeepAlivePing();
             startRemoteCaptureListener(); 
-            
-            updateSystemModeIndicator();
-            if (modeCheckInterval) clearInterval(modeCheckInterval);
-            modeCheckInterval = setInterval(updateSystemModeIndicator, 3000);
-
-            startSecurityMotionMonitor();
         };
 
         ws.onmessage = async (event) => {
             let responseText = "";
             try {
                 let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
-                
-                // 🟢 ตรวจสอบว่า AI เรียกใช้งาน Function setSystemMode หรือไม่
-                if (data.toolCall) {
-                    for (const call of data.toolCall.functionCalls) {
-                        if (call.name === "setSystemMode") {
-                            const requestedMode = call.args.mode;
-                            
-                            // ส่งคำสั่งไปเปลี่ยนโหมดที่เซิร์ฟเวอร์
-                            await fetch(`${SERVER_URL}/api/system/mode`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ mode: requestedMode })
-                            });
-
-                            // อัปเดต UI หน้าจอทันที
-                            await updateSystemModeIndicator();
-
-                            // ส่งผลลัพธ์กลับไปบอก AI
-                            const toolResponse = {
-                                toolResponse: {
-                                    functionResponses: [
-                                        {
-                                            response: { output: { success: true, currentMode: requestedMode } },
-                                            id: call.id
-                                        }
-                                    ]
-                                }
-                            };
-                            ws.send(JSON.stringify(toolResponse));
-                        }
-                    }
-                }
-
                 if (data.serverContent && data.serverContent.modelTurn) {
                     const parts = data.serverContent.modelTurn.parts;
                     for (const part of parts) {
@@ -1077,6 +878,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     let base64Image = null;
 
     if (camInfo && camInfo.isNvr) {
+        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพสดตรงจากโฟลเดอร์ uploads ของเซิร์ฟเวอร์
         try {
             const imageUrl = `${SERVER_URL}/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
             const img = new Image();
@@ -1096,8 +898,11 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             ctx.drawImage(img, 0, 0);
             
             base64Image = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
-        } catch (err) {}
+        } catch (err) {
+            console.warn(`ไม่สามารถโหลดภาพ NVR จาก uploads ของ ${camId} ได้:`, err);
+        }
     } else {
+        // 💻 สำหรับเว็บแคม: ถ้าเป็นกล้องที่กำลังแสดงผลอยู่ตอนนี้ ให้ดึงจากจอหลัก #activeMainVideo โดยตรงเพื่อความสดใหม่
         const canvas = document.createElement('canvas');
         canvas.width = 1920; canvas.height = 1080;
         const ctx = canvas.getContext('2d');
@@ -1115,6 +920,7 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
         }
     }
 
+    // ส่งภาพ Base64 นี้เข้าไปหาเจผ่าน WebSocket
     if (isManualTrigger && ws && ws.readyState === WebSocket.OPEN) {
         const parts = [];
         if (base64Image) {
@@ -1238,7 +1044,6 @@ function startSpeechRecognition() {
                 let finalTextToSend = speechBuffer.trim();
                 speechBuffer = "";
                 if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
-                    cancelSecurityChallengeIfResponded();
                     sendTextDirectly(finalTextToSend);
                 }
             }, 800);
@@ -1334,9 +1139,6 @@ function stopSession() {
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
-    if (modeCheckInterval) { clearInterval(modeCheckInterval); modeCheckInterval = null; }
-    if (securityMotionCheckInterval) { clearInterval(securityMotionCheckInterval); securityMotionCheckInterval = null; }
-    if (securityChallengeTimer) { clearTimeout(securityChallengeTimer); securityChallengeTimer = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
