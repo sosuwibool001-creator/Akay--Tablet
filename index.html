@@ -316,8 +316,14 @@
     <!-- Step 2: แดชบอร์ดหลัก Multi-Camera -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center;">
-                Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)
+            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span>Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
+                
+                <!-- 🟢🔴 ไฟสถานะโหมดระบบแบบเรียบหรู อัปเดตอัตโนมัติ -->
+                <div id="systemModeBadge" style="font-size: 12px; font-weight: 500; background: #fafafa; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-color);">
+                    <span id="modeDot" style="width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px rgba(52,199,89,0.4);"></span>
+                    <span id="modeText" style="color: #1d1d1f;">โหมดดูแล (CARE)</span>
+                </div>
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
@@ -496,6 +502,7 @@ let masterMediaStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null;
+let modeCheckInterval = null;
 let recognition = null;
 let isUserActiveSession = false;
 let authenticatedUser = "เพื่อนเอก (Ake)";
@@ -511,6 +518,34 @@ let camerasRegistry = {
     "camera003": { name: "OBS Virtual Camera (ห้องรับแขก) (NVR)", isNvr: true, stream: null }
 };
 let activeCameraId = "";
+
+// 🟢 ฟังก์ชันคอยดึงสถานะโหมดจากเซิร์ฟเวอร์มาอัปเดตไฟสถานะแบบเรียลไทม์
+async function updateSystemModeIndicator() {
+    try {
+        const res = await fetch(`${SERVER_URL}/api/system/mode`);
+        const data = await res.json();
+        if (data.success) {
+            const modeDot = document.getElementById('modeDot');
+            const modeText = document.getElementById('modeText');
+            
+            if (data.mode === 'SECURITY') {
+                if (modeDot) {
+                    modeDot.style.backgroundColor = 'var(--accent-red)';
+                    modeDot.style.boxShadow = '0 0 6px rgba(255,59,48,0.5)';
+                }
+                if (modeText) modeText.innerText = 'โหมดรักษาความปลอดภัย (SECURITY)';
+            } else {
+                if (modeDot) {
+                    modeDot.style.backgroundColor = 'var(--accent-green)';
+                    modeDot.style.boxShadow = '0 0 6px rgba(52,199,89,0.4)';
+                }
+                if (modeText) modeText.innerText = 'โหมดดูแล (CARE)';
+            }
+        }
+    } catch (err) {
+        // ข้ามข้อผิดพลาดกรณีการเชื่อมต่อชั่วคราว
+    }
+}
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -791,7 +826,6 @@ async function startMainAppSession() {
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
             audioStats.innerText = `🎙️ Auto Enrollment Engine Ready: ทักเจเมื่อมีเพื่อนใหม่`;
-            
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
@@ -815,6 +849,11 @@ ${historySummaryText}
             startSpeechRecognition();
             startKeepAlivePing();
             startRemoteCaptureListener(); 
+            
+            // 🟢 เริ่มระบบเช็กไฟสถานะโหมดทุกๆ 3 วินาที
+            updateSystemModeIndicator();
+            if (modeCheckInterval) clearInterval(modeCheckInterval);
+            modeCheckInterval = setInterval(updateSystemModeIndicator, 3000);
         };
 
         ws.onmessage = async (event) => {
@@ -879,35 +918,55 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     let base64Image = null;
 
     if (camInfo && camInfo.isNvr) {
-        // 🔍 สำหรับกล้อง NVR: ให้ดึงภาพล่าสุดจาก API หลังบ้านที่เซฟไว้ในโฟลเดอร์ uploads โดยตรง
+        // 🔍 สำหรับกล้อง NVR: ดึงไฟล์ภาพสดตรงจากโฟลเดอร์ uploads ของเซิร์ฟเวอร์
         try {
-            const res = await fetch(`${SERVER_URL}/api/camera/latest/${camId}`);
-            const data = await res.json();
-            if (data.success && data.imageBase64) {
-                base64Image = data.imageBase64; // ได้ Base64 ของไฟล์ realtime_camera00X.jpg มาตรงๆ
-            }
+            const imageUrl = `${SERVER_URL}/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            
+            await new Promise((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error("Timeout loading NVR image")), 3000);
+                img.onload = () => { clearTimeout(timer); resolve(); };
+                img.onerror = (err) => { clearTimeout(timer); reject(err); };
+                img.src = imageUrl;
+            });
+
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || 1920;
+            canvas.height = img.naturalHeight || 1080;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            
+            base64Image = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
         } catch (err) {
-            console.warn(`ไม่สามารถดึงภาพล่าสุดของ NVR ${camId} ได้:`, err);
+            console.warn(`ไม่สามารถโหลดภาพ NVR จาก uploads ของ ${camId} ได้:`, err);
         }
     } else {
-        // กรณีเป็นเว็บแคมปกติ ใช้ Canvas แคปจากหน้าจอตามปกติ
+        // 💻 สำหรับเว็บแคม: ถ้าเป็นกล้องที่กำลังแสดงผลอยู่ตอนนี้ ให้ดึงจากจอหลัก #activeMainVideo โดยตรงเพื่อความสดใหม่
         const canvas = document.createElement('canvas');
         canvas.width = 1920; canvas.height = 1080;
         const ctx = canvas.getContext('2d');
-        const thumbVid = document.getElementById(`thumb-vid-${camId}`) || document.getElementById('activeMainVideo');
-        if (thumbVid && thumbVid.readyState === 4) {
-            ctx.drawImage(thumbVid, 0, 0, 1920, 1080);
+        
+        let targetVid = null;
+        if (camId === activeCameraId) {
+            targetVid = document.getElementById('activeMainVideo');
+        } else {
+            targetVid = document.getElementById(`thumb-vid-${camId}`);
+        }
+
+        if (targetVid && targetVid.readyState === 4) {
+            ctx.drawImage(targetVid, 0, 0, 1920, 1080);
             base64Image = canvas.toDataURL('image/jpeg', 0.55).replace(/^data:image\/\w+;base64,/, '');
         }
     }
 
-    // ถ้าเป็นการกดสั่งตรวจ ให้ส่งภาพ Base64 นี้เข้าไปหาเจผ่าน WebSocket ทันที
+    // ส่งภาพ Base64 นี้เข้าไปหาเจผ่าน WebSocket
     if (isManualTrigger && ws && ws.readyState === WebSocket.OPEN) {
         const parts = [];
         if (base64Image) {
             parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Image } });
         }
-        parts.push({ text: `ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไรบ้าง` });
+        parts.push({ text: `ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไร กำลังทำอะไรอยู่บ้าง` });
 
         const imageMessage = {
             clientContent: {
@@ -1120,6 +1179,7 @@ function stopSession() {
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
+    if (modeCheckInterval) { clearInterval(modeCheckInterval); modeCheckInterval = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
