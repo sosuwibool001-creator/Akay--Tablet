@@ -749,13 +749,14 @@ async function initCameraSystem() {
 
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel || camInfo.isNvr;
+                // 🟢 กำหนดให้ camera001 หรือ IP 127.0.0.1 เป็นเว็บแคม (isNvr: false)
+                const isNvr = (camInfo.ip === '127.0.0.1' || camInfo.ip === 'DHCP/Unknown') ? false : (camInfo.channel || camInfo.isNvr);
                 
                 camerasRegistry[camId] = {
                     name: camInfo.name,
                     ip: camInfo.ip,
                     channel: camInfo.channel || '',
-                    isNvr: isNvr,
+                    isNvr: isNvr ? true : false,
                     stream: null
                 };
             }
@@ -770,6 +771,8 @@ async function initCameraSystem() {
 
         updateDropdownUI();
         renderDynamicThumbnails();
+        
+        // 🟢 บังคับสั่งเปิดสตรีมกล้องตัวแรก (กล้องหน้าคอม) ทันทีที่เข้าหน้าจอหลัก
         await switchActiveCamera(activeCameraId);
 
     } catch (err) {
@@ -1320,15 +1323,31 @@ function stopSession() {
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
     if (modeCheckInterval) { clearInterval(modeCheckInterval); modeCheckInterval = null; }
     if (securityMotionCheckInterval) { clearInterval(securityMotionCheckInterval); securityMotionCheckInterval = null; }
-    if (securityChallengeTimer) { clearTimeout(securityChallengeTimer); securityChallengeTimer = null; }
+    if (securityChallengeTimer) { clearInterval(securityChallengeTimer); securityChallengeTimer = null; }
     if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
+    // 🟢 ปิดสตรีมกล้องทั้งหมด
     Object.values(camerasRegistry).forEach(cam => {
-        if (cam.stream) cam.stream.getTracks().forEach(track => track.stop());
+        if (cam.stream) {
+            cam.stream.getTracks().forEach(track => track.stop());
+            cam.stream = null;
+        }
     });
-    if (masterMediaStream) { masterMediaStream.getTracks().forEach(track => track.stop()); masterMediaStream = null; }
-    if (authStream) { authStream.getTracks().forEach(track => track.stop()); authStream = null; }
+
+    // 🟢 ตัดการทำงานและปิดไมโครโฟนเบื้องหลังอย่างเด็ดขาด
+    if (masterMediaStream) {
+        masterMediaStream.getTracks().forEach(track => {
+            track.stop(); // สั่งปิดฮาร์ดแวร์ไมโครโฟนทันที
+        });
+        masterMediaStream = null;
+    }
+
+    if (authStream) {
+        authStream.getTracks().forEach(track => track.stop());
+        authStream = null;
+    }
+
     if (ws) { ws.close(); ws = null; }
     if (audioContext) { audioContext.close(); audioContext = null; }
     
