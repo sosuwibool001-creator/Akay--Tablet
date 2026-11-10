@@ -319,13 +319,10 @@
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <span>Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
                 
-                <!-- 🟢🔴 ไฟสถานะโหมดระบบพร้อมปุ่มกดสลับโหมดด่วน -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <div id="systemModeBadge" style="font-size: 12px; font-weight: 500; background: #fafafa; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-color);">
-                        <span id="modeDot" style="width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px rgba(52,199,89,0.4);"></span>
-                        <span id="modeText" style="color: #1d1d1f;">โหมดดูแล (CARE)</span>
-                    </div>
-                    <button onclick="toggleSystemModeManual()" class="standard-btn" style="padding: 4px 10px; font-size: 11px; background-color: #5856d6;">🔄 สลับโหมด</button>
+                <!-- 🟢🔴 ไฟสถานะโหมดระบบแบบเรียบหรู อัปเดตอัตโนมัติ -->
+                <div id="systemModeBadge" style="font-size: 12px; font-weight: 500; background: #fafafa; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-color);">
+                    <span id="modeDot" style="width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px rgba(52,199,89,0.4);"></span>
+                    <span id="modeText" style="color: #1d1d1f;">โหมดดูแล (CARE)</span>
                 </div>
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
@@ -514,6 +511,7 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
+// ตัวแปรสำหรับคุมสถานะ Security Challenge 15 วิ
 let isSecurityChallenging = false;
 let securityChallengeTimer = null;
 let currentSystemMode = "CARE";
@@ -525,7 +523,7 @@ let camerasRegistry = {
 };
 let activeCameraId = "";
 
-// 🟢 ฟังก์ชันดึงสถานะโหมดระบบจากหลังบ้าน
+// 🟢 ฟังก์ชันดึงสถานะโหมดระบบ และควบคุมระบบตรวจจับการเคลื่อนไหวในโหมด SECURITY
 async function updateSystemModeIndicator() {
     try {
         const res = await fetch(`${SERVER_URL}/api/system/mode`);
@@ -556,79 +554,25 @@ async function updateSystemModeIndicator() {
     } catch (err) {}
 }
 
-// 🔄 ฟังก์ชันกดสลับโหมด Manual ทันที
-async function toggleSystemModeManual() {
-    const newMode = currentSystemMode === 'CARE' ? 'SECURITY' : 'CARE';
-    try {
-        const res = await fetch(`${SERVER_URL}/api/system/set-mode`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: newMode })
-        });
-        const data = await res.json();
-        if (data.success) {
-            await updateSystemModeIndicator();
-            statusText.innerHTML = `<span class="status-dot"></span><strong>🛡️ เปลี่ยนโหมดสำเร็จ:</strong> ระบบเปลี่ยนเป็น ${newMode} เรียบร้อยครับ`;
-        }
-    } catch (err) {
-        alert("ไม่สามารถเปลี่ยนโหมดได้: " + err.message);
-    }
-}
-
-// 🟢 ฟังก์ชันติดต่อหลังบ้านใหม่ (รองรับ RAM Buffer, Template 0 Token และ Visitor Response)
-async function sendSnapshotToBackendWithTemplate(imageBase64, visitorResponse = null) {
-    try {
-        const payload = {
-            imageBase64: imageBase64,
-            isFamily: false
-        };
-        if (visitorResponse) {
-            payload.visitorResponse = visitorResponse;
-        }
-
-        const res = await fetch(`${SERVER_URL}/api/snapshot/upload/${activeCameraId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-
-        // 🟢 รองรับ Action และ Template 0 Token ที่ส่งมาจากหลังบ้านใหม่
-        if (data.success) {
-            if (data.action === 'greet_visitor' && data.greetingText) {
-                // พูดประโยค Template ทักทายจาก Local DB ทันที (0 Token)
-                await playTextToSpeechAndNVR(data.greetingText, "กล้องหน้าบ้าน");
-            } else if (data.action === 'announce_indoor' && data.announcementText) {
-                // ประกาศเสียงเตือนคนในบ้าน
-                await playTextToSpeech(data.announcementText);
-            }
-        }
-    } catch (err) {
-        console.error("Backend snapshot sync error:", err);
-    }
-}
-
-async function startSecurityMotionMonitor() {
+// 🚨 ฟังก์ชันตรวจสอบการเคลื่อนไหวหน้าบ้านในโหมด SECURITY พร้อมระบบสอบถาม 15 วิ และแจ้งเตือน Telegram
+function startSecurityMotionMonitor() {
     if (securityMotionCheckInterval) clearInterval(securityMotionCheckInterval);
     
     securityMotionCheckInterval = setInterval(async () => {
         if (!isUserActiveSession || currentSystemMode !== 'SECURITY' || isSecurityChallenging || isEnrollingGuest) return;
 
-        // ดึงภาพจากกล้องหน้าคอมพิวเตอร์ (Webcam) หรือแท็ก activeMainVideo เพื่อรัน Pixel Diff
-        const canvas = document.createElement('canvas');
-        canvas.width = 640; canvas.height = 360;
-        const ctx = canvas.getContext('2d');
-        const mainVid = document.getElementById('activeMainVideo');
-        
-        // 🟢 แก้ไข: ตรวจสอบและดึงภาพจากเว็บแคมมาวิเคราะห์แม้กำลังดูสตรีมอื่นอยู่ เพื่อให้ระบบ Security ทำงานไม่สะดุด
-        if (mainVid && mainVid.readyState === 4) {
-            ctx.drawImage(mainVid, 0, 0, 640, 360);
-            const base64Img = canvas.toDataURL('image/jpeg', 0.4);
-            await sendSnapshotToBackendWithTemplate(base64Img);
-        }
-    }, 3000);
+        try {
+            const res = await fetch(`${SERVER_URL}/api/security/motion-check`);
+            const data = await res.json();
+
+            if (data && data.motionDetected) {
+                triggerSecurityChallengeProtocol("กล้องหน้าบ้าน");
+            }
+        } catch (e) {}
+    }, 5000);
 }
 
+// 🎙️ โปรโตคอลทักทายสอบถาม และนับถอยหลัง 15 วินาที ถ้าไม่ตอบส่ง Telegram
 async function triggerSecurityChallengeProtocol(cameraName) {
     if (isSecurityChallenging) return;
     isSecurityChallenging = true;
@@ -654,8 +598,12 @@ async function triggerSecurityChallengeProtocol(cameraName) {
     }, 1000);
 }
 
+// 🔊 ฟังก์ชันสั่งพูดออกลำโพงคอมและส่งเสียงผ่าน Backchannel ไปออกไมค์ NVR หน้าบ้าน
 async function playTextToSpeechAndNVR(text, cameraName) {
+    // 1. เล่นเสียงออกลำโพงคอมตามปกติ
     await playTextToSpeech(text);
+
+    // 2. ส่งคำสั่งให้ go2rtc ส่งเสียงพูดออกไปยังลำโพง/ไมค์ของกล้อง NVR หน้าบ้าน (camera002)
     try {
         await fetch(`${GO2RTC_BASE_URL}/api/audio?src=camera002`, {
             method: 'POST',
@@ -822,8 +770,6 @@ async function initCameraSystem() {
 
         updateDropdownUI();
         renderDynamicThumbnails();
-        
-        // 🟢 แก้ไข: บังคับสั่งเปิดกล้องเริ่มต้นทันทีที่โหลดระบบเสร็จ เพื่อให้เว็บแคมหน้าคอมติดขึ้นมาแสดงผลปกติ
         await switchActiveCamera(activeCameraId);
 
     } catch (err) {
@@ -910,6 +856,7 @@ async function switchActiveCamera(camId) {
         }
         if (mainFrame) {
             mainFrame.style.display = 'block';
+            // 🟢 ปลดล็อกเสียง NVR เป็น muted=0 และอนุญาตสิทธิ์ microphone และ camera
             mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=0`;
             mainFrame.setAttribute('allow', 'microphone; camera; autoplay');
         }
@@ -1024,19 +971,23 @@ ${historySummaryText}
             try {
                 let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
                 
+                // 🟢 ตรวจสอบว่า AI เรียกใช้งาน Function setSystemMode หรือไม่
                 if (data.toolCall) {
                     for (const call of data.toolCall.functionCalls) {
                         if (call.name === "setSystemMode") {
                             const requestedMode = call.args.mode;
                             
+                            // ส่งคำสั่งไปเปลี่ยนโหมดที่เซิร์ฟเวอร์
                             await fetch(`${SERVER_URL}/api/system/mode`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ mode: requestedMode })
                             });
 
+                            // อัปเดต UI หน้าจอทันที
                             await updateSystemModeIndicator();
 
+                            // ส่งผลลัพธ์กลับไปบอก AI
                             const toolResponse = {
                                 toolResponse: {
                                     functionResponses: [
@@ -1298,20 +1249,6 @@ async function sendTextDirectly(text) {
     saveToHistory('user', text);
     statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
-    // 🟢 หากอยู่ใน CARE Mode และเป็นการตอบกลับหน้าบ้าน (ส่ง visitorResponse ไปยังหลังบ้านใหม่)
-    if (currentSystemMode === 'CARE' && activeCameraId === 'camera002') {
-        const canvas = document.createElement('canvas');
-        canvas.width = 640; canvas.height = 360;
-        const ctx = canvas.getContext('2d');
-        const mainVid = document.getElementById('activeMainVideo');
-        let base64Img = "";
-        if (mainVid && mainVid.readyState === 4) {
-            ctx.drawImage(mainVid, 0, 0, 640, 360);
-            base64Img = canvas.toDataURL('image/jpeg', 0.4);
-        }
-        await sendSnapshotToBackendWithTemplate(base64Img, text);
-    }
-
     const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้");
     if (isAskingForVision) {
         await captureAndSendSpecificCamera(activeCameraId, true);
@@ -1383,8 +1320,8 @@ function stopSession() {
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
     if (modeCheckInterval) { clearInterval(modeCheckInterval); modeCheckInterval = null; }
     if (securityMotionCheckInterval) { clearInterval(securityMotionCheckInterval); securityMotionCheckInterval = null; }
-    if (securityChallengeTimer) { clearInterval(securityChallengeTimer); securityChallengeTimer = null; }
-    if (speechTimeout) { clearInterval(speechTimeout); speechTimeout = null; }
+    if (securityChallengeTimer) { clearTimeout(securityChallengeTimer); securityChallengeTimer = null; }
+    if (speechTimeout) { clearTimeout(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
     Object.values(camerasRegistry).forEach(cam => {
