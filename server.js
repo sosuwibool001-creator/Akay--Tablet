@@ -745,7 +745,6 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
         .run();
 }
 
-// ⏰ ลูปตรวจสอบความถี่ดึงภาพ
 let lastLoopTime = Date.now();
 setInterval(() => {
     const intervalTime = currentSystemMode === 'SECURITY' ? 1000 : 3000;
@@ -754,7 +753,9 @@ setInterval(() => {
     if (now - lastLoopTime >= intervalTime) {
         lastLoopTime = now;
         for (const [cameraId, cam] of Object.entries(camerasConfig)) {
+            // 🟢 เพิ่มเงื่อนไขข้าม camera001 หรือไอพี 127.0.0.1 ไม่ให้ดึง RTSP วนลูปผิดพลาด
             if (cameraId === 'camera001' || cam.ip === '127.0.0.1') continue;        
+            
             if (cam && cam.ip && cam.ip !== 'DHCP/Unknown') {
                 const ip = cam.ip;
                 const channel = cam.channel || '102'; 
