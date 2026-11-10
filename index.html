@@ -901,13 +901,15 @@ async function switchActiveCamera(camId) {
     const mainVid = document.getElementById('activeMainVideo');
     const mainFrame = document.getElementById('activeMainFrame');
 
+    // 🟢 เคลียร์สตรีมวิดีโอหลักเก่าก่อนทุกครั้งเพื่อไม่ให้กล้องชนกัน
+    if (mainVid && mainVid.srcObject) {
+        mainVid.srcObject.getTracks().forEach(track => track.stop());
+        mainVid.srcObject = null;
+    }
+
     if (camInfo.isNvr) {
         if (mainVid) {
             mainVid.style.display = 'none';
-            if (mainVid.srcObject) {
-                mainVid.srcObject.getTracks().forEach(t => t.stop());
-                mainVid.srcObject = null;
-            }
         }
         if (mainFrame) {
             mainFrame.style.display = 'block';
@@ -923,6 +925,7 @@ async function switchActiveCamera(camId) {
         if (mainVid) {
             mainVid.style.display = 'block';
             try {
+                // ขอสิทธิ์และเปิดเว็บแคมใหม่สำหรับกล้องหน้าคอม
                 const newStream = await navigator.mediaDevices.getUserMedia({ 
                     video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
                     audio: false 
@@ -932,6 +935,7 @@ async function switchActiveCamera(camId) {
                 await mainVid.play().catch(e => {});
             } catch (err) {
                 console.error("Webcam stream error:", err);
+                statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เปิดกล้องหน้าคอมไม่สำเร็จ:</strong> ${err.message}`;
             }
         }
         statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
