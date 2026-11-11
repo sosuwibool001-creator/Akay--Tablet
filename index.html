@@ -1383,6 +1383,20 @@ function stopSession() {
     if (speechTimeout) { clearInterval(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
+    // 🟢 เพิ่มคำสั่งตัดการเชื่อมต่อเสียง Backchannel และเคลียร์ iframe ของ go2rtc ทันทีเมื่อจบเซสชัน
+    const mainFrame = document.getElementById('activeMainFrame');
+    if (mainFrame) {
+        mainFrame.src = 'about:blank'; // ตัดการเชื่อมต่อสตรีมและเสียงใน iframe
+        mainFrame.style.display = 'none';
+    }
+
+    // ส่งคำสั่งไปบอก go2rtc ให้ปิดช่องสัญญาณเสียงค้าง (ถ้ามี API ปิดเสียง)
+    fetch(`${GO2RTC_BASE_URL}/api/audio?src=camera002`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: "" // ส่งค่าว่างเพื่อตัดเสียง
+    }).catch(e => {});
+
     Object.values(camerasRegistry).forEach(cam => {
         if (cam.stream) cam.stream.getTracks().forEach(track => track.stop());
     });
