@@ -614,17 +614,51 @@ async function startSecurityMotionMonitor() {
     securityMotionCheckInterval = setInterval(async () => {
         if (!isUserActiveSession || currentSystemMode !== 'SECURITY' || isSecurityChallenging || isEnrollingGuest) return;
 
-        // จำลองการดึงภาพหน้าบ้านส่งเข้าหลังบ้านแบบ RAM Buffer ตรวจสอบ Pixel Diff
         const canvas = document.createElement('canvas');
         canvas.width = 640; canvas.height = 360;
         const ctx = canvas.getContext('2d');
         const mainVid = document.getElementById('activeMainVideo');
-        if (mainVid && mainVid.readyState === 4) {
+        
+        // ถ้าหน้าจอหลักเป็น NVR ให้ดึงภาพจากสตรีม NVR มาตรวจสอบ
+        let base64Img = "";
+        if (activeCameraId === 'camera002' || camerasRegistry[activeCameraId]?.isNvr) {
+            try {
+                const imageUrl = `${SERVER_URL}/uploads/realtime_${activeCameraId}.jpg?t=${Date.now()}`;
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                await new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => reject(), 2000);
+                    img.onload = () => { clearTimeout(timer); resolve(); };
+                    img.onerror = () => { clearTimeout(timer); reject(); };
+                    img.src = imageUrl;
+                });
+                canvas.width = img.naturalWidth || 640;
+                canvas.height = img.naturalHeight || 360;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                base64Img = canvas.toDataURL('image/jpeg', 0.4);
+            } catch (e) {}
+        } else if (mainVid && mainVid.readyState === 4) {
             ctx.drawImage(mainVid, 0, 0, 640, 360);
-            const base64Img = canvas.toDataURL('image/jpeg', 0.4);
-            await sendSnapshotToBackendWithTemplate(base64Img);
+            base64Img = canvas.toDataURL('image/jpeg', 0.4);
         }
-    }, 3000);
+
+        if (base64Img) {
+            try {
+                const res = await fetch(`${SERVER_URL}/api/snapshot/upload/${activeCameraId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageBase64: base64Img, isFamily: false })
+                });
+                const data = await res.json();
+                
+                // 🟢 หากโหมด SECURITY ตรวจพบการเคลื่อนไหว/คนแปลกหน้า ให้เริ่มกระบวนการทักทายและนับถอยหลังทันที
+                if (data.success && data.action === 'trigger_security_challenge') {
+                    const camName = camerasRegistry[activeCameraId]?.name || "กล้องหน้าบ้าน";
+                    await triggerSecurityChallengeProtocol(camName);
+                }
+            } catch (err) {}
+        }
+    }, 4000);
 }
 
 async function triggerSecurityChallengeProtocol(cameraName) {
