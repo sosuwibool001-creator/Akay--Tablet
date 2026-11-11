@@ -29,41 +29,42 @@
                     <form id="cameraForm">
                         <div class="mb-3">
                             <label class="form-label">รหัสกล้อง (Camera ID)</label>
-                            <input type="text" id="cameraId" class="form-control bg-dark text-white border-secondary" placeholder="เช่น camera002" required>
+                            <input type="text" id="cameraId" class="form-control bg-dark text-white border-secondary" placeholder="เช่น camera003" required>
                             <small class="text-muted">โปรดตั้งรหัสเรียงกัน เช่น camera001, camera002...</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">ชื่อเรียกกล้อง (Camera Name)</label>
-                            <input type="text" id="cameraName" class="form-control bg-dark text-white border-secondary" placeholder="เช่น กล้องหน้าบ้าน NVR" required>
+                            <input type="text" id="cameraName" class="form-control bg-dark text-white border-secondary" placeholder="เช่น กล้อง IMOU ห้องนั่งเล่น" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">ยี่ห้อกล้อง (Brand Auto-Detect)</label>
+                            <select id="cameraBrand" class="form-select bg-dark text-white border-secondary" required>
+                                <option value="imou">IMOU / Dahua</option>
+                                <option value="hikvision">Hikvision</option>
+                                <option value="generic">กล้องทั่วไป (Generic RTSP)</option>
+                            </select>
+                            <small class="text-muted">ระบบจะเจน RTSP URL ที่ถูกต้องให้อัตโนมัติ</small>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">IP Address ของกล้อง / NVR</label>
-                            <input type="text" id="cameraIp" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 192.168.1.170" required>
+                            <input type="text" id="cameraIp" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 192.168.188.124" required>
                             <small id="ipHelp" class="form-text text-muted">ต้องเป็นรูปแบบ IPv4 ที่ถูกต้อง</small>
                         </div>
+                        <div class="row mb-3">
+                            <div class="col-6">
+                                <label class="form-label">Username</label>
+                                <input type="text" id="cameraUsername" class="form-control bg-dark text-white border-secondary" placeholder="admin" value="admin">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label">Password / Safety Code</label>
+                                <input type="text" id="cameraPassword" class="form-control bg-dark text-white border-secondary" placeholder="เช่น L2CE0341">
+                            </div>
+                        </div>
                         <div class="mb-3">
-                            <label class="form-label">Channel / Stream Path (สำหรับ NVR)</label>
-                            <input type="text" id="cameraChannel" class="form-control bg-dark text-white border-secondary" placeholder="เช่น 602 หรือ Streaming/Channels/602">
-                            <small class="text-muted">ระบุหมายเลขช่อง (ถ้าดึงผ่าน NVR)</small>
+                            <label class="form-label">Channel (หมายเลขช่อง)</label>
+                            <input type="text" id="cameraChannel" class="form-control bg-dark text-white border-secondary" placeholder="1" value="1">
+                            <small class="text-muted">ช่องของกล้อง (ปกติคือ 1)</small>
                         </div>
-
-                        <!-- 🟢🛡️ เพิ่มส่วนเลือกโหมดการทำงานของกล้องแต่ละตัว -->
-                        <div class="mb-3 p-3 bg-dark border border-secondary rounded">
-                            <label class="form-label text-warning mb-2">⚙️ กำหนดโหมดการทำงานของกล้อง</label>
-                            <div class="form-check mb-2">
-                                <input class="form-check-input bg-dark border-secondary" type="checkbox" id="careMode" checked>
-                                <label class="form-check-label" for="careMode">
-                                    🟢 รองรับโหมดดูแล (Care Mode)
-                                </label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input bg-dark border-secondary" type="checkbox" id="securityMode" checked>
-                                <label class="form-check-label" for="securityMode">
-                                    🛡️ รองรับโหมดรักษาความปลอดภัย (Security)
-                                </label>
-                            </div>
-                        </div>
-
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-success flex-grow-1" id="btnSubmit">บันทึกกล้อง</button>
                             <button type="button" class="btn btn-secondary d-none" id="btnCancelEdit" onclick="resetForm()">ยกเลิก</button>
@@ -82,12 +83,13 @@
                                 <tr>
                                     <th>รหัส (ID)</th>
                                     <th>ชื่อเรียก</th>
-                                    <th>IP & Channel / โหมด</th>
+                                    <th>ยี่ห้อ</th>
+                                    <th>IP & Details</th>
                                     <th class="text-center">การจัดการ</th>
                                 </tr>
                             </thead>
                             <tbody id="cameraTableBody">
-                                <tr><td colspan="4" class="text-center">กำลังโหลดข้อมูลกล้อง...</td></tr>
+                                <tr><td colspan="5" class="text-center">กำลังโหลดข้อมูลกล้อง...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -116,24 +118,21 @@
                     currentCameras = data.cameras;
                     const keys = Object.keys(data.cameras);
                     if (keys.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">ยังไม่มีกล้องในระบบ</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">ยังไม่มีกล้องในระบบ</td></tr>';
                         return;
                     }
 
                     keys.forEach(key => {
                         const cam = data.cameras[key];
-                        const channelDisplay = cam.channel ? `<br><small class="text-info">Channel: ${cam.channel}</small>` : '';
+                        const brandBadge = `<span class="badge bg-info text-dark">${(cam.brand || 'generic').toUpperCase()}</span>`;
+                        const detailsDisplay = `<code>${cam.ip}</code><br><small class="text-muted">Ch: ${cam.channel || '1'} | User: ${cam.username || 'admin'}</small>`;
                         
-                        // แสดงป้ายบอกโหมดของกล้องตัวนั้นๆ
-                        const careBadge = cam.careMode !== false ? '<span class="badge bg-success me-1">Care</span>' : '';
-                        const secBadge = cam.securityMode !== false ? '<span class="badge bg-danger">Security</span>' : '';
-                        const modeBadges = `<br><div class="mt-1">${careBadge}${secBadge}</div>`;
-
                         tbody.innerHTML += `
                             <tr>
                                 <td><b class="text-info">${key}</b></td>
                                 <td>${cam.name}</td>
-                                <td><code>${cam.ip}</code>${channelDisplay}${modeBadges}</td>
+                                <td>${brandBadge}</td>
+                                <td>${detailsDisplay}</td>
                                 <td class="text-center">
                                     <button class="btn btn-sm btn-outline-warning me-1" onclick="editCamera('${key}')">✏️ แก้ไข</button>
                                     <button class="btn btn-sm btn-outline-danger" onclick="deleteCamera('${key}', '${cam.name}')">🗑️ ลบ</button>
@@ -142,11 +141,11 @@
                         `;
                     });
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">ไม่สามารถดึงข้อมูลกล้องได้</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">ไม่สามารถดึงข้อมูลกล้องได้</td></tr>';
                 }
             } catch (err) {
                 console.error('Error loading cameras:', err);
-                document.getElementById('cameraTableBody').innerHTML = '<tr><td colspan="4" class="text-center text-danger">เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์</td></tr>';
+                document.getElementById('cameraTableBody').innerHTML = '<tr><td colspan="5" class="text-center text-danger">เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์</td></tr>';
             }
         }
 
@@ -158,13 +157,12 @@
             document.getElementById('cameraId').value = key;
             document.getElementById('cameraId').readOnly = true;
             document.getElementById('cameraName').value = cam.name;
+            document.getElementById('cameraBrand').value = cam.brand || 'generic';
             document.getElementById('cameraIp').value = cam.ip;
-            document.getElementById('cameraChannel').value = cam.channel || '';
+            document.getElementById('cameraUsername').value = cam.username || 'admin';
+            document.getElementById('cameraPassword').value = cam.password || '';
+            document.getElementById('cameraChannel').value = cam.channel || '1';
             
-            // โหลดค่าสถานะโหมดเดิมของกล้อง
-            document.getElementById('careMode').checked = cam.careMode !== undefined ? cam.careMode : true;
-            document.getElementById('securityMode').checked = cam.securityMode !== undefined ? cam.securityMode : true;
-
             document.getElementById('btnSubmit').innerText = 'อัปเดตข้อมูล';
             document.getElementById('btnCancelEdit').classList.remove('d-none');
         }
@@ -173,8 +171,9 @@
             document.getElementById('formTitle').innerText = '➕ เพิ่ม/แก้ไขข้อมูลกล้อง';
             document.getElementById('cameraForm').reset();
             document.getElementById('cameraId').readOnly = false;
-            document.getElementById('careMode').checked = true;
-            document.getElementById('securityMode').checked = true;
+            document.getElementById('cameraBrand').value = 'imou';
+            document.getElementById('cameraUsername').value = 'admin';
+            document.getElementById('cameraChannel').value = '1';
             document.getElementById('btnSubmit').innerText = 'บันทึกกล้อง';
             document.getElementById('btnCancelEdit').classList.add('d-none');
         }
@@ -206,13 +205,14 @@
             e.preventDefault();
             const cameraId = document.getElementById('cameraId').value.trim();
             const name = document.getElementById('cameraName').value.trim();
+            const brand = document.getElementById('cameraBrand').value;
             const ip = document.getElementById('cameraIp').value.trim();
+            const username = document.getElementById('cameraUsername').value.trim();
+            const password = document.getElementById('cameraPassword').value.trim();
             const channel = document.getElementById('cameraChannel').value.trim();
-            const careMode = document.getElementById('careMode').checked;
-            const securityMode = document.getElementById('securityMode').checked;
 
             if (!isValidIPv4(ip)) {
-                alert('รูปแบบ IP Address ไม่ถูกต้อง กรุณากรอกให้อยู่ในรูปแบบ เช่น 192.168.1.170');
+                alert('รูปแบบ IP Address ไม่ถูกต้อง กรุณากรอกให้อยู่ในรูปแบบ เช่น 192.168.188.124');
                 return;
             }
 
@@ -220,7 +220,7 @@
                 const res = await fetch(`${API_BASE}/api/cameras/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cameraId, name, ip, channel, careMode, securityMode })
+                    body: JSON.stringify({ cameraId, name, brand, ip, username, password, channel })
                 });
 
                 const data = await res.json();
