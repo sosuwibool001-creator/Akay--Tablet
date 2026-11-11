@@ -1284,17 +1284,42 @@ async function sendTextDirectly(text) {
     if (checkForEnrollmentTrigger(text)) return;
 
     const lowerText = text.toLowerCase();
-    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-        if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
-            switchActiveCamera(camId);
+    // 🟢 กำหนดตารางคีย์เวิร์ดสั้นๆ สำหรับแต่ละกล้อง
+    const cameraKeywords = {
+        "camera001": ["หน้าคอม", "คอม", "เว็บแคม", "webcam"],
+        "camera002": ["หน้าบ้าน", "ประตูหน้าบ้าน", "ลานหน้าบ้าน"],
+        "camera003": ["ห้องรับแขก", "รับแขก", "นวด", "โซฟา"],
+        "camera004": ["หลังบ้าน", "ลานซักล้าง"],
+        "camera005": ["ข้างบ้าน", "โรงรถ"]
+    };
+   // 🔍 วนลูปเช็กว่าในข้อความมีคีย์เวิร์ดตรงกับกล้องตัวไหนบ้าง
+    let matchedCamId = null;
+    for (const [camId, keywords] of Object.entries(cameraKeywords)) {
+        if (keywords.some(kw => lowerText.includes(kw))) {
+            matchedCamId = camId;
             break;
         }
+    }
+
+    // ถ้าไม่เจอคีย์เวิร์ดสั้น ให้ลองเช็กจากชื่อกล้องใน Registry ตามปกติ
+    if (!matchedCamId) {
+        for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
+            if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
+                matchedCamId = camId;
+                break;
+            }
+        }
+    }
+
+    // 🔄 หากเจอคีย์เวิร์ดกล้อง ให้ทำการสลับกล้องทันที
+    if (matchedCamId && camerasRegistry[matchedCamId]) {
+        switchActiveCamera(matchedCamId);
     }
 
     saveToHistory('user', text);
     statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
-    // 🟢 หากอยู่ใน CARE Mode และเป็นการตอบกลับหน้าบ้าน (ส่ง visitorResponse ไปยังหลังบ้านใหม่)
+    // 🟢 หากอยู่ใน CARE Mode และเป็นการตอบกลับหน้าบ้าน (ส่ง visitorResponse ไปยังหลังบ้าน)
     if (currentSystemMode === 'CARE' && activeCameraId === 'camera002') {
         const canvas = document.createElement('canvas');
         canvas.width = 640; canvas.height = 360;
@@ -1308,7 +1333,7 @@ async function sendTextDirectly(text) {
         await sendSnapshotToBackendWithTemplate(base64Img, text);
     }
 
-    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้");
+    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
     if (isAskingForVision) {
         await captureAndSendSpecificCamera(activeCameraId, true);
         return;
