@@ -914,10 +914,12 @@ function renderDynamicThumbnails() {
     }
 }
 
+// 🔄 ฟังก์ชันสลับกล้องหลักแบบเงียบๆ (Silent Switch - ไม่กิน Token ไม่สั่งวิเคราะห์อัตโนมัติ)
 async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
     activeCameraId = camId;
 
+    // อัปเดต UI แถบเลือกและไฮไลต์กล้อง
     document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active'));
     const targetCard = document.getElementById(`thumb-card-${camId}`);
     if (targetCard) targetCard.classList.add('active');
@@ -943,7 +945,8 @@ async function switchActiveCamera(camId) {
             mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=0`;
             mainFrame.setAttribute('allow', 'microphone; camera; autoplay');
         }
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] พร้อมเปิดไมค์สื่อสาร 🟢`;
+        // 🟢 เปลี่ยนข้อความสถานะเป็นแบบเงียบ (ไม่ส่งข้อมูลไปหา AI)
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อย (รอคำสั่งจากเพื่อนเอก)`;
     } else {
         if (mainFrame) {
             mainFrame.style.display = 'none';
@@ -958,7 +961,7 @@ async function switchActiveCamera(camId) {
                 await mainVid.play().catch(e => {});
             } catch (err) {}
         }
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อย (รอคำสั่งจากเพื่อนเอก)`;
     }
 }
 
@@ -1318,15 +1321,16 @@ async function sendTextDirectly(text) {
     if (checkForEnrollmentTrigger(text)) return;
 
     const lowerText = text.toLowerCase();
-    // 🟢 กำหนดตารางคีย์เวิร์ดสั้นๆ สำหรับแต่ละกล้อง
+    
+    // ตรวจจับคีย์เวิร์ดเพื่อสลับกล้อง (เช่น "หน้าบ้าน", "ห้องรับแขก") ตามที่ตั้งไว้
     const cameraKeywords = {
         "camera001": ["หน้าคอม", "คอม", "เว็บแคม", "webcam"],
         "camera002": ["หน้าบ้าน", "ประตูหน้าบ้าน", "ลานหน้าบ้าน"],
-        "camera003": ["ห้องรับแขก", "รับแขก", "หน้าทีวี", "โซฟา"],
-        "camera004": ["หลังบ้าน", "ประตูหลัง"],
-        "camera005": ["ห้องนอน", "เตียงนอน"]
+        "camera003": ["ห้องรับแขก", "รับแขก", "นวด", "โซฟา"],
+        "camera004": ["หลังบ้าน", "ลานซักล้าง"],
+        "camera005": ["ข้างบ้าน", "โรงรถ"]
     };
-   // 🔍 วนลูปเช็กว่าในข้อความมีคีย์เวิร์ดตรงกับกล้องตัวไหนบ้าง
+
     let matchedCamId = null;
     for (const [camId, keywords] of Object.entries(cameraKeywords)) {
         if (keywords.some(kw => lowerText.includes(kw))) {
@@ -1335,7 +1339,6 @@ async function sendTextDirectly(text) {
         }
     }
 
-    // ถ้าไม่เจอคีย์เวิร์ดสั้น ให้ลองเช็กจากชื่อกล้องใน Registry ตามปกติ
     if (!matchedCamId) {
         for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
             if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
@@ -1345,14 +1348,14 @@ async function sendTextDirectly(text) {
         }
     }
 
-    // 🔄 หากเจอคีย์เวิร์ดกล้อง ให้ทำการสลับกล้องทันที
+   // หากพูดชื่อกล้อง ระบบจะทำการสลับกล้องให้ทันทีแบบเงียบๆ
     if (matchedCamId && camerasRegistry[matchedCamId]) {
         switchActiveCamera(matchedCamId);
     }
 
     saveToHistory('user', text);
     statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
-
+    
     // 🟢 หากอยู่ใน CARE Mode และเป็นการตอบกลับหน้าบ้าน (ส่ง visitorResponse ไปยังหลังบ้าน)
     if (currentSystemMode === 'CARE' && activeCameraId === 'camera002') {
         const canvas = document.createElement('canvas');
@@ -1367,12 +1370,16 @@ async function sendTextDirectly(text) {
         await sendSnapshotToBackendWithTemplate(base64Img, text);
     }
 
-    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
+   // 🟢 ตรวจสอบว่าผู้ใช้ "เอ่ยปากถามหรือสั่งให้ดูภาพ" หรือไม่ เช่น "ดูซิ", "มีใครอยู่", "เห็นอะไร"
+    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู") || lowerText.includes("ใคร");
+    
     if (isAskingForVision) {
+        // ถือว่าผู้ใช้ต้องการให้เจวิเคราะห์ภาพ ณ กล้องปัจจุบัน จึงทำการแนบภาพสดส่งให้เจตรวจ
         await captureAndSendSpecificCamera(activeCameraId, true);
         return;
     }
 
+    // ถ้าเป็นการคุยทั่วไป หรือสั่งเปลี่ยนกล้องเฉยๆ จะส่งแค่ข้อความแชทไปปกติ (ประหยัด Token 100%)
     ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
 }
 
