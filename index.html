@@ -1442,19 +1442,24 @@ function stopSession() {
     if (speechTimeout) { clearInterval(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
-    // 🟢 เพิ่มคำสั่งตัดการเชื่อมต่อเสียง Backchannel และเคลียร์ iframe ของ go2rtc ทันทีเมื่อจบเซสชัน
+    // 🟢 สั่งเคลียร์ iframe และปิดเสียง NVR Backchannel อย่างเด็ดขาด
     const mainFrame = document.getElementById('activeMainFrame');
     if (mainFrame) {
-        mainFrame.src = 'about:blank'; // ตัดการเชื่อมต่อสตรีมและเสียงใน iframe
+        mainFrame.src = 'about:blank';
         mainFrame.style.display = 'none';
+        mainFrame.remove(); // ลบ element ออกจาก DOM ชั่วคราวเพื่อตัดการเชื่อมต่อเสียง 100%
     }
 
-    // ส่งคำสั่งไปบอก go2rtc ให้ปิดช่องสัญญาณเสียงค้าง (ถ้ามี API ปิดเสียง)
-    fetch(`${GO2RTC_BASE_URL}/api/audio?src=camera002`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: "" // ส่งค่าว่างเพื่อตัดเสียง
-    }).catch(e => {});
+    // ส่งสัญญาณไปตัดเสียงที่ go2rtc ทุกช่องทางกล้อง NVR
+    Object.keys(camerasRegistry).forEach(camId => {
+        if (camerasRegistry[camId].isNvr) {
+            fetch(`${GO2RTC_BASE_URL}/api/audio?src=${camId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' },
+                body: ""
+            }).catch(e => {});
+        }
+    });
 
     Object.values(camerasRegistry).forEach(cam => {
         if (cam.stream) cam.stream.getTracks().forEach(track => track.stop());
@@ -1464,10 +1469,10 @@ function stopSession() {
     if (ws) { ws.close(); ws = null; }
     if (audioContext) { audioContext.close(); audioContext = null; }
     
-    step2.style.display = 'none';
-    stepAuth.style.display = 'none';
-    stepSetup.style.display = 'none';
-    step1.style.display = 'flex';
+    if (step2) step2.style.display = 'none';
+    if (stepAuth) stepAuth.style.display = 'none';
+    if (stepSetup) stepSetup.style.display = 'none';
+    if (step1) step1.style.display = 'flex';
 }
 
 stopBtn.addEventListener('click', stopSession);
