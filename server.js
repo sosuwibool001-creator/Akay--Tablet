@@ -49,6 +49,30 @@ let currentSystemMode = 'CARE'; // ค่าที่เป็นไปได้
 let camerasConfig = {};
 let greetingsConfig = {};
 
+// 🧠 ฟังก์ชันอัจฉริยะ: สร้าง RTSP URL ตามแบรนด์กล้องอัตโนมัติ (Brand-Specific Auto-mapping)
+function generateRtspUrl(cameraData) {
+    const { brand, ip, username, password, channel = 1 } = cameraData;
+    const normalizedBrand = (brand || '').toLowerCase();
+    
+    // ดึงรหัสผ่านที่กรอกมา หรือถ้าเป็น IMOU แล้วลืมใส่ ให้ดึง Safety Code มาใช้
+    const camPassword = password || (normalizedBrand === 'imou' ? 'L2CE0341' : '');
+    const camUser = username || 'admin';
+    
+    switch (normalizedBrand) {
+        case 'imou':
+        case 'dahua':
+            return `rtsp://${camUser}:${camPassword}@${ip}:554/cam/realmonitor?channel=${channel}&subtype=1`;
+        case 'hikvision':
+            return `rtsp://${camUser}:${camPassword}@${ip}:554/Streaming/Channels/${channel}02`;
+        default:
+            // กรณีกล้องทั่วไปหรือ Custom URL
+            if (cameraData.url && !cameraData.url.includes('undefined')) {
+                return cameraData.url;
+            }
+            return `rtsp://${camUser}:${camPassword}@${ip}:554/live/ch0`;
+    }
+}
+
 // 📹 ฟังก์ชันพิเศษ: อัปเดตไฟล์ go2rtc.yaml อัตโนมัติทุกครั้งที่มีการเปลี่ยนแปลงกล้อง
 function updateGo2RtcYaml(camerasObj) {
     try {
@@ -57,14 +81,15 @@ function updateGo2RtcYaml(camerasObj) {
 
         for (const [camId, cam] of Object.entries(camerasObj)) {
             if (cam.ip && cam.ip !== '127.0.0.1' && cam.ip !== 'DHCP/Unknown') {
-                const channel = cam.channel || '102';
-                streamsConfig += `  ${camId}: rtsp://admin_inglobe:Inglobe2026@${cam.ip}:554/Streaming/Channels/${channel}\n`;
+                // เรียกใช้ฟังก์ชันเจน URL ที่มีรหัสผ่านครบถ้วน
+                const rtspUrl = generateRtspUrl(cam);
+                streamsConfig += `  ${camId}: ${rtspUrl}\n`;
                 count++;
             }
         }
 
         fs.writeFileSync(GO2RTC_CONFIG_PATH, streamsConfig, 'utf8');
-        console.log(`[go2rtc Auto-Sync] ซิงค์สตรีมกล้อง ${count} ตัวลงใน go2rtc.yaml สำเร็จ 🟢`);
+        console.log(`[go2rtc Auto-Sync] ซิงค์สตรีมกล้อง ${count} ตัวลงใน go2rtc.yaml พร้อมพาสเวิร์ดสำเร็จ 🟢`);
     } catch (err) {
         console.error('[go2rtc Auto-Sync Error]:', err.message);
     }
@@ -81,8 +106,8 @@ async function initSystemConfigs() {
         }
     } else {
         camerasConfig = {
-            "camera001": { name: "กล้องหน้าคอม", ip: "127.0.0.1", channel: "", careMode: true, securityMode: true, active: true },
-            "camera002": { name: "กล้องหน้าบ้าน", ip: "192.168.1.170", channel: "602", careMode: true, securityMode: true, active: true }
+            "camera001": { name: "กล้องหน้าคอม (Webcam)", ip: "127.0.0.1", brand: "webcam", channel: "", isNvr: false, active: true },
+            "camera006": { name: "อายคาเมร่า", ip: "192.168.188.124", brand: "imou", username: "admin", password: "L2CE0341", channel: "1", careMode: true, securityMode: true, active: true }
         };
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
         console.log('[Local DB] สร้างไฟล์ cameras_config.json เริ่มต้นสำเร็จ 🟢');
@@ -165,19 +190,24 @@ app.get('/api/cameras/list', async (req, res) => {
     return res.json({ success: true, cameras: camerasConfig });
 });
 
-// 📷 API จัดการกล้อง: เพิ่ม/แก้ไขข้อมูลกล้อง (พร้อมบันทึกโหมด Care/Security และ Auto-Sync go2rtc)
+// 📷 API จัดการกล้อง: เพิ่ม/แก้ไขข้อมูลกล้อง (รองรับ Brand-Specific Auto-mapping และ Auto-Sync go2rtc)
 app.post('/api/cameras/save', async (req, res) => {
     try {
-        const { cameraId, name, ip, channel, careMode, securityMode } = req.body;
+        const { cameraId, name, ip, brand, username, password, channel, careMode, securityMode } = req.body;
         if (!cameraId || !name) {
             return res.status(400).json({ success: false, message: 'Camera ID and Name are required' });
         }
 
         const updatedAt = new Date().toISOString();
+        
+        // บันทึกข้อมูลตั้งต้นรวมถึงแบรนด์และรหัสผ่านเพื่อใช้เจน RTSP อัตโนมัติ
         camerasConfig[cameraId] = {
             name: name,
             ip: ip || 'DHCP/Unknown',
-            channel: channel || '',
+            brand: brand || 'generic',
+            username: username || 'admin',
+            password: password || '',
+            channel: channel || '1',
             careMode: careMode !== undefined ? careMode : true,
             securityMode: securityMode !== undefined ? securityMode : true,
             active: true,
@@ -186,7 +216,7 @@ app.post('/api/cameras/save', async (req, res) => {
 
         fs.writeFileSync(CAMERAS_CONFIG_PATH, JSON.stringify(camerasConfig, null, 2));
 
-        // 🟢 อัปเดตสตรีมลง go2rtc.yaml อัตโนมัติ
+        // 🟢 อัปเดตสตรีมลง go2rtc.yaml อัตโนมัติด้วย URL ที่ถูกต้องตามแบรนด์
         updateGo2RtcYaml(camerasConfig);
 
         const camDir = path.join(DIR_CAMERAS, cameraId);
@@ -194,7 +224,7 @@ app.post('/api/cameras/save', async (req, res) => {
         if (!fs.existsSync(camDir)) fs.mkdirSync(camDir, { recursive: true });
         if (!fs.existsSync(secDir)) fs.mkdirSync(secDir, { recursive: true });
 
-        console.log(`[Multi-Camera] บันทึก/อัปเดตกล้องสำเร็จ -> [${cameraId}] ${name} (${ip}) Channel: ${channel || 'N/A'}`);
+        console.log(`[Multi-Camera] บันทึก/อัปเดตกล้องสำเร็จ -> [${cameraId}] ${name} (${ip}) Brand: ${brand || 'generic'}`);
         return res.json({ success: true, message: `บันทึกกล้อง ${cameraId} (${name}) เรียบร้อยครับ`, cameras: camerasConfig });
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
@@ -278,7 +308,7 @@ app.post('/api/camera/voice-command', async (req, res) => {
             cameraId: targetCamId,
             cameraName: targetCamMeta.name,
             ip: targetCamMeta.ip,
-            channel: targetCamMeta.channel || '',
+            brand: targetCamMeta.brand || '',
             imageBase64: imageBase64
         });
 
@@ -363,14 +393,14 @@ app.post('/api/camera/upload/:cameraId', (req, res) => {
         const imageBuffer = Buffer.from(base64Data, 'base64');
         
         inMemoryRAMStore[cameraId] = imageBuffer;
-        if (cameraId === 'camera001' || cameraId === 'camera002') {
+        if (cameraId === 'camera001' || cameraId === 'camera006') {
             inMemoryRAMStore['home'] = imageBuffer;
         }
 
         const latestCamPath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
         fs.writeFileSync(latestCamPath, imageBuffer);
 
-        if (cameraId === 'camera001' || cameraId === 'camera002') {
+        if (cameraId === 'camera001' || cameraId === 'camera006') {
             fs.writeFileSync(path.join(DIR_UPLOADS, 'realtime_home.jpg'), imageBuffer);
         }
 
@@ -539,7 +569,7 @@ async function triggerSecurityBurstCapture(cameraId, camMeta, initialBuffer) {
     console.log(`[Security Burst] ✅ บันทึกชุดภาพหลักฐาน 5 ช็อตลงโฟลเดอร์สำเร็จ`);
 }
 
-// 📸 API รับ Snapshot คัดกรองตาม CARE Mode และ SECURITY Mode (รองรับ Template คำทักทาย 0 Token)
+// 📸 API รับ Snapshot คัดกรองตาม CARE Mode และ SECURITY Mode (ล็อกเป้าทดสอบที่ camera006 อายคาเมร่า)
 app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
     try {
         const { cameraId } = req.params;
@@ -555,9 +585,9 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
 
         inMemoryRAMStore[cameraId] = buffer;
 
-        // 🟢 [CARE Mode Logic]
+        // 🟢 [CARE Mode Logic - ล็อกเป้าที่ camera006]
         if (currentSystemMode === 'CARE') {
-            if (cameraId === 'camera002' && camMeta.careMode !== false) {
+            if (cameraId === 'camera006' && camMeta.careMode !== false) {
                 if (visitorResponse) {
                     console.log(`[CARE Mode] ผู้มาติดต่อตอบกลับมาว่า: "${visitorResponse}"`);
                     let indoorMsg = greetingsConfig.delivery_indoor_announcement || "เรียนคนในบ้านครับ มีผู้มาติดต่อหรือมีพัสดุมาส่งที่หน้าบ้านครับ";
@@ -587,8 +617,8 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
             });
         }
 
-        // 🛡️ [SECURITY Mode Logic]
-        const TARGET_SECURITY_CAMERA = 'camera002';
+        // 🛡️ [SECURITY Mode Logic - ล็อกเป้าที่ camera006]
+        const TARGET_SECURITY_CAMERA = 'camera006';
         if (cameraId !== TARGET_SECURITY_CAMERA || camMeta.securityMode === false) {
             return res.status(200).json({ success: true, message: `กล้องนอกขอบเขต Security` });
         }
@@ -670,7 +700,7 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
                             lastTelegramAlertTime[cameraId] = nowTime;
                             await sendTelegramAlertWithPhoto(
                                 alertImageSource, 
-                                `🚨 *แจ้งเตือน Security Mode (กล้องหน้าบ้าน)*\nพบผู้บุกรุกไม่แสดงตัวตนภายใน 15 วินาที!\nกล้อง: *[${cameraId}] ${camMeta.name}* (IP: ${camMeta.ip}) ❌`
+                                `🚨 *แจ้งเตือน Security Mode (อายคาเมร่า)*\nพบผู้บุกรุกไม่แสดงตัวตนภายใน 15 วินาที!\nกล้อง: *[${cameraId}] ${camMeta.name}* (IP: ${camMeta.ip}) ❌`
                             );
                         }
                     }
@@ -678,7 +708,7 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
             } else {
                 if (nowTime - lastTelegramAlertTime[cameraId] > TELEGRAM_ALERT_COOLDOWN) {
                     lastTelegramAlertTime[cameraId] = nowTime;
-                    let alertCaption = `🎴 *แจ้งเตือนแขก / คนรู้จัก (กล้องหน้าบ้าน)*\nพบคุณ *${recognizedName}* 🔵`;
+                    let alertCaption = `🎴 *แจ้งเตือนแขก / คนรู้จัก (อายคาเมร่า)*\nพบคุณ *${recognizedName}* 🔵`;
                     await sendTelegramAlertWithPhoto(alertImageSource, alertCaption);
                 }
             }
@@ -700,7 +730,8 @@ app.post('/api/snapshot/upload/:cameraId', async (req, res) => {
 });
 
 // 🔄 ฟังก์ชันดึงภาพ Snapshot จากกล้อง RTSP อัตโนมัติ
-function captureRtspSnapshot(cameraId, rtspUrl) {
+function captureRtspSnapshot(cameraId, cam) {
+    const rtspUrl = generateRtspUrl(cam);
     const realtimeOutputPath = path.join(DIR_UPLOADS, `realtime_${cameraId}.jpg`);
     
     const camDir = path.join(DIR_CAMERAS, cameraId);
@@ -731,7 +762,7 @@ function captureRtspSnapshot(cameraId, rtspUrl) {
                     const imageBuffer = fs.readFileSync(realtimeOutputPath);
                     inMemoryRAMStore[cameraId] = imageBuffer;
                     
-                    if (cameraId === 'camera002') {
+                    if (cameraId === 'camera006') {
                         inMemoryRAMStore['home'] = imageBuffer;
                         const homePath = path.join(DIR_UPLOADS, 'realtime_home.jpg');
                         fs.writeFileSync(homePath, imageBuffer);
@@ -756,11 +787,7 @@ setInterval(() => {
         for (const [cameraId, cam] of Object.entries(camerasConfig)) {
             if (cameraId === 'camera001' || cam.ip === '127.0.0.1') continue;        
             if (cam && cam.ip && cam.ip !== 'DHCP/Unknown') {
-                const ip = cam.ip;
-                const channel = cam.channel || '102'; 
-                const rtspUrl = `rtsp://admin_inglobe:Inglobe2026@${ip}:554/Streaming/Channels/${channel}`;
-                
-                captureRtspSnapshot(cameraId, rtspUrl);
+                captureRtspSnapshot(cameraId, cam);
             }
         }
     }
