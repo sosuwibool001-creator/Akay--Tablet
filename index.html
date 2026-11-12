@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Security & Auto Enrollment)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Standard Streaming)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -159,22 +159,6 @@
             z-index: 10;
         }
 
-        .countdown-overlay {
-            display: none;
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: rgba(255, 59, 48, 0.85);
-            color: #fff;
-            padding: 6px 14px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 700;
-            backdrop-filter: blur(4px);
-            z-index: 10;
-            animation: pulse 1s infinite;
-        }
-
         .thumbnails-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -272,8 +256,8 @@
 <div class="container">
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
-        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Security Edition</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลความปลอดภัย (PC Version - Security & Motion Challenge)</div>
+        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Standard Stream</span></div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะสตรีมมิ่งกล้องวงจรปิด (PC Version - Multi-Camera Standard Edition)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -294,7 +278,7 @@
     <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก -->
     <div id="stepSetup">
         <div class="logo-box" style="font-size: 24px;">🛠️ ลงทะเบียนเจ้าของเครื่องครั้งแรก</div>
-        <div class="subtitle">สวัสดีครับ เจระบบรักษาความปลอดภัยพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรและใช่เจ้าของเครื่องตัวจริงหรือไม่ครับ?</div>
+        <div class="subtitle">สวัสดีครับ เจระบบสตรีมมิ่งพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรและใช่เจ้าของเครื่องตัวจริงหรือไม่ครับ?</div>
         
         <video id="setupVideo" autoplay playsinline muted></video>
         
@@ -317,26 +301,16 @@
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <span>Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
-                
-                <!-- 🟢🔴 ไฟสถานะโหมดระบบพร้อมปุ่มกดสลับโหมดด่วน -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <div id="systemModeBadge" style="font-size: 12px; font-weight: 500; background: #fafafa; padding: 4px 10px; border-radius: 20px; display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-color);">
-                        <span id="modeDot" style="width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; display: inline-block; box-shadow: 0 0 6px rgba(52,199,89,0.4);"></span>
-                        <span id="modeText" style="color: #1d1d1f;">โหมดดูแล (CARE)</span>
-                    </div>
-                    <button onclick="toggleSystemModeManual()" class="standard-btn" style="padding: 4px 10px; font-size: 11px; background-color: #5856d6;">🔄 สลับโหมด</button>
-                </div>
+                <span>Project-J (PC) Standard Stream (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
 
         <div class="main-viewer-box">
             <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กำลังโหลด...</div>
-            <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
-            <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) พร้อมรองรับเสียงพูดออก NVR ผ่าน go2rtc backchannel -->
             <video id="activeMainVideo" autoplay playsinline muted style="display:block;"></video>
-            <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=0" 
+            <!-- ตั้งค่า muted=1 เป็นค่าเริ่มต้นเพื่อป้องกันเสียงเอคโค่รบกวน -->
+            <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=1" 
             style="width: 100%; height: 100%; border: none; object-fit: cover; display:none;" 
             allow="microphone; camera; autoplay" allowfullscreen></iframe>
         </div>
@@ -360,7 +334,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน...</div>
-            <div id="audioStats" class="debug-stats">🎙️ Security & Auto Enrollment Engine: พร้อมทำงานตรวจสอบความเคลื่อนไหว</div>
+            <div id="audioStats" class="debug-stats">🎙️ Standard Streaming Engine: พร้อมใช้งาน</div>
         </div>
     </div>
 </div>
@@ -483,7 +457,6 @@ const ownerNameInput = document.getElementById('ownerNameInput');
 const registerOwnerBtn = document.getElementById('registerOwnerBtn');
 const authStatusText = document.getElementById('authStatusText');
 const userNameDisplay = document.getElementById('userNameDisplay');
-const countdownBadge = document.getElementById('countdownBadge');
 
 const stopBtn = document.getElementById('stopBtn');
 const snapBtn = document.getElementById('snapBtn');
@@ -503,8 +476,6 @@ let masterMediaStream = null;
 let nextAudioTime = 0;
 let pingInterval = null;
 let remoteCheckInterval = null;
-let modeCheckInterval = null;
-let securityMotionCheckInterval = null;
 let recognition = null;
 let isUserActiveSession = false;
 let authenticatedUser = "เพื่อนเอก (Ake)";
@@ -514,211 +485,12 @@ let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
-let isSecurityChallenging = false;
-let securityChallengeTimer = null;
-let currentSystemMode = "CARE";
-
 let camerasRegistry = {
     "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, isNvr: false, stream: null },
     "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", isNvr: true, stream: null },
     "camera003": { name: "OBS Virtual Camera (ห้องรับแขก) (NVR)", isNvr: true, stream: null }
 };
 let activeCameraId = "";
-
-// 🟢 ฟังก์ชันดึงสถานะโหมดระบบจากหลังบ้าน
-async function updateSystemModeIndicator() {
-    try {
-        const res = await fetch(`${SERVER_URL}/api/system/mode`);
-        const data = await res.json();
-        if (data.success) {
-            currentSystemMode = data.mode;
-            const modeDot = document.getElementById('modeDot');
-            const modeText = document.getElementById('modeText');
-            
-            if (data.mode === 'SECURITY') {
-                if (modeDot) {
-                    modeDot.style.backgroundColor = 'var(--accent-red)';
-                    modeDot.style.boxShadow = '0 0 6px rgba(255,59,48,0.5)';
-                }
-                if (modeText) modeText.innerText = 'โหมดรักษาความปลอดภัย (SECURITY)';
-            } else {
-                if (modeDot) {
-                    modeDot.style.backgroundColor = 'var(--accent-green)';
-                    modeDot.style.boxShadow = '0 0 6px rgba(52,199,89,0.4)';
-                }
-                if (modeText) modeText.innerText = 'โหมดดูแล (CARE)';
-                if (isSecurityChallenging) {
-                    isSecurityChallenging = false;
-                    if (securityChallengeTimer) clearTimeout(securityChallengeTimer);
-                }
-            }
-        }
-    } catch (err) {}
-}
-
-// 🔄 ฟังก์ชันกดสลับโหมด Manual ทันที
-async function toggleSystemModeManual() {
-    const newMode = currentSystemMode === 'CARE' ? 'SECURITY' : 'CARE';
-    try {
-        const res = await fetch(`${SERVER_URL}/api/system/set-mode`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: newMode })
-        });
-        const data = await res.json();
-        if (data.success) {
-            await updateSystemModeIndicator();
-            statusText.innerHTML = `<span class="status-dot"></span><strong>🛡️ เปลี่ยนโหมดสำเร็จ:</strong> ระบบเปลี่ยนเป็น ${newMode} เรียบร้อยครับ`;
-        }
-    } catch (err) {
-        alert("ไม่สามารถเปลี่ยนโหมดได้: " + err.message);
-    }
-}
-
-// 🟢 ฟังก์ชันติดต่อหลังบ้านใหม่ (รองรับ RAM Buffer, Template 0 Token และ Visitor Response)
-async function sendSnapshotToBackendWithTemplate(imageBase64, visitorResponse = null) {
-    try {
-        const payload = {
-            imageBase64: imageBase64,
-            isFamily: false
-        };
-        if (visitorResponse) {
-            payload.visitorResponse = visitorResponse;
-        }
-
-        const res = await fetch(`${SERVER_URL}/api/snapshot/upload/${activeCameraId}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-
-        // 🟢 รองรับ Action และ Template 0 Token ที่ส่งมาจากหลังบ้านใหม่
-        if (data.success) {
-            if (data.action === 'greet_visitor' && data.greetingText) {
-                // พูดประโยค Template ทักทายจาก Local DB ทันที (0 Token)
-                await playTextToSpeechAndNVR(data.greetingText, "กล้องหน้าบ้าน");
-            } else if (data.action === 'announce_indoor' && data.announcementText) {
-                // ประกาศเสียงเตือนคนในบ้าน
-                await playTextToSpeech(data.announcementText);
-            }
-        }
-    } catch (err) {
-        console.error("Backend snapshot sync error:", err);
-    }
-}
-
-async function startSecurityMotionMonitor() {
-    if (securityMotionCheckInterval) clearInterval(securityMotionCheckInterval);
-    
-    securityMotionCheckInterval = setInterval(async () => {
-        if (!isUserActiveSession || currentSystemMode !== 'SECURITY' || isSecurityChallenging || isEnrollingGuest) return;
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 640; canvas.height = 360;
-        const ctx = canvas.getContext('2d');
-        const mainVid = document.getElementById('activeMainVideo');
-        
-        // ถ้าหน้าจอหลักเป็น NVR ให้ดึงภาพจากสตรีม NVR มาตรวจสอบ
-        let base64Img = "";
-        if (activeCameraId === 'camera002' || camerasRegistry[activeCameraId]?.isNvr) {
-            try {
-                const imageUrl = `${SERVER_URL}/uploads/realtime_${activeCameraId}.jpg?t=${Date.now()}`;
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-                await new Promise((resolve, reject) => {
-                    const timer = setTimeout(() => reject(), 2000);
-                    img.onload = () => { clearTimeout(timer); resolve(); };
-                    img.onerror = () => { clearTimeout(timer); reject(); };
-                    img.src = imageUrl;
-                });
-                canvas.width = img.naturalWidth || 640;
-                canvas.height = img.naturalHeight || 360;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                base64Img = canvas.toDataURL('image/jpeg', 0.4);
-            } catch (e) {}
-        } else if (mainVid && mainVid.readyState === 4) {
-            ctx.drawImage(mainVid, 0, 0, 640, 360);
-            base64Img = canvas.toDataURL('image/jpeg', 0.4);
-        }
-
-        if (base64Img) {
-            try {
-                const res = await fetch(`${SERVER_URL}/api/snapshot/upload/${activeCameraId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ imageBase64: base64Img, isFamily: false })
-                });
-                const data = await res.json();
-                
-                // 🟢 หากโหมด SECURITY ตรวจพบการเคลื่อนไหว/คนแปลกหน้า ให้เริ่มกระบวนการทักทายและนับถอยหลังทันที
-                if (data.success && data.action === 'trigger_security_challenge') {
-                    const camName = camerasRegistry[activeCameraId]?.name || "กล้องหน้าบ้าน";
-                    await triggerSecurityChallengeProtocol(camName);
-                }
-            } catch (err) {}
-        }
-    }, 4000);
-}
-
-async function triggerSecurityChallengeProtocol(cameraName) {
-    if (isSecurityChallenging) return;
-    isSecurityChallenging = true;
-
-    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-red);"></span><strong>🚨 ตรวจพบความเคลื่อนไหว [${cameraName}]:</strong> เจกำลังทักทายผ่านไมค์ NVR หน้าบ้านและขอการยืนยันตัวตน...`;
-    
-    const challengeText = `สวัสดีครับ ระบบรักษาความปลอดภัยกำลังทำงาน กรุณาระบุตัวตนหรือแจ้งชื่อให้เจทราบภายในสิบห้าวินาทีครับ`;
-    await playTextToSpeechAndNVR(challengeText, cameraName);
-
-    countdownBadge.style.display = 'block';
-    let timeLeft = 15;
-
-    securityChallengeTimer = setInterval(() => {
-        countdownBadge.innerText = `🚨 รอการยืนยันตัวตน: ${timeLeft}s`;
-        timeLeft--;
-
-        if (timeLeft < 0) {
-            clearInterval(securityChallengeTimer);
-            countdownBadge.style.display = 'none';
-            isSecurityChallenging = false;
-            sendTelegramSecurityAlert(cameraName);
-        }
-    }, 1000);
-}
-
-async function playTextToSpeechAndNVR(text, cameraName) {
-    await playTextToSpeech(text);
-    try {
-        await fetch(`${GO2RTC_BASE_URL}/api/audio?src=camera002`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain' },
-            body: text
-        });
-    } catch (e) {
-        console.warn("NVR Audio Backchannel error:", e);
-    }
-}
-
-function cancelSecurityChallengeIfResponded() {
-    if (isSecurityChallenging) {
-        isSecurityChallenging = false;
-        if (securityChallengeTimer) clearInterval(securityChallengeTimer);
-        countdownBadge.style.display = 'none';
-        statusText.innerHTML = `<span class="status-dot"></span><strong>✅ ยืนยันตัวตนผ่าน:</strong> ยกเลิกการแจ้งเตือนฉุกเฉินเรียบร้อย`;
-    }
-}
-
-async function sendTelegramSecurityAlert(cameraName) {
-    try {
-        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>⚠️ หมดเวลา 15 วินาที:</strong> กำลังส่งแจ้งเตือนด่วนทาง Telegram...`;
-        await fetch(`${SERVER_URL}/api/telegram/alert`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: `🚨 แจ้งเตือนความปลอดภัย: ตรวจพบการเคลื่อนไหวผิดปกติที่ [${cameraName}] และไม่มีการตอบกลับยืนยันตัวตนภายใน 15 วินาที!` })
-        });
-        await playTextToSpeech("ไม่มีการตอบกลับภายในเวลาที่กำหนด เจได้ส่งภาพและแจ้งเตือนไปยังเทเลแกรมเรียบร้อยแล้วครับ");
-    } catch (err) {}
-}
 
 function saveToHistory(role, text) {
     let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
@@ -914,12 +686,10 @@ function renderDynamicThumbnails() {
     }
 }
 
-// 🔄 ฟังก์ชันสลับกล้องหลักแบบเงียบๆ (Silent Switch - ไม่กิน Token ไม่สั่งวิเคราะห์อัตโนมัติ)
 async function switchActiveCamera(camId) {
     if (!camerasRegistry[camId]) return;
     activeCameraId = camId;
 
-    // อัปเดต UI แถบเลือกและไฮไลต์กล้อง
     document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active'));
     const targetCard = document.getElementById(`thumb-card-${camId}`);
     if (targetCard) targetCard.classList.add('active');
@@ -942,11 +712,11 @@ async function switchActiveCamera(camId) {
         }
         if (mainFrame) {
             mainFrame.style.display = 'block';
-            mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=0`;
+            // บังคับ muted=1 เพื่อป้องกันเสียงเอคโค่สั่นพ้อง
+            mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
             mainFrame.setAttribute('allow', 'microphone; camera; autoplay');
         }
-        // 🟢 เปลี่ยนข้อความสถานะเป็นแบบเงียบ (ไม่ส่งข้อมูลไปหา AI)
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อย (รอคำสั่งจากเพื่อนเอก)`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อยครับ 🟢`;
     } else {
         if (mainFrame) {
             mainFrame.style.display = 'none';
@@ -961,7 +731,7 @@ async function switchActiveCamera(camId) {
                 await mainVid.play().catch(e => {});
             } catch (err) {}
         }
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อย (รอคำสั่งจากเพื่อนเอก)`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
     }
 }
 
@@ -999,7 +769,7 @@ async function startMainAppSession() {
                 : "ไม่มีประวัติคุยเก่า";
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `🎙️ Security & Auto Enrollment Engine Ready`;
+            audioStats.innerText = `🎙️ Standard Streaming Engine Ready`;
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
@@ -1015,26 +785,7 @@ ${historySummaryText}
                         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
                     },
                     tools: [
-                        { googleSearch: {} },
-                        {
-                            functionDeclarations: [
-                                {
-                                    name: "setSystemMode",
-                                    description: "สลับโหมดการทำงานของระบบระหว่าง โหมดดูแล (CARE) และ โหมดรักษาความปลอดภัย (SECURITY)",
-                                    parameters: {
-                                        type: "OBJECT",
-                                        properties: {
-                                            mode: {
-                                                type: "STRING",
-                                                enum: ["CARE", "SECURITY"],
-                                                description: "โหมดที่ต้องการเปลี่ยน เช่น SECURITY หรือ CARE"
-                                            }
-                                        },
-                                        required: ["mode"]
-                                    }
-                                }
-                            ]
-                        }
+                        { googleSearch: {} }
                     ],
                     systemInstruction: { parts: [{ text: dynamicToneInstructions }] }
                 }
@@ -1044,12 +795,6 @@ ${historySummaryText}
             startSpeechRecognition();
             startKeepAlivePing();
             startRemoteCaptureListener(); 
-            
-            updateSystemModeIndicator();
-            if (modeCheckInterval) clearInterval(modeCheckInterval);
-            modeCheckInterval = setInterval(updateSystemModeIndicator, 3000);
-
-            startSecurityMotionMonitor();
         };
 
         ws.onmessage = async (event) => {
@@ -1057,34 +802,6 @@ ${historySummaryText}
             try {
                 let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
                 
-                if (data.toolCall) {
-                    for (const call of data.toolCall.functionCalls) {
-                        if (call.name === "setSystemMode") {
-                            const requestedMode = call.args.mode;
-                            
-                            await fetch(`${SERVER_URL}/api/system/mode`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ mode: requestedMode })
-                            });
-
-                            await updateSystemModeIndicator();
-
-                            const toolResponse = {
-                                toolResponse: {
-                                    functionResponses: [
-                                        {
-                                            response: { output: { success: true, currentMode: requestedMode } },
-                                            id: call.id
-                                        }
-                                    ]
-                                }
-                            };
-                            ws.send(JSON.stringify(toolResponse));
-                        }
-                    }
-                }
-
                 if (data.serverContent && data.serverContent.modelTurn) {
                     const parts = data.serverContent.modelTurn.parts;
                     for (const part of parts) {
@@ -1200,74 +917,6 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     }
 }
 
-function checkForEnrollmentTrigger(text) {
-    const lowerText = text.toLowerCase();
-    const isIntroducing = lowerText.includes("เพื่อนใหม่") || lowerText.includes("นี่คุณ") || lowerText.includes("ขอแนะนำให้รู้จัก") || lowerText.includes("คนนี้ชื่อ");
-    
-    if (isIntroducing && !isEnrollingGuest) {
-        let extractedName = "เพื่อนใหม่";
-        const nameMatch = text.match(/(?:ชื่อ|นี่คุณ|เพื่อนใหม่ชื่อ)\s*([\u0E00-\u0E7Fa-zA-Z0-9_\s]+)/);
-        if (nameMatch && nameMatch[1]) {
-            extractedName = nameMatch[1].trim().split(" ")[0];
-        }
-        triggerGuestEnrollmentSequence(extractedName);
-        return true;
-    }
-    return false;
-}
-
-async function triggerGuestEnrollmentSequence(guestName) {
-    isEnrollingGuest = true;
-    if (recognition) { try { recognition.stop(); } catch(e){} }
-
-    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>🎙️ เจ:</strong> กำลังต้อนรับและเปิดระบบบันทึกโปรไฟล์สำหรับคุณ ${guestName}...`;
-
-    const greetingText = `สวัสดีครับผมเจครับ ผู้ดูแลความปลอดภัยของบ้านหลังนี้ ขออนุญาตบันทึกเสียงและถ่ายรูปเพื่อเก็บเป็นโปรไฟล์คนรู้จักนะครับ`;
-    await playTextToSpeech(greetingText);
-
-    countdownBadge.style.display = 'block';
-    enrollmentManager.startRecording();
-
-    let count = 5;
-    let capturedImageBase64 = null;
-
-    const countdownInterval = setInterval(async () => {
-        countdownBadge.innerText = `🎙️ กำลังบันทึกเสียงโปรไฟล์คุณ ${guestName}: ${count}`;
-        if (count === 3) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1280; canvas.height = 720;
-            const ctx = canvas.getContext('2d');
-            const mainVid = document.getElementById('activeMainVideo');
-            if (mainVid && mainVid.readyState === 4) {
-                ctx.drawImage(mainVid, 0, 0, 1280, 720);
-                capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
-            }
-        }
-        count--;
-
-        if (count < 0) {
-            clearInterval(countdownInterval);
-            countdownBadge.style.display = 'none';
-            const audioBase64 = await enrollmentManager.stopAndExportWAVBase64();
-
-            try {
-                await fetch(`${SERVER_URL}/api/profiles/enroll`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ guestName, imageBase64: capturedImageBase64, audioBase64 })
-                });
-            } catch (err) {}
-
-            const closingText = `จบการบันทึกเรียบร้อยครับ ยินดีที่ได้รู้จักคุณ ${guestName} ครับ`;
-            await playTextToSpeech(closingText);
-
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> บันทึกโปรไฟล์คุณ [${guestName}] เรียบร้อยครับ 🟢`;
-            isEnrollingGuest = false;
-            if (isUserActiveSession) startSpeechRecognition();
-        }
-    }, 1000);
-}
-
 function playTextToSpeech(text) {
     return new Promise((resolve) => {
         if (!('speechSynthesis' in window)) { resolve(); return; }
@@ -1304,7 +953,6 @@ function startSpeechRecognition() {
                 let finalTextToSend = speechBuffer.trim();
                 speechBuffer = "";
                 if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
-                    cancelSecurityChallengeIfResponded();
                     sendTextDirectly(finalTextToSend);
                 }
             }, 800);
@@ -1318,18 +966,14 @@ function startSpeechRecognition() {
 
 async function sendTextDirectly(text) {
     if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking || isEnrollingGuest) return;
-    if (checkForEnrollmentTrigger(text)) return;
 
     const lowerText = text.toLowerCase();
-    
-    // ตรวจจับคีย์เวิร์ดเพื่อสลับกล้อง (เช่น "หน้าบ้าน", "ห้องรับแขก") ตามที่ตั้งไว้
     const cameraKeywords = {
         "camera001": ["หน้าคอม", "คอม", "เว็บแคม", "webcam"],
         "camera002": ["หน้าบ้าน", "ประตูหน้าบ้าน", "ลานหน้าบ้าน"],
         "camera003": ["ห้องรับแขก", "รับแขก", "นวด", "โซฟา"],
         "camera004": ["หลังบ้าน", "ลานซักล้าง"],
-        "camera005": ["ห้องนอน", "เตียงนอน"],
-        "camera006": ["อายคาเมร่า", "สแกนภาพ", "ตรวจดูยา", "เช็คยา", "อ่านว่าอะไร"]
+        "camera005": ["ห้องนอน", "เตียงนอน"]
     };
 
     let matchedCamId = null;
@@ -1349,38 +993,19 @@ async function sendTextDirectly(text) {
         }
     }
 
-   // หากพูดชื่อกล้อง ระบบจะทำการสลับกล้องให้ทันทีแบบเงียบๆ
     if (matchedCamId && camerasRegistry[matchedCamId]) {
         switchActiveCamera(matchedCamId);
     }
 
     saveToHistory('user', text);
     statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
-    
-    // 🟢 หากอยู่ใน CARE Mode และเป็นการตอบกลับหน้าบ้าน (ส่ง visitorResponse ไปยังหลังบ้าน)
-    if (currentSystemMode === 'CARE' && activeCameraId === 'camera002') {
-        const canvas = document.createElement('canvas');
-        canvas.width = 640; canvas.height = 360;
-        const ctx = canvas.getContext('2d');
-        const mainVid = document.getElementById('activeMainVideo');
-        let base64Img = "";
-        if (mainVid && mainVid.readyState === 4) {
-            ctx.drawImage(mainVid, 0, 0, 640, 360);
-            base64Img = canvas.toDataURL('image/jpeg', 0.4);
-        }
-        await sendSnapshotToBackendWithTemplate(base64Img, text);
-    }
 
-   // 🟢 ตรวจสอบว่าผู้ใช้ "เอ่ยปากถามหรือสั่งให้ดูภาพ" หรือไม่ เช่น "ดูซิ", "มีใครอยู่", "เห็นอะไร"
-    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู") || lowerText.includes("ใคร");
-    
+    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
     if (isAskingForVision) {
-        // ถือว่าผู้ใช้ต้องการให้เจวิเคราะห์ภาพ ณ กล้องปัจจุบัน จึงทำการแนบภาพสดส่งให้เจตรวจ
         await captureAndSendSpecificCamera(activeCameraId, true);
         return;
     }
 
-    // ถ้าเป็นการคุยทั่วไป หรือสั่งเปลี่ยนกล้องเฉยๆ จะส่งแค่ข้อความแชทไปปกติ (ประหยัด Token 100%)
     ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
 }
 
@@ -1444,30 +1069,13 @@ function stopSession() {
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
-    if (modeCheckInterval) { clearInterval(modeCheckInterval); modeCheckInterval = null; }
-    if (securityMotionCheckInterval) { clearInterval(securityMotionCheckInterval); securityMotionCheckInterval = null; }
-    if (securityChallengeTimer) { clearInterval(securityChallengeTimer); securityChallengeTimer = null; }
-    if (speechTimeout) { clearInterval(speechTimeout); speechTimeout = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
-    // 🟢 สั่งเคลียร์ iframe และปิดเสียง NVR Backchannel อย่างเด็ดขาด
     const mainFrame = document.getElementById('activeMainFrame');
     if (mainFrame) {
         mainFrame.src = 'about:blank';
         mainFrame.style.display = 'none';
-        mainFrame.remove(); // ลบ element ออกจาก DOM ชั่วคราวเพื่อตัดการเชื่อมต่อเสียง 100%
     }
-
-    // ส่งสัญญาณไปตัดเสียงที่ go2rtc ทุกช่องทางกล้อง NVR
-    Object.keys(camerasRegistry).forEach(camId => {
-        if (camerasRegistry[camId].isNvr) {
-            fetch(`${GO2RTC_BASE_URL}/api/audio?src=${camId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain' },
-                body: ""
-            }).catch(e => {});
-        }
-    });
 
     Object.values(camerasRegistry).forEach(cam => {
         if (cam.stream) cam.stream.getTracks().forEach(track => track.stop());
@@ -1477,10 +1085,10 @@ function stopSession() {
     if (ws) { ws.close(); ws = null; }
     if (audioContext) { audioContext.close(); audioContext = null; }
     
-    if (step2) step2.style.display = 'none';
-    if (stepAuth) stepAuth.style.display = 'none';
-    if (stepSetup) stepSetup.style.display = 'none';
-    if (step1) step1.style.display = 'flex';
+    step2.style.display = 'none';
+    stepAuth.style.display = 'none';
+    stepSetup.style.display = 'none';
+    step1.style.display = 'flex';
 }
 
 stopBtn.addEventListener('click', stopSession);
