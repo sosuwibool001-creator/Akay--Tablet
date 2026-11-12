@@ -396,7 +396,13 @@ class AutoEnrollmentManager {
             const inputData = e.inputBuffer.getChannelData(0);
             this.audioChunks.push(new Float32Array(inputData));
         };  
-        this.processor.connect(this.audioContext.destination);
+       this.inputNode.connect(this.processor);
+        
+        // 🛠️ นำโค้ดส่วนนี้มาใส่แทนที่ของเดิม เพื่อตัดเสียงไมค์ไม่ให้ออกหูฟังบลูทูธ
+        const dummyGain = this.audioContext.createGain();
+        dummyGain.gain.value = 0;
+        this.processor.connect(dummyGain);
+        dummyGain.connect(this.audioContext.destination);
     }
 
     startRecording() {
