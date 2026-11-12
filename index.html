@@ -395,9 +395,7 @@ class AutoEnrollmentManager {
             if (!this.isRecording) return;
             const inputData = e.inputBuffer.getChannelData(0);
             this.audioChunks.push(new Float32Array(inputData));
-        };
-
-        this.inputNode.connect(this.processor);
+        };  
         this.processor.connect(this.audioContext.destination);
     }
 
