@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Standard Streaming)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Auto Enrollment)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -159,6 +159,22 @@
             z-index: 10;
         }
 
+        .countdown-overlay {
+            display: none;
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(255, 59, 48, 0.85);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            backdrop-filter: blur(4px);
+            z-index: 10;
+            animation: pulse 1s infinite;
+        }
+
         .thumbnails-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -256,8 +272,8 @@
 <div class="container">
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
-        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Standard Stream</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะสตรีมมิ่งกล้องวงจรปิด (PC Version - Multi-Camera Standard Edition)</div>
+        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Guardian Edition</span></div>
+        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลความปลอดภัย (PC Version - Auto Enrollment)</div>
         
         <div class="input-group">
             <select id="voiceSelect">
@@ -278,7 +294,7 @@
     <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก -->
     <div id="stepSetup">
         <div class="logo-box" style="font-size: 24px;">🛠️ ลงทะเบียนเจ้าของเครื่องครั้งแรก</div>
-        <div class="subtitle">สวัสดีครับ เจระบบสตรีมมิ่งพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรและใช่เจ้าของเครื่องตัวจริงหรือไม่ครับ?</div>
+        <div class="subtitle">สวัสดีครับ เจระบบผู้ช่วยพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรและใช่เจ้าของเครื่องตัวจริงหรือไม่ครับ?</div>
         
         <video id="setupVideo" autoplay playsinline muted></video>
         
@@ -301,15 +317,16 @@
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <span>Project-J (PC) Standard Stream (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
+                <span>Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
 
         <div class="main-viewer-box">
             <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กำลังโหลด...</div>
+            <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
+            <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) พร้อมรองรับเสียงพูดออก NVR ผ่าน go2rtc backchannel -->
             <video id="activeMainVideo" autoplay playsinline muted style="display:block;"></video>
-            <!-- ตั้งค่า muted=1 เป็นค่าเริ่มต้นเพื่อป้องกันเสียงเอคโค่รบกวน -->
             <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=1" 
             style="width: 100%; height: 100%; border: none; object-fit: cover; display:none;" 
             allow="microphone; camera; autoplay" allowfullscreen></iframe>
@@ -334,7 +351,7 @@
 
         <div id="output">
             <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน...</div>
-            <div id="audioStats" class="debug-stats">🎙️ Standard Streaming Engine: พร้อมใช้งาน</div>
+            <div id="audioStats" class="debug-stats">🎙️ Auto Enrollment & Multi-Camera Engine: พร้อมทำงาน</div>
         </div>
     </div>
 </div>
@@ -457,6 +474,7 @@ const ownerNameInput = document.getElementById('ownerNameInput');
 const registerOwnerBtn = document.getElementById('registerOwnerBtn');
 const authStatusText = document.getElementById('authStatusText');
 const userNameDisplay = document.getElementById('userNameDisplay');
+const countdownBadge = document.getElementById('countdownBadge');
 
 const stopBtn = document.getElementById('stopBtn');
 const snapBtn = document.getElementById('snapBtn');
@@ -712,7 +730,6 @@ async function switchActiveCamera(camId) {
         }
         if (mainFrame) {
             mainFrame.style.display = 'block';
-            // บังคับ muted=1 เพื่อป้องกันเสียงเอคโค่สั่นพ้อง
             mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
             mainFrame.setAttribute('allow', 'microphone; camera; autoplay');
         }
@@ -769,7 +786,7 @@ async function startMainAppSession() {
                 : "ไม่มีประวัติคุยเก่า";
 
             statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `🎙️ Standard Streaming Engine Ready`;
+            audioStats.innerText = `🎙️ Auto Enrollment Engine Ready`;
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
@@ -917,6 +934,74 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     }
 }
 
+function checkForEnrollmentTrigger(text) {
+    const lowerText = text.toLowerCase();
+    const isIntroducing = lowerText.includes("เพื่อนใหม่") || lowerText.includes("นี่คุณ") || lowerText.includes("ขอแนะนำให้รู้จัก") || lowerText.includes("คนนี้ชื่อ");
+    
+    if (isIntroducing && !isEnrollingGuest) {
+        let extractedName = "เพื่อนใหม่";
+        const nameMatch = text.match(/(?:ชื่อ|นี่คุณ|เพื่อนใหม่ชื่อ)\s*([\u0E00-\u0E7Fa-zA-Z0-9_\s]+)/);
+        if (nameMatch && nameMatch[1]) {
+            extractedName = nameMatch[1].trim().split(" ")[0];
+        }
+        triggerGuestEnrollmentSequence(extractedName);
+        return true;
+    }
+    return false;
+}
+
+async function triggerGuestEnrollmentSequence(guestName) {
+    isEnrollingGuest = true;
+    if (recognition) { try { recognition.stop(); } catch(e){} }
+
+    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>🎙️ เจ:</strong> กำลังต้อนรับและเปิดระบบบันทึกโปรไฟล์สำหรับคุณ ${guestName}...`;
+
+    const greetingText = `สวัสดีครับผมเจครับ ผู้ดูแลความปลอดภัยของบ้านหลังนี้ ขออนุญาตบันทึกเสียงและถ่ายรูปเพื่อเก็บเป็นโปรไฟล์คนรู้จักนะครับ`;
+    await playTextToSpeech(greetingText);
+
+    countdownBadge.style.display = 'block';
+    enrollmentManager.startRecording();
+
+    let count = 5;
+    let capturedImageBase64 = null;
+
+    const countdownInterval = setInterval(async () => {
+        countdownBadge.innerText = `🎙️ กำลังบันทึกเสียงโปรไฟล์คุณ ${guestName}: ${count}`;
+        if (count === 3) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1280; canvas.height = 720;
+            const ctx = canvas.getContext('2d');
+            const mainVid = document.getElementById('activeMainVideo');
+            if (mainVid && mainVid.readyState === 4) {
+                ctx.drawImage(mainVid, 0, 0, 1280, 720);
+                capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
+            }
+        }
+        count--;
+
+        if (count < 0) {
+            clearInterval(countdownInterval);
+            countdownBadge.style.display = 'none';
+            const audioBase64 = await enrollmentManager.stopAndExportWAVBase64();
+
+            try {
+                await fetch(`${SERVER_URL}/api/profiles/enroll`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ guestName, imageBase64: capturedImageBase64, audioBase64 })
+                });
+            } catch (err) {}
+
+            const closingText = `จบการบันทึกเรียบร้อยครับ ยินดีที่ได้รู้จักคุณ ${guestName} ครับ`;
+            await playTextToSpeech(closingText);
+
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> บันทึกโปรไฟล์คุณ [${guestName}] เรียบร้อยครับ 🟢`;
+            isEnrollingGuest = false;
+            if (isUserActiveSession) startSpeechRecognition();
+        }
+    }, 1000);
+}
+
 function playTextToSpeech(text) {
     return new Promise((resolve) => {
         if (!('speechSynthesis' in window)) { resolve(); return; }
@@ -966,6 +1051,7 @@ function startSpeechRecognition() {
 
 async function sendTextDirectly(text) {
     if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking || isEnrollingGuest) return;
+    if (checkForEnrollmentTrigger(text)) return;
 
     const lowerText = text.toLowerCase();
     const cameraKeywords = {
