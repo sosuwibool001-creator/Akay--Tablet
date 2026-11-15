@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (IMOU Exclusive)</title>
+    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (go2rtc Live Stream)</title>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -135,12 +135,13 @@
             margin-bottom: 15px;
         }
 
-        #activeMainImouFeed {
+        /* 🚀 ใช้ go2rtc iframe เป็นจอหลักเพื่อให้เป็นสตรีมสดจริง ไม่สโลโมชั่น */
+        #activeMainFrame {
             width: 100%;
             height: 100%;
+            border: none;
             object-fit: cover;
             display: block;
-            border: none;
             outline: none;
         }
 
@@ -207,6 +208,13 @@
             justify-content: center;
         }
 
+        .thumb-video-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            pointer-events: none;
+        }
+
         .thumb-label {
             font-size: 11px;
             margin-top: 6px;
@@ -270,7 +278,7 @@
 <div class="container">
     <!-- Step 1: หน้าแรกเลือกเสียง -->
     <div id="step1">
-        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">IMOU Exclusive</span></div>
+        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">go2rtc Live Stream</span></div>
         <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลความปลอดภัย (Mini PC + IMOU Mode)</div>
         
         <div class="input-group">
@@ -293,9 +301,7 @@
     <div id="stepSetup">
         <div class="logo-box" style="font-size: 24px;">🛠️ ลงทะเบียนเจ้าของเครื่อง (ผ่านอายคาเมร่า)</div>
         <div class="subtitle">สวัสดีครับ เจระบบผู้ช่วยพร้อมดูแลครับ กำลังดึงภาพจากกล้อง IMOU เพื่อสแกนใบหน้า...</div>
-        
         <img id="setupImouImg" src="" alt="Setup Feed">
-        
         <div class="input-group">
             <input type="text" id="ownerNameInput" placeholder="ระบุชื่อเจ้าของเครื่อง (เช่น เพื่อนเอก)..." value="เพื่อนเอก (Ake)">
             <button id="registerOwnerBtn" class="standard-btn" style="padding: 12px; font-size: 14px;">✅ ยืนยันสิทธิ์เจ้าของเครื่องผ่าน IMOU</button>
@@ -311,11 +317,11 @@
         <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 15px;">❌ ยกเลิก</button>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลัก (บังคับเปิดกล้องหลัก อายคาเมร่า camera006 ทันที) -->
+    <!-- Step 2: แดชบอร์ดหลัก (บังคับเปิดสตรีมสด go2rtc ของกล้องหลัก camera006 ทันที) -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <span>Project-J (IMOU Primary Mode) (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
+                <span>Project-J (go2rtc Live Stream) (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
             </div>
             <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
         </div>
@@ -323,8 +329,8 @@
         <div class="main-viewer-box">
             <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: อายคาเมร่า (กล้องหลัก)</div>
             <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
-            <!-- แสดงผลภาพสดจากกล้อง IMOU ตัวหลักตัวเดียว -->
-            <img id="activeMainImouFeed" src="" alt="Main IMOU Feed">
+            <!-- 🚀 ใช้ go2rtc iframe แสดงผลสตรีมสดหลัก -->
+            <iframe id="activeMainFrame" src="" allow="microphone; camera; autoplay" allowfullscreen></iframe>
         </div>
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
 
@@ -345,7 +351,7 @@
         </div>
 
         <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ IMOU Exclusive พร้อมทำงาน...</div>
+            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ go2rtc Stream พร้อมทำงาน...</div>
             <div id="audioStats" class="debug-stats">🎙️ IMOU Hardware Exclusive Engine: ปิดไมค์/ลำโพงโน้ตบุ๊ค 100%</div>
         </div>
     </div>
@@ -378,6 +384,7 @@ if ('speechSynthesis' in window) {
 
 let BACKEND_API_KEY = "";
 const SERVER_URL = "http://localhost:3000";
+const GO2RTC_BASE_URL = "http://localhost:1984";
 const PRIMARY_CAMERA_ID = "camera006"; // ล็อกกล้องหลักเป็นอายคาเมร่าตัวเดียว
 
 async function initConfig() {
@@ -433,13 +440,12 @@ const voiceSelect = document.getElementById('voiceSelect');
 const statusText = document.getElementById('statusText');
 const audioStats = document.getElementById('audioStats');
 const cameraDropdownSelect = document.getElementById('cameraDropdownSelect');
-const activeMainImouFeed = document.getElementById('activeMainImouFeed');
+const activeMainFrame = document.getElementById('activeMainFrame');
 
 let ws = null;
 let audioContext = null;
 let setupImouInterval = null;
 let authImouInterval = null;
-let mainImouInterval = null;
 let remoteCheckInterval = null;
 let pingInterval = null;
 let recognition = null;
@@ -573,18 +579,17 @@ async function initCameraSystem() {
         camerasRegistry = {};
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                // บังคับกรองเฉพาะกล้องที่เปิดใช้งาน (active) และไม่ใช่กล้องเว็บแคมโน้ตบุ๊ค
+                // กรองเฉพาะกล้องหลัก active และไม่ใช่ camera001
                 if (camInfo.active !== false && camId !== 'camera001') {
                     camerasRegistry[camId] = {
                         name: camInfo.name,
                         ip: camInfo.ip,
-                        brand: camInfo.brand || 'imour'
+                        brand: camInfo.brand || 'imou'
                     };
                 }
             }
         }
 
-        // หากไม่มีข้อมูล ให้บังคับผูกกล้องหลัก IMOU (camera006) ทันที
         if (Object.keys(camerasRegistry).length === 0) {
             camerasRegistry[PRIMARY_CAMERA_ID] = { name: "อายคาเมร่า (กล้องหลัก)", ip: "192.168.188.124", brand: "imou" };
         }
@@ -623,9 +628,10 @@ function renderDynamicThumbnails() {
         card.id = `thumb-card-${camId}`;
         card.onclick = () => switchActiveCamera(camId);
 
+        // 🚀 ช่องย่อยดึงสตรีมสดผ่าน go2rtc iframe โดยตรง ไม่ใช้ภาพเก่า
         card.innerHTML = `
             <div class="thumb-video-container">
-                <img id="thumb-img-${camId}" src="" style="width:100%; height:100%; object-fit:cover;" alt="thumb">
+                <iframe src="${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1" style="width:100%; height:100%; border:none; pointer-events:none;" allow="autoplay"></iframe>
             </div>
             <div class="thumb-label">
                 <span>${camInfo.name}</span>
@@ -633,19 +639,6 @@ function renderDynamicThumbnails() {
             </div>
         `;
         gridContainer.appendChild(card);
-
-        const updateThumb = async () => {
-            try {
-                const res = await fetch(`${SERVER_URL}/api/camera/latest/${camId}`);
-                const data = await res.json();
-                const thumbImg = document.getElementById(`thumb-img-${camId}`);
-                if (thumbImg && data.success && data.imageBase64) {
-                    thumbImg.src = `data:image/jpeg;base64,${data.imageBase64}`;
-                }
-            } catch(e){}
-        };
-        updateThumb();
-        setInterval(updateThumb, 3000);
     }
 }
 
@@ -662,21 +655,11 @@ async function switchActiveCamera(camId) {
     if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camInfo.name}`;
     if (cameraDropdownSelect) cameraDropdownSelect.value = camId;
 
-    if (mainImouInterval) clearInterval(mainImouInterval);
+    // 🚀 สลับจอหลักไปที่สตรีม go2rtc iframe ของกล้องนั้นๆ ทันที (สตรีมสดแท้ 100%)
+    activeMainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
+    activeMainFrame.setAttribute('allow', 'microphone; camera; autoplay');
 
-    const updateMainFeed = async () => {
-        try {
-            const res = await fetch(`${SERVER_URL}/api/camera/latest/${camId}`);
-            const data = await res.json();
-            if (data.success && data.imageBase64) {
-                activeMainImouFeed.src = `data:image/jpeg;base64,${data.imageBase64}`;
-            }
-        } catch(e){}
-    };
-    updateMainFeed();
-    mainImouInterval = setInterval(updateMainFeed, 1000); // รีเฟรชจอหลักทุก 1 วินาที ลื่นไหลทันใจ
-
-    statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่กล้อง [${camInfo.name}] เรียบร้อยครับ 🟢`;
+    statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับสตรีมสด go2rtc มาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
 }
 
 switchCamBtn.addEventListener('click', () => {
@@ -709,8 +692,8 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (IMOU Primary Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `🎙️ IMOU Hardware Exclusive Engine Ready`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (go2rtc Live Stream Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
+            audioStats.innerText = `🎙️ go2rtc Live Stream Engine Ready`;
             
             const dynamicToneInstructions = `
 คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J IMOU Mode) ผู้ช่วยอัจฉริยะส่วนตัว
@@ -961,7 +944,6 @@ function stopSession() {
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
-    if (mainImouInterval) { clearInterval(mainImouInterval); mainImouInterval = null; }
     if (setupImouInterval) { clearInterval(setupImouInterval); setupImouInterval = null; }
     if (authImouInterval) { clearInterval(authImouInterval); authImouInterval = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
