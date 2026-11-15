@@ -359,7 +359,7 @@
 
 <script>
 // =========================================================================
-// 🔒 [IMOU Hardware Exclusive Mode] บล็อกไมค์/ลำโพงโน้ตบุ๊ค 100%
+// 🔒 [IMOU Hardware Exclusive Voice Mode] บล็อกไมค์/ลำโพง/คีย์บอร์ดโน้ตบุ๊ค 100%
 // =========================================================================
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia = async function(constraints) {
@@ -368,6 +368,7 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     };
 }
 
+// 🔊 ดักเสียงพูดของเจทั้งหมด บังคับส่งไปออกลำโพงกล้อง IMOU ผ่านหลังบ้าน
 if ('speechSynthesis' in window) {
     window.speechSynthesis.speak = function(utterance) {
         const textToSpeak = utterance?.text || "";
@@ -398,22 +399,6 @@ async function initConfig() {
 }
 initConfig();
 
-class AutoEnrollmentManager {
-    constructor(sampleRate = 16000) {
-        this.sampleRate = sampleRate;
-        this.isRecording = false;
-    }
-    startCapture(mediaStream) {}
-    startRecording() { this.isRecording = true; }
-    stopAndExportWAVBase64() {
-        this.isRecording = false;
-        return Promise.resolve(null);
-    }
-}
-
-let enrollmentManager = new AutoEnrollmentManager();
-let isEnrollingGuest = false;
-
 const step1 = document.getElementById('step1');
 const stepSetup = document.getElementById('stepSetup');
 const stepAuth = document.getElementById('stepAuth');
@@ -434,8 +419,6 @@ const stopBtn = document.getElementById('stopBtn');
 const snapBtn = document.getElementById('snapBtn');
 const switchCamBtn = document.getElementById('switchCamBtn');
 const clearMemBtn = document.getElementById('clearMemBtn');
-const sendTextBtn = document.getElementById('sendTextBtn');
-const textInput = document.getElementById('textInput');
 const voiceSelect = document.getElementById('voiceSelect');
 const statusText = document.getElementById('statusText');
 const audioStats = document.getElementById('audioStats');
@@ -453,7 +436,6 @@ let isUserActiveSession = false;
 let authenticatedUser = "เพื่อนเอก (Ake)";
 
 let isModelSpeaking = false;
-let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
@@ -579,7 +561,6 @@ async function initCameraSystem() {
         camerasRegistry = {};
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                // กรองเฉพาะกล้องหลัก active และไม่ใช่ camera001
                 if (camInfo.active !== false && camId !== 'camera001') {
                     camerasRegistry[camId] = {
                         name: camInfo.name,
@@ -628,7 +609,6 @@ function renderDynamicThumbnails() {
         card.id = `thumb-card-${camId}`;
         card.onclick = () => switchActiveCamera(camId);
 
-        // 🚀 ช่องย่อยดึงสตรีมสดผ่าน go2rtc iframe โดยตรง ไม่ใช้ภาพเก่า
         card.innerHTML = `
             <div class="thumb-video-container">
                 <iframe src="${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1" style="width:100%; height:100%; border:none; pointer-events:none;" allow="autoplay"></iframe>
@@ -655,7 +635,6 @@ async function switchActiveCamera(camId) {
     if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camInfo.name}`;
     if (cameraDropdownSelect) cameraDropdownSelect.value = camId;
 
-    // 🚀 สลับจอหลักไปที่สตรีม go2rtc iframe ของกล้องนั้นๆ ทันที (สตรีมสดแท้ 100%)
     activeMainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
     activeMainFrame.setAttribute('allow', 'microphone; camera; autoplay');
 
@@ -675,7 +654,6 @@ async function startMainAppSession() {
     try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
         if (audioContext.state === 'suspended') await audioContext.resume();
-        nextAudioTime = audioContext.currentTime;
 
         const selectedVoice = voiceSelect.value;
         const host = "generativelanguage.googleapis.com";
@@ -692,11 +670,11 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (go2rtc Live Stream Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `🎙️ go2rtc Live Stream Engine Ready`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (Voice-Driven Mode) เจพร้อมรับฟังเสียงผ่านไมค์ IMOU แล้วครับ 🎙️🔊`;
+            audioStats.innerText = `🎙️ IMOU Voice Command Engine Ready (No Keyboard Required)`;
             
             const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J IMOU Mode) ผู้ช่วยอัจฉริยะส่วนตัว
+คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Voice Mode) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
 ${historySummaryText}
@@ -715,7 +693,7 @@ ${historySummaryText}
             };
             ws.send(JSON.stringify(setupMessage));
 
-            startSpeechRecognition();
+            startSpeechRecognitionFromImouBridge();
             startKeepAlivePing();
             startRemoteCaptureListener(); 
         };
@@ -729,11 +707,14 @@ ${historySummaryText}
                     const parts = data.serverContent.modelTurn.parts;
                     for (const part of parts) {
                         if (part.text) responseText += part.text;
-                        if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
                     }
                     if (responseText) {
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
+                        
+                        const utterance = new SpeechSynthesisUtterance(responseText);
+                        utterance.lang = 'th-TH';
+                        window.speechSynthesis.speak(utterance);
                     }
                 }
             } catch (e) {
@@ -751,6 +732,57 @@ ${historySummaryText}
     } catch (e) {
         statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เกิดข้อผิดพลาด:</strong> ${e.message}`;
     }
+}
+
+// 🎙️ เปิดระบบฟังเสียงพูดผ่านช่องทางสตรีมเสียงของกล้อง IMOU (ผ่าน SpeechRecognition ของเบราว์เซอร์ที่เชื่อมต่อเสียงทางไกล หรือระบบฟังเสียงบรรยากาศ)
+function startSpeechRecognitionFromImouBridge() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    if (recognition) { try { recognition.stop(); } catch(e){} }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'th-TH';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+        if (isModelSpeaking) return;
+        let currentChunk = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) currentChunk += event.results[i][0].transcript;
+        }
+        if (currentChunk.trim()) {
+            speechBuffer += " " + currentChunk.trim();
+            if (speechTimeout) clearTimeout(speechTimeout);
+            speechTimeout = setTimeout(() => {
+                let finalTextToSend = speechBuffer.trim();
+                speechBuffer = "";
+                if (finalTextToSend && !isModelSpeaking) {
+                    sendVoiceCommandDirectly(finalTextToSend);
+                }
+            }, 800);
+        }
+    };
+
+    recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) setTimeout(startSpeechRecognitionFromImouBridge, 500); };
+    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
+    try { recognition.start(); } catch(e) {}
+}
+
+async function sendVoiceCommandDirectly(text) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+    saveToHistory('user', text);
+    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผลคำสั่งเสียง...</strong>`;
+
+    const lowerText = text.toLowerCase();
+    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
+    if (isAskingForVision) {
+        await captureAndSendSpecificCamera(activeCameraId, true);
+        return;
+    }
+
+    ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
 }
 
 function startKeepAlivePing() {
@@ -804,129 +836,9 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             }
         };
         ws.send(JSON.stringify(imageMessage));
-        saveToHistory('user', `[กดส่งภาพสดจากกล้อง ${camId} ให้เจตรวจสอบ]`);
+        saveToHistory('user', `[สั่งการด้วยเสียงให้เจตรวจกล้อง ${camId}]`);
         statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังวิเคราะห์ภาพสดจากกล้อง ${camId}...`;
     }
-}
-
-function startSpeechRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-    if (recognition) { try { recognition.stop(); } catch(e){} }
-
-    recognition = new SpeechRecognition();
-    recognition.lang = 'th-TH';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event) => {
-        if (isModelSpeaking || isEnrollingGuest) return;
-        let currentChunk = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) currentChunk += event.results[i][0].transcript;
-        }
-        if (currentChunk.trim()) {
-            speechBuffer += " " + currentChunk.trim();
-            if (speechTimeout) clearTimeout(speechTimeout);
-            speechTimeout = setTimeout(() => {
-                let finalTextToSend = speechBuffer.trim();
-                speechBuffer = "";
-                if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
-                    sendTextDirectly(finalTextToSend);
-                }
-            }, 800);
-        }
-    };
-
-    recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isEnrollingGuest) setTimeout(startSpeechRecognition, 500); };
-    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking && !isEnrollingGuest) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
-    try { recognition.start(); } catch(e) {}
-}
-
-async function sendTextDirectly(text) {
-    if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking || isEnrollingGuest) return;
-
-    const lowerText = text.toLowerCase();
-    const cameraKeywords = {
-        "camera006": ["กล้องหลัก", "อายคาเมร่า", "กล้องเมน"]
-    };
-
-    let matchedCamId = null;
-    for (const [camId, keywords] of Object.entries(cameraKeywords)) {
-        if (keywords.some(kw => lowerText.includes(kw))) {
-            matchedCamId = camId;
-            break;
-        }
-    }
-
-    if (!matchedCamId) {
-        for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-            if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
-                matchedCamId = camId;
-                break;
-            }
-        }
-    }
-
-    if (matchedCamId && camerasRegistry[matchedCamId]) {
-        switchActiveCamera(matchedCamId);
-    }
-
-    saveToHistory('user', text);
-    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
-
-    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
-    if (isAskingForVision) {
-        await captureAndSendSpecificCamera(activeCameraId, true);
-        return;
-    }
-
-    ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
-}
-
-function playAudioChunk(base64Data) {
-    if (!audioContext || isEnrollingGuest) return;
-    isModelSpeaking = true;
-    if (recognition) { try { recognition.stop(); } catch(e) {} }
-
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-
-    const float32Data = new Float32Array(bytes.byteLength / 2);
-    const dataView = new DataView(bytes.buffer);
-    for (let i = 0; i < float32Data.length; i++) float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
-
-    const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
-    audioBuffer.getChannelData(0).set(float32Data);
-
-    const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContext.destination);
-
-    if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
-    source.start(nextAudioTime);
-    nextAudioTime += audioBuffer.duration;
-
-    const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 800;
-    if (speakingTimeout) clearTimeout(speakingTimeout);
-    speakingTimeout = setTimeout(() => {
-        isModelSpeaking = false;
-        audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
-        if (isUserActiveSession && recognition && !isEnrollingGuest) { 
-            try { recognition.start(); } catch(e) {} 
-        }
-    }, remainingTime);
-}
-
-sendTextBtn.addEventListener('click', sendTextMessage);
-textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(); });
-
-function sendTextMessage() {
-    const text = textInput.value.trim();
-    if (!text) return;
-    sendTextDirectly(text);
-    textInput.value = "";
 }
 
 snapBtn.addEventListener('click', () => {
@@ -939,9 +851,6 @@ snapBtn.addEventListener('click', () => {
 
 function stopSession() {
     isUserActiveSession = false;
-    isModelSpeaking = false;
-    isEnrollingGuest = false;
-    if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
     if (setupImouInterval) { clearInterval(setupImouInterval); setupImouInterval = null; }
