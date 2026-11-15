@@ -3,1194 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project-J (Beta) - Ake ❤️ Guardian Edition (Auto Enrollment)</title>
-    <style>
-        :root {
-            --bg-color: #f5f5f7;
-            --card-bg: #ffffff;
-            --text-main: #0071e3;
-            --text-sub: #86868b;
-            --border-color: #d2d2d7;
-            --accent-green: #34c759;
-            --accent-blue: #0071e3;
-            --accent-orange: #ff9500;
-            --accent-red: #ff3b30;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            text-align: center;
-            padding: 20px;
-            margin: 0;
-            -webkit-font-smoothing: antialiased;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 900px;
-            background: var(--card-bg);
-            padding: 30px;
-            border-radius: 24px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
-            border: 1px solid rgba(0, 0, 0, 0.04);
-            box-sizing: border-box;
-        }
-
-        .logo-box {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            color: var(--accent-blue);
-            margin-bottom: 6px;
-        }
-
-        .subtitle {
-            font-size: 13px;
-            color: var(--text-sub);
-            margin-bottom: 25px;
-            font-weight: 400;
-        }
-
-        #step1, #stepSetup, #stepAuth {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            max-width: 540px;
-            margin: 0 auto;
-        }
-
-        #step1 { display: flex; }
-
-        #authVideo, #setupVideo {
-            width: 100%;
-            max-height: 400px;
-            border-radius: 18px;
-            background: #000;
-            object-fit: cover;
-            border: 2px solid var(--accent-green);
-            margin-bottom: 20px;
-        }
-
-        .input-group {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin-bottom: 25px;
-        }
-
-        select, input[type="text"] {
-            width: 100%;
-            padding: 13px 16px;
-            font-size: 14px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            background: #fafafa;
-            color: #1d1d1f;
-            outline: none;
-            box-sizing: border-box;
-        }
-
-        .circle-btn {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: #ffffff;
-            color: var(--accent-blue);
-            font-size: 13px;
-            font-weight: 600;
-            border: 1px solid var(--border-color);
-            cursor: pointer;
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto;
-        }
-        .circle-btn:hover { transform: scale(1.05); background: #f0f7ff; }
-
-        #step2 { display: none; text-align: left; width: 100%; }
-
-        .main-viewer-box {
-            position: relative;
-            width: 100%;
-            height: 420px;
-            background: #000;
-            border-radius: 18px;
-            overflow: hidden;
-            border: 2px solid var(--accent-blue);
-            margin-bottom: 15px;
-        }
-
-        #activeMainVideo, #activeMainFrame {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-            border: none;
-            outline: none;
-        }
-
-        .main-badge {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            padding: 5px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            z-index: 10;
-        }
-
-        .countdown-overlay {
-            display: none;
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: rgba(255, 59, 48, 0.85);
-            color: #fff;
-            padding: 6px 14px;
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 700;
-            backdrop-filter: blur(4px);
-            z-index: 10;
-            animation: pulse 1s infinite;
-        }
-
-        .thumbnails-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-bottom: 15px;
-        }
-
-        .thumb-card {
-            background: #fafafa;
-            border: 2px solid var(--border-color);
-            border-radius: 14px;
-            padding: 8px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            position: relative;
-        }
-
-        .thumb-card:hover { border-color: var(--accent-blue); transform: translateY(-2px); }
-        .thumb-card.active { border-color: var(--accent-green); box-shadow: 0 0 10px rgba(52, 199, 89, 0.3); }
-
-        .thumb-video-container {
-            width: 100%;
-            height: 100px;
-            background: #000;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .thumb-video-container video, .thumb-video-container iframe { width: 100%; height: 100%; object-fit: cover; border: none; }
-
-        .thumb-label {
-            font-size: 11px;
-            margin-top: 6px;
-            font-weight: 600;
-            color: #1d1d1f;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .live-pulse-dot {
-            height: 8px; width: 8px; background-color: var(--accent-green);
-            border-radius: 50%; display: inline-block; box-shadow: 0 0 8px var(--accent-green);
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(0.95); opacity: 0.8; }
-            50% { transform: scale(1.2); opacity: 1; }
-            100% { transform: scale(0.95); opacity: 0.8; }
-        }
-
-        button.standard-btn {
-            padding: 10px 16px;
-            font-size: 13px;
-            font-weight: 600;
-            border-radius: 10px;
-            cursor: pointer;
-            border: none;
-            color: #fff;
-            background-color: var(--accent-blue);
-        }
-        button.stop-btn { background-color: var(--accent-red); }
-        button.clear-btn { background-color: var(--accent-orange); }
-
-        #output {
-            padding: 15px;
-            background: #fbfbfd;
-            border-radius: 14px;
-            min-height: 70px;
-            font-size: 13px;
-            border: 1px solid var(--border-color);
-            margin-top: 12px;
-            color: #1d1d1f;
-            text-align: left;
-        }
-        .status-dot {
-            height: 9px; width: 9px; background-color: var(--accent-green);
-            border-radius: 50%; display: inline-block; margin-right: 6px;
-        }
-        .debug-stats {
-            margin-top: 6px;
-            font-size: 11px;
-            color: var(--text-sub);
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <!-- Step 1: หน้าแรกเลือกเสียง -->
-    <div id="step1">
-        <div class="logo-box">Project-J <span style="font-size: 14px; background: #e0f2fe; color: #0284c7; padding: 2px 8px; border-radius: 8px; margin-left: 6px;">Guardian Edition</span></div>
-        <div class="subtitle">ระบบผู้ช่วยอัจฉริยะเฝ้าระวังและดูแลความปลอดภัย (PC Version - Auto Enrollment)</div>
-        
-        <div class="input-group">
-            <select id="voiceSelect">
-                <option value="Puck">♂️ Puck (เสียงนุ่มนวล)</option>
-                <option value="Charon">♂️ Charon (เสียงเข้ม)</option>
-                <option value="Fenrir">♂️ Fenrir (เสียงทุ้ม)</option>
-                <option value="Kore">♀️ Kore (เสียงสดใส)</option>
-                <option value="Aoede">♀️ Aoede (เสียงนุ่มนวล)</option>
-            </select>
-        </div>
-
-        <button id="startAuthBtn" class="circle-btn">
-            <span style="font-size: 20px;">👤📷</span>
-            <span>สแกนหน้า</span>
-        </button>
-    </div>
-
-    <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก -->
-    <div id="stepSetup">
-        <div class="logo-box" style="font-size: 24px;">🛠️ ลงทะเบียนเจ้าของเครื่องครั้งแรก</div>
-        <div class="subtitle">สวัสดีครับ เจระบบผู้ช่วยพร้อมดูแลครับ ไม่ทราบว่าผู้ใช้งานชื่ออะไรและใช่เจ้าของเครื่องตัวจริงหรือไม่ครับ?</div>
-        
-        <video id="setupVideo" autoplay playsinline muted></video>
-        
-        <div class="input-group">
-            <input type="text" id="ownerNameInput" placeholder="ระบุชื่อเจ้าของเครื่อง (เช่น เพื่อนเอก)..." value="เพื่อนเอก (Ake)">
-            <button id="registerOwnerBtn" class="standard-btn" style="padding: 12px; font-size: 14px;">✅ ยืนยันสิทธิ์เจ้าของเครื่อง</button>
-            <button id="cancelSetupBtn" class="standard-btn stop-btn" style="padding: 10px; font-size: 13px;">❌ ยกเลิก</button>
-        </div>
-    </div>
-
-    <!-- Step 1.5: สแกนใบหน้าตรวจสอบตัวตนอัตโนมัติ -->
-    <div id="stepAuth">
-        <div class="logo-box" style="font-size: 26px;">🤖 กำลังตรวจสอบสิทธิ์เจ้าของเครื่อง...</div>
-        <div class="subtitle" id="authStatusText">กำลังสแกนใบหน้าเทียบกับแฟ้มข้อมูลเจ้าของระบบ...</div>
-        <video id="authVideo" autoplay playsinline muted></video>
-        <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 15px;">❌ ยกเลิก</button>
-    </div>
-
-    <!-- Step 2: แดชบอร์ดหลัก Multi-Camera -->
-    <div id="step2">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <span>Project-J (PC) Guardian (<span id="userNameDisplay" style="color:var(--accent-green);">ผู้ใช้งาน</span>)</span>
-            </div>
-            <button id="stopBtn" class="standard-btn stop-btn">⏹️ ออกจากระบบ</button>
-        </div>
-
-        <div class="main-viewer-box">
-            <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: กำลังโหลด...</div>
-            <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
-            <!-- รองรับทั้ง Video Tag (Webcam) และ Iframe (go2rtc NVR Stream) พร้อมรองรับเสียงพูดออก NVR ผ่าน go2rtc backchannel -->
-            <video id="activeMainVideo" autoplay playsinline muted style="display:block;"></video>
-            <iframe id="activeMainFrame" src="http://localhost:1984/stream.html?src=camera002&muted=1" 
-            style="width: 100%; height: 100%; border: none; object-fit: cover; display:none;" 
-            allow="microphone; camera; autoplay" allowfullscreen></iframe>
-        </div>
-        <div id="thumbnailsGrid" class="thumbnails-grid"></div>
-
-        <div class="dashboard-controls" style="display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap;">
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <select id="cameraDropdownSelect" style="padding: 8px 12px; width: auto;" onchange="switchActiveCamera(this.value)"></select>
-                <button id="switchCamBtn" class="standard-btn" style="background-color: #5856d6;">🔄 สลับกล้องหลัก</button>
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <button id="snapBtn" class="standard-btn">📸 ส่งภาพให้เจตรวจ</button>
-                <button id="clearMemBtn" class="standard-btn clear-btn">🧹 ล้างประวัติ</button>
-            </div>
-        </div>
-
-        <div style="display: flex; gap: 6px;">
-            <input type="text" id="textInput" placeholder="พิมพ์ข้อความคุยกับเจ..." style="flex: 1; padding: 8px 12px; font-size: 13px; border-radius: 10px; border: 1px solid var(--border-color); outline: none;">
-            <button id="sendTextBtn" class="standard-btn clear-btn" style="padding: 8px 14px;">💬 ส่ง</button>
-        </div>
-
-        <div id="output">
-            <div id="statusText"><span class="status-dot"></span><strong>สถานะ:</strong> ระบบ Multi-Camera พร้อมทำงาน...</div>
-            <div id="audioStats" class="debug-stats">🎙️ Auto Enrollment & Multi-Camera Engine: พร้อมทำงาน</div>
-        </div>
-    </div>
-</div>
-
-<script>
-let BACKEND_API_KEY = "";
-const SERVER_URL = "http://localhost:3000";
-const GO2RTC_BASE_URL = "http://localhost:1984"; 
-
-async function initConfig() {
-    try {
-        const response = await fetch('/api/config/apikey');
-        const data = await response.json();
-        BACKEND_API_KEY = data.apiKey;
-    } catch (err) {
-        console.error("Failed to load config", err);
-    }
-}
-initConfig();
-
-class AutoEnrollmentManager {
-    constructor(sampleRate = 16000) {
-        this.sampleRate = sampleRate;
-        this.audioContext = null;
-        this.mediaStream = null;
-        this.processor = null;
-        this.inputNode = null;
-        this.isRecording = false;
-        this.audioChunks = [];
-    }
-
-    startCapture(mediaStream) {
-        this.mediaStream = mediaStream;
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: this.sampleRate });
-        
-        const audioTrackStream = new MediaStream(this.mediaStream.getAudioTracks());
-        this.inputNode = this.audioContext.createMediaStreamSource(audioTrackStream);
-        this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
-        
-        this.processor.onaudioprocess = (e) => {
-            if (!this.isRecording) return;
-            const inputData = e.inputBuffer.getChannelData(0);
-            this.audioChunks.push(new Float32Array(inputData));
-        };  
-       this.inputNode.connect(this.processor);
-        
-        // 🛠️ นำโค้ดส่วนนี้มาใส่แทนที่ของเดิม เพื่อตัดเสียงไมค์ไม่ให้ออกหูฟังบลูทูธ
-        const dummyGain = this.audioContext.createGain();
-        dummyGain.gain.value = 0;
-        this.processor.connect(dummyGain);
-        dummyGain.connect(this.audioContext.destination);
-    }
-
-    startRecording() {
-        this.audioChunks = [];
-        this.isRecording = true;
-    }
-
-    stopAndExportWAVBase64() {
-        this.isRecording = false;
-        if (this.audioChunks.length === 0) return null;
-
-        const totalLength = this.audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
-        const result = new Float32Array(totalLength);
-        let offset = 0;
-        for (const chunk of this.audioChunks) {
-            result.set(chunk, offset);
-            offset += chunk.length;
-        }
-
-        this.audioChunks = [];
-        const wavBlob = this.encodeWAV(result, this.sampleRate);
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result);
-            reader.readAsDataURL(wavBlob);
-        });
-    }
-
-    encodeWAV(samples, sampleRate) {
-        const buffer = new ArrayBuffer(44 + samples.length * 2);
-        const view = new DataView(buffer);
-        const writeString = (view, offset, string) => {
-            for (let i = 0; i < string.length; i++) view.setUint8(offset + i, string.charCodeAt(i));
-        };
-
-        writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + samples.length * 2, true);
-        writeString(view, 8, 'WAVE');
-        writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true);
-        view.setUint16(22, 1, true);
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * 2, true);
-        view.setUint16(32, 2, true);
-        view.setUint16(34, 16, true);
-        writeString(view, 36, 'data');
-        view.setUint32(40, samples.length * 2, true);
-
-        let offset = 44;
-        for (let i = 0; i < samples.length; i++, offset += 2) {
-            let s = Math.max(-1, Math.min(1, samples[i]));
-            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-        }
-        return new Blob([view], { type: 'audio/wav' });
-    }
-}
-
-let enrollmentManager = new AutoEnrollmentManager();
-let isEnrollingGuest = false;
-
-const step1 = document.getElementById('step1');
-const stepSetup = document.getElementById('stepSetup');
-const stepAuth = document.getElementById('stepAuth');
-const step2 = document.getElementById('step2');
-
-const startAuthBtn = document.getElementById('startAuthBtn');
-const cancelAuthBtn = document.getElementById('cancelAuthBtn');
-const cancelSetupBtn = document.getElementById('cancelSetupBtn');
-const authVideo = document.getElementById('authVideo');
-const setupVideo = document.getElementById('setupVideo');
-const ownerNameInput = document.getElementById('ownerNameInput');
-const registerOwnerBtn = document.getElementById('registerOwnerBtn');
-const authStatusText = document.getElementById('authStatusText');
-const userNameDisplay = document.getElementById('userNameDisplay');
-const countdownBadge = document.getElementById('countdownBadge');
-
-const stopBtn = document.getElementById('stopBtn');
-const snapBtn = document.getElementById('snapBtn');
-const switchCamBtn = document.getElementById('switchCamBtn');
-const clearMemBtn = document.getElementById('clearMemBtn');
-const sendTextBtn = document.getElementById('sendTextBtn');
-const textInput = document.getElementById('textInput');
-const voiceSelect = document.getElementById('voiceSelect');
-const statusText = document.getElementById('statusText');
-const audioStats = document.getElementById('audioStats');
-const cameraDropdownSelect = document.getElementById('cameraDropdownSelect');
-
-let ws = null;
-let audioContext = null;
-let authStream = null;
-let masterMediaStream = null;
-let nextAudioTime = 0;
-let pingInterval = null;
-let remoteCheckInterval = null;
-let recognition = null;
-let isUserActiveSession = false;
-let authenticatedUser = "เพื่อนเอก (Ake)";
-
-let isModelSpeaking = false;
-let speakingTimeout = null;
-let speechBuffer = "";
-let speechTimeout = null;
-
-let camerasRegistry = {
-    "camera001": { name: "กล้องหน้าคอม (Webcam)", deviceId: null, isNvr: false, stream: null },
-    "camera002": { name: "OBS Virtual Camera (หน้าบ้าน)", isNvr: true, stream: null },
-    "camera003": { name: "OBS Virtual Camera (ห้องรับแขก) (NVR)", isNvr: true, stream: null }
-};
-let activeCameraId = "";
-
-function saveToHistory(role, text) {
-    let history = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
-    const nowThai = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' });
-    history.push({ role: role, text: text, time: nowThai });
-    if (history.length > 30) history.shift();
-    localStorage.setItem('akay_chat_history_pc', JSON.stringify(history));
-}
-
-clearMemBtn.addEventListener('click', () => {
-    localStorage.removeItem('akay_chat_history_pc');
-    alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
-});
-
-startAuthBtn.addEventListener('click', async () => {
-    if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
-        alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
-        return;
-    }
-
-    try {
-        const res = await fetch(`${SERVER_URL}/api/owner/check`);
-        const data = await res.json();
-        step1.style.display = 'none';
-
-        if (!data.registered) {
-            stepSetup.style.display = 'flex';
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
-            setupVideo.srcObject = authStream;
-        } else {
-            stepAuth.style.display = 'flex';
-            authStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
-            authVideo.srcObject = authStream;
-            runAutoVerification(data.owner.name);
-        }
-    } catch (err) {
-        alert("ไม่สามารถเชื่อมต่อกล้องหรือไมโครโฟนได้: " + err.message);
-        step1.style.display = 'flex';
-    }
-});
-
-registerOwnerBtn.addEventListener('click', async () => {
-    const name = ownerNameInput.value.trim();
-    if (!name) { alert("กรุณาระบุชื่อเจ้าของเครื่องก่อนครับ!"); return; }
-
-    try {
-        const canvas = document.createElement('canvas');
-        canvas.width = 1920; canvas.height = 1080;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(setupVideo, 0, 0, 1920, 1080);
-        const base64Image = canvas.toDataURL('image/jpeg', 0.55);
-
-        const res = await fetch(`${SERVER_URL}/api/owner/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ownerName: name, imageBase64: base64Image })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-            alert(`🎉 ยืนยันสิทธิ์เจ้าของเครื่องสำเร็จ: ${name}`);
-            if (authStream) authStream.getTracks().forEach(t => t.stop());
-            stepSetup.style.display = 'none';
-            step2.style.display = 'block';
-            authenticatedUser = name;
-            userNameDisplay.innerText = authenticatedUser;
-            await initCameraSystem();
-            startMainAppSession();
-        } else {
-            alert("เกิดข้อผิดพลาดในการบันทึกสิทธิ์: " + data.message);
-        }
-    } catch (e) {
-        alert("ไม่สามารถบันทึกสิทธิ์ได้: " + e.message);
-    }
-});
-
-function runAutoVerification(ownerName) {
-    authStatusText.innerHTML = `🔍 กำลังตรวจสอบใบหน้าเทียบกับเจ้าของระบบ (${ownerName})...`;
-    setTimeout(async () => {
-        authenticatedUser = ownerName;
-        userNameDisplay.innerText = authenticatedUser;
-        authStatusText.innerHTML = `✅ ยืนยันตัวตนสำเร็จ: ยินดีต้อนรับ ${authenticatedUser}!`;
-
-        setTimeout(async () => {
-            if (authStream) authStream.getTracks().forEach(t => t.stop());
-            stepAuth.style.display = 'none';
-            step2.style.display = 'block';
-            await initCameraSystem();
-            startMainAppSession();
-        }, 800);
-    }, 2000);
-}
-
-cancelAuthBtn.addEventListener('click', () => {
-    if (authStream) authStream.getTracks().forEach(t => t.stop());
-    stepAuth.style.display = 'none';
-    step1.style.display = 'flex';
-});
-
-cancelSetupBtn.addEventListener('click', () => {
-    if (authStream) authStream.getTracks().forEach(t => t.stop());
-    stepSetup.style.display = 'none';
-    step1.style.display = 'flex';
-});
-
-async function initCameraSystem() {
-    try {
-        const res = await fetch(`${SERVER_URL}/api/cameras/list`);
-        const data = await res.json();
-
-        camerasRegistry = {};
-
-        if (data.success && data.cameras) {
-            for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                const isNvr = camInfo.ip === '192.168.1.170' || camInfo.channel || camInfo.isNvr;
-                
-                camerasRegistry[camId] = {
-                    name: camInfo.name,
-                    ip: camInfo.ip,
-                    channel: camInfo.channel || '',
-                    isNvr: isNvr,
-                    stream: null
-                };
-            }
-        }
-
-        if (Object.keys(camerasRegistry).length === 0) {
-            alert("ยังไม่มีข้อมูลกล้องในระบบครับ!");
-            return;
-        }
-
-        activeCameraId = Object.keys(camerasRegistry)[0];
-
-        updateDropdownUI();
-        renderDynamicThumbnails();
-        await switchActiveCamera(activeCameraId);
-
-    } catch (err) {
-        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ โหลดกล้องล้มเหลว:</strong> ${err.message}`;
-    }
-}
-
-function updateDropdownUI() {
-    if (!cameraDropdownSelect) return;
-    cameraDropdownSelect.innerHTML = '';
-    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-        const option = document.createElement('option');
-        option.value = camId;
-        option.text = camInfo.name;
-        cameraDropdownSelect.appendChild(option);
-    }
-    cameraDropdownSelect.value = activeCameraId;
-}
-
-function renderDynamicThumbnails() {
-    const gridContainer = document.getElementById('thumbnailsGrid');
-    if (!gridContainer) return;
-    gridContainer.innerHTML = '';
-
-    for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-        const card = document.createElement('div');
-        card.className = `thumb-card ${camId === activeCameraId ? 'active' : ''}`;
-        card.id = `thumb-card-${camId}`;
-        card.onclick = () => switchActiveCamera(camId);
-
-        let previewHtml = '';
-        if (camInfo.isNvr) {
-            const streamKey = camId; 
-            previewHtml = `<iframe src="${GO2RTC_BASE_URL}/stream.html?src=${streamKey}&muted=1" style="width:100%; height:100%; border:none;pointer-events:none;"></iframe>`;
-        } else {
-            previewHtml = `<video id="thumb-vid-${camId}" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>`;
-        }
-
-        card.innerHTML = `
-            <div class="thumb-video-container">
-                ${previewHtml}
-            </div>
-            <div class="thumb-label">
-                <span>${camInfo.name}</span>
-                <span class="live-pulse-dot"></span>
-            </div>
-        `;
-        gridContainer.appendChild(card);
-
-        if (!camInfo.isNvr) {
-            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                .then(stream => {
-                    const thumbVid = document.getElementById(`thumb-vid-${camId}`);
-                    if (thumbVid) thumbVid.srcObject = stream;
-                })
-                .catch(e => {});
-        }
-    }
-}
-
-async function switchActiveCamera(camId) {
-    if (!camerasRegistry[camId]) return;
-    activeCameraId = camId;
-
-    document.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('active'));
-    const targetCard = document.getElementById(`thumb-card-${camId}`);
-    if (targetCard) targetCard.classList.add('active');
-
-    const camInfo = camerasRegistry[camId];
-    const mainCamBadge = document.getElementById('mainCamBadge');
-    if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camInfo.name}`;
-    if (cameraDropdownSelect) cameraDropdownSelect.value = camId;
-
-    const mainVid = document.getElementById('activeMainVideo');
-    const mainFrame = document.getElementById('activeMainFrame');
-
-    if (camInfo.isNvr) {
-        if (mainVid) {
-            mainVid.style.display = 'none';
-            if (mainVid.srcObject) {
-                mainVid.srcObject.getTracks().forEach(t => t.stop());
-                mainVid.srcObject = null;
-            }
-        }
-        if (mainFrame) {
-            mainFrame.style.display = 'block';
-            mainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
-            mainFrame.setAttribute('allow', 'microphone; camera; autoplay');
-        }
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ NVR [${camInfo.name}] เรียบร้อยครับ 🟢`;
-    } else {
-        if (mainFrame) {
-            mainFrame.style.display = 'none';
-            mainFrame.src = '';
-        }
-        if (mainVid) {
-            mainVid.style.display = 'block';
-            try {
-                const newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                camInfo.stream = newStream;
-                mainVid.srcObject = newStream;
-                await mainVid.play().catch(e => {});
-            } catch (err) {}
-        }
-        statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> สลับมาที่ [${camInfo.name}] เรียบร้อยครับ 🟢`;
-    }
-}
-
-switchCamBtn.addEventListener('click', () => {
-    const camIds = Object.keys(camerasRegistry);
-    const currentIndex = camIds.indexOf(activeCameraId);
-    const nextIndex = (currentIndex + 1) % camIds.length;
-    switchActiveCamera(camIds[nextIndex]);
-});
-
-async function startMainAppSession() {
-    isUserActiveSession = true;
-
-    try {
-        masterMediaStream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
-        enrollmentManager.startCapture(masterMediaStream);
-
-        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
-        if (audioContext.state === 'suspended') await audioContext.resume();
-        nextAudioTime = audioContext.currentTime;
-
-        const selectedVoice = voiceSelect.value;
-        const host = "generativelanguage.googleapis.com";
-        const path = "/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
-        const url = `wss://${host}${path}?key=${BACKEND_API_KEY}`;
-
-        ws = new WebSocket(url);
-
-        ws.onopen = () => {
-            let savedHistory = JSON.parse(localStorage.getItem('akay_chat_history_pc') || '[]');
-            const currentThaiTime = new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'full', timeStyle: 'medium' });
-
-            let historySummaryText = savedHistory.length > 0 
-                ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
-                : "ไม่มีประวัติคุยเก่า";
-
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (PC Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
-            audioStats.innerText = `🎙️ Auto Enrollment Engine Ready`;
-            const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J PC Guardian) ผู้ช่วยอัจฉริยะส่วนตัว
-ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
-เวลาปัจจุบัน: ${currentThaiTime}
-${historySummaryText}
-`;
-
-            const setupMessage = {
-                setup: {
-                    model: "models/gemini-3.8-live",
-                    generationConfig: {
-                        responseModalities: ["AUDIO"],
-                        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } }
-                    },
-                    tools: [
-                        { googleSearch: {} }
-                    ],
-                    systemInstruction: { parts: [{ text: dynamicToneInstructions }] }
-                }
-            };
-            ws.send(JSON.stringify(setupMessage));
-
-            startSpeechRecognition();
-            startKeepAlivePing();
-            startRemoteCaptureListener(); 
-        };
-
-        ws.onmessage = async (event) => {
-            let responseText = "";
-            try {
-                let data = event.data instanceof Blob ? JSON.parse(await event.data.text()) : JSON.parse(event.data);
-                
-                if (data.serverContent && data.serverContent.modelTurn) {
-                    const parts = data.serverContent.modelTurn.parts;
-                    for (const part of parts) {
-                        if (part.text) responseText += part.text;
-                        if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
-                    }
-                    if (responseText) {
-                        saveToHistory('model', responseText);
-                        statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
-                    }
-                }
-            } catch (e) {
-                console.error("Error parsing message:", e);
-            }
-        };
-
-        ws.onerror = (error) => { console.error("WebSocket Error:", error); };
-        ws.onclose = () => {
-            if (isUserActiveSession) {
-                statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>🔄 สัญญาณหลุด กำลังเชื่อมต่อใหม่ใน 3 วิ...</strong>`;
-                setTimeout(() => { if (isUserActiveSession) startMainAppSession(); }, 3000);
-            }
-        };
-    } catch (e) {
-        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เกิดข้อผิดพลาด:</strong> ${e.message}`;
-    }
-}
-
-function startKeepAlivePing() {
-    if (pingInterval) clearInterval(pingInterval);
-    pingInterval = setInterval(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ clientContent: { turns: [], turnComplete: false } }));
-        }
-    }, 15000);
-}
-
-function startRemoteCaptureListener() {
-    if (remoteCheckInterval) clearInterval(remoteCheckInterval);
-    remoteCheckInterval = setInterval(async () => {
-        if (!isUserActiveSession) return;
-        try {
-            const res = await fetch(`${SERVER_URL}/api/camera/check-request`);
-            const data = await res.json();
-            if (data && data.requested) {
-                const targetCamId = data.cameraId || activeCameraId;
-                await captureAndSendSpecificCamera(targetCamId, false);
-                await fetch(`${SERVER_URL}/api/camera/clear-request`, { method: 'POST' });
-            }
-        } catch (err) {}
-    }, 2000);
-}
-
-async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
-    const camInfo = camerasRegistry[camId];
-    let base64Image = null;
-
-    if (camInfo && camInfo.isNvr) {
-        try {
-            const imageUrl = `${SERVER_URL}/uploads/realtime_${camId}.jpg?t=${Date.now()}`;
-            const img = new Image();
-            img.crossOrigin = "anonymous";
-            
-            await new Promise((resolve, reject) => {
-                const timer = setTimeout(() => reject(new Error("Timeout loading NVR image")), 3000);
-                img.onload = () => { clearTimeout(timer); resolve(); };
-                img.onerror = (err) => { clearTimeout(timer); reject(err); };
-                img.src = imageUrl;
-            });
-
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth || 1920;
-            canvas.height = img.naturalHeight || 1080;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            
-            base64Image = canvas.toDataURL('image/jpeg', 0.6).replace(/^data:image\/\w+;base64,/, '');
-        } catch (err) {}
-    } else {
-        const canvas = document.createElement('canvas');
-        canvas.width = 1920; canvas.height = 1080;
-        const ctx = canvas.getContext('2d');
-        
-        let targetVid = null;
-        if (camId === activeCameraId) {
-            targetVid = document.getElementById('activeMainVideo');
-        } else {
-            targetVid = document.getElementById(`thumb-vid-${camId}`);
-        }
-
-        if (targetVid && targetVid.readyState === 4) {
-            ctx.drawImage(targetVid, 0, 0, 1920, 1080);
-            base64Image = canvas.toDataURL('image/jpeg', 0.55).replace(/^data:image\/\w+;base64,/, '');
-        }
-    }
-
-    if (isManualTrigger && ws && ws.readyState === WebSocket.OPEN) {
-        const parts = [];
-        if (base64Image) {
-            parts.push({ inlineData: { mimeType: "image/jpeg", data: base64Image } });
-        }
-        parts.push({ text: `ช่วยตรวจสอบภาพจากกล้อง [${camId}: ${camInfo ? camInfo.name : camId}] ล่าสุดให้หน่อยครับว่าเห็นอะไร กำลังทำอะไรอยู่บ้าง` });
-
-        const imageMessage = {
-            clientContent: {
-                turns: [{ role: "user", parts: parts }],
-                turnComplete: true
-            }
-        };
-        ws.send(JSON.stringify(imageMessage));
-        saveToHistory('user', `[กดส่งภาพสดจากกล้อง ${camId} ให้เจตรวจสอบ]`);
-        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังวิเคราะห์ภาพสดจากกล้อง ${camId}...`;
-    }
-}
-
-function checkForEnrollmentTrigger(text) {
-    const lowerText = text.toLowerCase();
-    const isIntroducing = lowerText.includes("เพื่อนใหม่") || lowerText.includes("นี่คุณ") || lowerText.includes("ขอแนะนำให้รู้จัก") || lowerText.includes("คนนี้ชื่อ");
-    
-    if (isIntroducing && !isEnrollingGuest) {
-        let extractedName = "เพื่อนใหม่";
-        const nameMatch = text.match(/(?:ชื่อ|นี่คุณ|เพื่อนใหม่ชื่อ)\s*([\u0E00-\u0E7Fa-zA-Z0-9_\s]+)/);
-        if (nameMatch && nameMatch[1]) {
-            extractedName = nameMatch[1].trim().split(" ")[0];
-        }
-        triggerGuestEnrollmentSequence(extractedName);
-        return true;
-    }
-    return false;
-}
-
-async function triggerGuestEnrollmentSequence(guestName) {
-    isEnrollingGuest = true;
-    if (recognition) { try { recognition.stop(); } catch(e){} }
-
-    statusText.innerHTML = `<span class="status-dot" style="background:var(--accent-orange);"></span><strong>🎙️ เจ:</strong> กำลังต้อนรับและเปิดระบบบันทึกโปรไฟล์สำหรับคุณ ${guestName}...`;
-
-    const greetingText = `สวัสดีครับผมเจครับ ผู้ดูแลความปลอดภัยของบ้านหลังนี้ ขออนุญาตบันทึกเสียงและถ่ายรูปเพื่อเก็บเป็นโปรไฟล์คนรู้จักนะครับ`;
-    await playTextToSpeech(greetingText);
-
-    countdownBadge.style.display = 'block';
-    enrollmentManager.startRecording();
-
-    let count = 5;
-    let capturedImageBase64 = null;
-
-    const countdownInterval = setInterval(async () => {
-        countdownBadge.innerText = `🎙️ กำลังบันทึกเสียงโปรไฟล์คุณ ${guestName}: ${count}`;
-        if (count === 3) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1280; canvas.height = 720;
-            const ctx = canvas.getContext('2d');
-            const mainVid = document.getElementById('activeMainVideo');
-            if (mainVid && mainVid.readyState === 4) {
-                ctx.drawImage(mainVid, 0, 0, 1280, 720);
-                capturedImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
-            }
-        }
-        count--;
-
-        if (count < 0) {
-            clearInterval(countdownInterval);
-            countdownBadge.style.display = 'none';
-            const audioBase64 = await enrollmentManager.stopAndExportWAVBase64();
-
-            try {
-                await fetch(`${SERVER_URL}/api/profiles/enroll`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ guestName, imageBase64: capturedImageBase64, audioBase64 })
-                });
-            } catch (err) {}
-
-            const closingText = `จบการบันทึกเรียบร้อยครับ ยินดีที่ได้รู้จักคุณ ${guestName} ครับ`;
-            await playTextToSpeech(closingText);
-
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> บันทึกโปรไฟล์คุณ [${guestName}] เรียบร้อยครับ 🟢`;
-            isEnrollingGuest = false;
-            if (isUserActiveSession) startSpeechRecognition();
-        }
-    }, 1000);
-}
-
-function playTextToSpeech(text) {
-    return new Promise((resolve) => {
-        if (!('speechSynthesis' in window)) { resolve(); return; }
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'th-TH';
-        utterance.rate = 0.95;
-        utterance.onend = () => resolve();
-        utterance.onerror = () => resolve();
-        window.speechSynthesis.speak(utterance);
-    });
-}
-
-function startSpeechRecognition() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-    if (recognition) { try { recognition.stop(); } catch(e){} }
-
-    recognition = new SpeechRecognition();
-    recognition.lang = 'th-TH';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event) => {
-        if (isModelSpeaking || isEnrollingGuest) return;
-        let currentChunk = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) currentChunk += event.results[i][0].transcript;
-        }
-        if (currentChunk.trim()) {
-            speechBuffer += " " + currentChunk.trim();
-            if (speechTimeout) clearTimeout(speechTimeout);
-            speechTimeout = setTimeout(() => {
-                let finalTextToSend = speechBuffer.trim();
-                speechBuffer = "";
-                if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
-                    sendTextDirectly(finalTextToSend);
-                }
-            }, 800);
-        }
-    };
-
-    recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isEnrollingGuest) setTimeout(startSpeechRecognition, 500); };
-    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking && !isEnrollingGuest) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
-    try { recognition.start(); } catch(e) {}
-}
-
-async function sendTextDirectly(text) {
-    if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking || isEnrollingGuest) return;
-    if (checkForEnrollmentTrigger(text)) return;
-
-    const lowerText = text.toLowerCase();
-    const cameraKeywords = {
-        "camera001": ["หน้าคอม", "คอม", "เว็บแคม", "webcam"],
-        "camera002": ["หน้าบ้าน", "ประตูหน้าบ้าน", "ลานหน้าบ้าน"],
-        "camera003": ["ห้องรับแขก", "รับแขก", "นวด", "โซฟา"],
-        "camera004": ["หลังบ้าน", "ลานซักล้าง"],
-        "camera005": ["ห้องนอน", "เตียงนอน"],
-        "camera006": ["กล้องหลัก", "อายคาเมร่า", "กล้องเมน"]
-    };
-
-    let matchedCamId = null;
-    for (const [camId, keywords] of Object.entries(cameraKeywords)) {
-        if (keywords.some(kw => lowerText.includes(kw))) {
-            matchedCamId = camId;
-            break;
-        }
-    }
-
-    if (!matchedCamId) {
-        for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-            if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
-                matchedCamId = camId;
-                break;
-            }
-        }
-    }
-
-    if (matchedCamId && camerasRegistry[matchedCamId]) {
-        switchActiveCamera(matchedCamId);
-    }
-
-    saveToHistory('user', text);
-    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
-
-    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
-    if (isAskingForVision) {
-        await captureAndSendSpecificCamera(activeCameraId, true);
-        return;
-    }
-
-    ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
-}
-
-function playAudioChunk(base64Data) {
-    if (!audioContext || isEnrollingGuest) return;
-    isModelSpeaking = true;
-    if (recognition) { try { recognition.stop(); } catch(e) {} }
-
-    const binaryString = atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-
-    const float32Data = new Float32Array(bytes.byteLength / 2);
-    const dataView = new DataView(bytes.buffer);
-    for (let i = 0; i < float32Data.length; i++) float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
-
-    const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
-    audioBuffer.getChannelData(0).set(float32Data);
-
-    const source = audioContext.createBufferSource();
-    source.buffer = audioBuffer;
-    source.connect(audioContext.destination);
-
-    if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
-    source.start(nextAudioTime);
-    nextAudioTime += audioBuffer.duration;
-
-    const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 800;
-    if (speakingTimeout) clearTimeout(speakingTimeout);
-    speakingTimeout = setTimeout(() => {
-        isModelSpeaking = false;
-        audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
-        if (isUserActiveSession && recognition && !isEnrollingGuest) { 
-            try { recognition.start(); } catch(e) {} 
-        }
-    }, remainingTime);
-}
-
-sendTextBtn.addEventListener('click', sendTextMessage);
-textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(); });
-
-function sendTextMessage() {
-    const text = textInput.value.trim();
-    if (!text) return;
-    sendTextDirectly(text);
-    textInput.value = "";
-}
-
-snapBtn.addEventListener('click', () => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        alert("ระบบเฝ้าระวังยังไม่ได้เชื่อมต่อครับ!");
-        return;
-    }
-    captureAndSendSpecificCamera(activeCameraId, true);
-});
-
-function stopSession() {
-    isUserActiveSession = false;
-    isModelSpeaking = false;
-    isEnrollingGuest = false;
-    if (speakingTimeout) clearTimeout(speakingTimeout);
-    if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
-    if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
-    if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
-    
-    const mainFrame = document.getElementById('activeMainFrame');
-    if (mainFrame) {
-        mainFrame.src = 'about:blank';
-        mainFrame.style.display = 'none';
-    }
-
-    Object.values(camerasRegistry).forEach(cam => {
-        if (cam.stream) cam.stream.getTracks().forEach(track => track.stop());
-    });
-    if (masterMediaStream) { masterMediaStream.getTracks().forEach(track => track.stop()); masterMediaStream = null; }
-    if (authStream) { authStream.getTracks().forEach(track => track.stop()); authStream = null; }
-    if (ws) { ws.close(); ws = null; }
-    if (audioContext) { audioContext.close(); audioContext = null; }
-    
-    step2.style.display = 'none';
-    stepAuth.style.display = 'none';
-    stepSetup.style.display = 'none';
-    step1.style.display = 'flex';
-}
-
-stopBtn.addEventListener('click', stopSession);
-</script>
-
-</body>
-</html><!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project-J (Beta) - Ake ❤️ Guardian Edition (go2rtc Live Stream)</title>
     <style>
         :root {
@@ -1547,7 +359,7 @@ stopBtn.addEventListener('click', stopSession);
 
 <script>
 // =========================================================================
-// 🔒 [IMOU Hardware Exclusive Voice Mode] บล็อกไมค์/ลำโพง/คีย์บอร์ดโน้ตบุ๊ค 100%
+// 🔒 [IMOU Hardware Exclusive Mode] บล็อกไมค์/ลำโพงโน้ตบุ๊ค 100%
 // =========================================================================
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia = async function(constraints) {
@@ -1556,7 +368,6 @@ if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     };
 }
 
-// 🔊 ดักเสียงพูดของเจทั้งหมด บังคับส่งไปออกลำโพงกล้อง IMOU ผ่านหลังบ้าน
 if ('speechSynthesis' in window) {
     window.speechSynthesis.speak = function(utterance) {
         const textToSpeak = utterance?.text || "";
@@ -1587,6 +398,22 @@ async function initConfig() {
 }
 initConfig();
 
+class AutoEnrollmentManager {
+    constructor(sampleRate = 16000) {
+        this.sampleRate = sampleRate;
+        this.isRecording = false;
+    }
+    startCapture(mediaStream) {}
+    startRecording() { this.isRecording = true; }
+    stopAndExportWAVBase64() {
+        this.isRecording = false;
+        return Promise.resolve(null);
+    }
+}
+
+let enrollmentManager = new AutoEnrollmentManager();
+let isEnrollingGuest = false;
+
 const step1 = document.getElementById('step1');
 const stepSetup = document.getElementById('stepSetup');
 const stepAuth = document.getElementById('stepAuth');
@@ -1607,6 +434,8 @@ const stopBtn = document.getElementById('stopBtn');
 const snapBtn = document.getElementById('snapBtn');
 const switchCamBtn = document.getElementById('switchCamBtn');
 const clearMemBtn = document.getElementById('clearMemBtn');
+const sendTextBtn = document.getElementById('sendTextBtn');
+const textInput = document.getElementById('textInput');
 const voiceSelect = document.getElementById('voiceSelect');
 const statusText = document.getElementById('statusText');
 const audioStats = document.getElementById('audioStats');
@@ -1624,6 +453,7 @@ let isUserActiveSession = false;
 let authenticatedUser = "เพื่อนเอก (Ake)";
 
 let isModelSpeaking = false;
+let speakingTimeout = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
@@ -1749,6 +579,7 @@ async function initCameraSystem() {
         camerasRegistry = {};
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
+                // กรองเฉพาะกล้องหลัก active และไม่ใช่ camera001
                 if (camInfo.active !== false && camId !== 'camera001') {
                     camerasRegistry[camId] = {
                         name: camInfo.name,
@@ -1797,6 +628,7 @@ function renderDynamicThumbnails() {
         card.id = `thumb-card-${camId}`;
         card.onclick = () => switchActiveCamera(camId);
 
+        // 🚀 ช่องย่อยดึงสตรีมสดผ่าน go2rtc iframe โดยตรง ไม่ใช้ภาพเก่า
         card.innerHTML = `
             <div class="thumb-video-container">
                 <iframe src="${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1" style="width:100%; height:100%; border:none; pointer-events:none;" allow="autoplay"></iframe>
@@ -1823,6 +655,7 @@ async function switchActiveCamera(camId) {
     if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camInfo.name}`;
     if (cameraDropdownSelect) cameraDropdownSelect.value = camId;
 
+    // 🚀 สลับจอหลักไปที่สตรีม go2rtc iframe ของกล้องนั้นๆ ทันที (สตรีมสดแท้ 100%)
     activeMainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
     activeMainFrame.setAttribute('allow', 'microphone; camera; autoplay');
 
@@ -1842,6 +675,7 @@ async function startMainAppSession() {
     try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
         if (audioContext.state === 'suspended') await audioContext.resume();
+        nextAudioTime = audioContext.currentTime;
 
         const selectedVoice = voiceSelect.value;
         const host = "generativelanguage.googleapis.com";
@@ -1858,11 +692,11 @@ async function startMainAppSession() {
                 ? "ประวัติบทสนทนาล่าสุด:\n" + savedHistory.map(h => `[${h.time || ''}] ${h.role === 'user' ? 'ผู้ใช้งาน' : 'เจ'}: ${h.text}`).join('\n')
                 : "ไม่มีประวัติคุยเก่า";
 
-            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (Voice-Driven Mode) เจพร้อมรับฟังเสียงผ่านไมค์ IMOU แล้วครับ 🎙️🔊`;
-            audioStats.innerText = `🎙️ IMOU Voice Command Engine Ready (No Keyboard Required)`;
+            statusText.innerHTML = `<span class="status-dot"></span><strong>สถานะ:</strong> ยินดีต้อนรับเพื่อนเอก (go2rtc Live Stream Mode) เจพร้อมดูแลแล้วครับ 🎙️🔊📹`;
+            audioStats.innerText = `🎙️ go2rtc Live Stream Engine Ready`;
             
             const dynamicToneInstructions = `
-คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J Voice Mode) ผู้ช่วยอัจฉริยะส่วนตัว
+คุณคือ "เจ" - เจเป็นผู้ชาย (ชื่อเจ) ต้องใช้คำลงท้ายว่า **"ครับ"** เท่านั้นทุกครั้งในการสนทนาภาษาไทย (ห้ามใช้คำว่า "ค่ะ" เด็ดขาด)(Project-J IMOU Mode) ผู้ช่วยอัจฉริยะส่วนตัว
 ผู้ใช้งานปัจจุบันคือ: ${authenticatedUser}
 เวลาปัจจุบัน: ${currentThaiTime}
 ${historySummaryText}
@@ -1881,7 +715,7 @@ ${historySummaryText}
             };
             ws.send(JSON.stringify(setupMessage));
 
-            startSpeechRecognitionFromImouBridge();
+            startSpeechRecognition();
             startKeepAlivePing();
             startRemoteCaptureListener(); 
         };
@@ -1895,14 +729,11 @@ ${historySummaryText}
                     const parts = data.serverContent.modelTurn.parts;
                     for (const part of parts) {
                         if (part.text) responseText += part.text;
+                        if (part.inlineData && part.inlineData.data) playAudioChunk(part.inlineData.data);
                     }
                     if (responseText) {
                         saveToHistory('model', responseText);
                         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจตอบ:</strong> ${responseText}`;
-                        
-                        const utterance = new SpeechSynthesisUtterance(responseText);
-                        utterance.lang = 'th-TH';
-                        window.speechSynthesis.speak(utterance);
                     }
                 }
             } catch (e) {
@@ -1920,57 +751,6 @@ ${historySummaryText}
     } catch (e) {
         statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เกิดข้อผิดพลาด:</strong> ${e.message}`;
     }
-}
-
-// 🎙️ เปิดระบบฟังเสียงพูดผ่านช่องทางสตรีมเสียงของกล้อง IMOU (ผ่าน SpeechRecognition ของเบราว์เซอร์ที่เชื่อมต่อเสียงทางไกล หรือระบบฟังเสียงบรรยากาศ)
-function startSpeechRecognitionFromImouBridge() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-    if (recognition) { try { recognition.stop(); } catch(e){} }
-
-    recognition = new SpeechRecognition();
-    recognition.lang = 'th-TH';
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event) => {
-        if (isModelSpeaking) return;
-        let currentChunk = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) currentChunk += event.results[i][0].transcript;
-        }
-        if (currentChunk.trim()) {
-            speechBuffer += " " + currentChunk.trim();
-            if (speechTimeout) clearTimeout(speechTimeout);
-            speechTimeout = setTimeout(() => {
-                let finalTextToSend = speechBuffer.trim();
-                speechBuffer = "";
-                if (finalTextToSend && !isModelSpeaking) {
-                    sendVoiceCommandDirectly(finalTextToSend);
-                }
-            }, 800);
-        }
-    };
-
-    recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN) setTimeout(startSpeechRecognitionFromImouBridge, 500); };
-    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
-    try { recognition.start(); } catch(e) {}
-}
-
-async function sendVoiceCommandDirectly(text) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-    saveToHistory('user', text);
-    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผลคำสั่งเสียง...</strong>`;
-
-    const lowerText = text.toLowerCase();
-    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
-    if (isAskingForVision) {
-        await captureAndSendSpecificCamera(activeCameraId, true);
-        return;
-    }
-
-    ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
 }
 
 function startKeepAlivePing() {
@@ -2024,9 +804,129 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
             }
         };
         ws.send(JSON.stringify(imageMessage));
-        saveToHistory('user', `[สั่งการด้วยเสียงให้เจตรวจกล้อง ${camId}]`);
+        saveToHistory('user', `[กดส่งภาพสดจากกล้อง ${camId} ให้เจตรวจสอบ]`);
         statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เจ:</strong> กำลังวิเคราะห์ภาพสดจากกล้อง ${camId}...`;
     }
+}
+
+function startSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    if (recognition) { try { recognition.stop(); } catch(e){} }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = 'th-TH';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event) => {
+        if (isModelSpeaking || isEnrollingGuest) return;
+        let currentChunk = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) currentChunk += event.results[i][0].transcript;
+        }
+        if (currentChunk.trim()) {
+            speechBuffer += " " + currentChunk.trim();
+            if (speechTimeout) clearTimeout(speechTimeout);
+            speechTimeout = setTimeout(() => {
+                let finalTextToSend = speechBuffer.trim();
+                speechBuffer = "";
+                if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
+                    sendTextDirectly(finalTextToSend);
+                }
+            }, 800);
+        }
+    };
+
+    recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isEnrollingGuest) setTimeout(startSpeechRecognition, 500); };
+    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking && !isEnrollingGuest) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
+    try { recognition.start(); } catch(e) {}
+}
+
+async function sendTextDirectly(text) {
+    if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking || isEnrollingGuest) return;
+
+    const lowerText = text.toLowerCase();
+    const cameraKeywords = {
+        "camera006": ["กล้องหลัก", "อายคาเมร่า", "กล้องเมน"]
+    };
+
+    let matchedCamId = null;
+    for (const [camId, keywords] of Object.entries(cameraKeywords)) {
+        if (keywords.some(kw => lowerText.includes(kw))) {
+            matchedCamId = camId;
+            break;
+        }
+    }
+
+    if (!matchedCamId) {
+        for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
+            if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
+                matchedCamId = camId;
+                break;
+            }
+        }
+    }
+
+    if (matchedCamId && camerasRegistry[matchedCamId]) {
+        switchActiveCamera(matchedCamId);
+    }
+
+    saveToHistory('user', text);
+    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
+
+    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
+    if (isAskingForVision) {
+        await captureAndSendSpecificCamera(activeCameraId, true);
+        return;
+    }
+
+    ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
+}
+
+function playAudioChunk(base64Data) {
+    if (!audioContext || isEnrollingGuest) return;
+    isModelSpeaking = true;
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+
+    const binaryString = atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+
+    const float32Data = new Float32Array(bytes.byteLength / 2);
+    const dataView = new DataView(bytes.buffer);
+    for (let i = 0; i < float32Data.length; i++) float32Data[i] = dataView.getInt16(i * 2, true) / 32768.0;
+
+    const audioBuffer = audioContext.createBuffer(1, float32Data.length, 24000);
+    audioBuffer.getChannelData(0).set(float32Data);
+
+    const source = audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(audioContext.destination);
+
+    if (nextAudioTime < audioContext.currentTime) nextAudioTime = audioContext.currentTime;
+    source.start(nextAudioTime);
+    nextAudioTime += audioBuffer.duration;
+
+    const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 800;
+    if (speakingTimeout) clearTimeout(speakingTimeout);
+    speakingTimeout = setTimeout(() => {
+        isModelSpeaking = false;
+        audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
+        if (isUserActiveSession && recognition && !isEnrollingGuest) { 
+            try { recognition.start(); } catch(e) {} 
+        }
+    }, remainingTime);
+}
+
+sendTextBtn.addEventListener('click', sendTextMessage);
+textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTextMessage(); });
+
+function sendTextMessage() {
+    const text = textInput.value.trim();
+    if (!text) return;
+    sendTextDirectly(text);
+    textInput.value = "";
 }
 
 snapBtn.addEventListener('click', () => {
@@ -2039,6 +939,9 @@ snapBtn.addEventListener('click', () => {
 
 function stopSession() {
     isUserActiveSession = false;
+    isModelSpeaking = false;
+    isEnrollingGuest = false;
+    if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
     if (setupImouInterval) { clearInterval(setupImouInterval); setupImouInterval = null; }
