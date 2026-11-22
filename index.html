@@ -848,12 +848,14 @@ async function sendTextDirectly(text) {
 
     const lowerText = text.toLowerCase();
     const cameraKeywords = {
-        "camera006": ["กล้องหลัก", "อายคาเมร่า", "กล้องเมน"]
+        "camera006": ["กล้องหลัก", "อายคาเมร่า", "กล้องเมน"],
+        "camera002": ["กล้องหน้าบ้าน", "หน้าบ้าน"],
+        "camera003": ["กล้องหลังบ้าน", "หลังบ้าน"]
     };
 
     let matchedCamId = null;
     for (const [camId, keywords] of Object.entries(cameraKeywords)) {
-        if (keywords.some(kw => lowerText.includes(kw))) {
+        if (camerasRegistry[camId] && keywords.some(kw => lowerText.includes(kw))) {
             matchedCamId = camId;
             break;
         }
@@ -861,21 +863,36 @@ async function sendTextDirectly(text) {
 
     if (!matchedCamId) {
         for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-            if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
+            if (lowerText.includes(camId.toLowerCase()) || lowerText.includes(camInfo.name.toLowerCase())) {
                 matchedCamId = camId;
                 break;
             }
         }
     }
 
+    const isAskingForVision = [
+        "เห็นอะไร", "มีอะไรไหม", "มีใคร", "ช่วยดู", "วิเคราะห์ภาพ", "เช็กภาพ", "เช็กกล้อง"
+    ].some(kw => lowerText.includes(kw));
+
+    const isSwitchOnly = Boolean(matchedCamId) && !isAskingForVision && [
+        "เปลี่ยน", "สลับ", "เปิดกล้อง", "ไปดูกล้อง", "ดูกล้อง"
+    ].some(kw => lowerText.includes(kw));
+
+    if (isSwitchOnly) {
+        await switchActiveCamera(matchedCamId);
+        const camName = camerasRegistry[matchedCamId].name;
+        saveToHistory('user', text);
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📺 สลับหน้าจอ:</strong> แสดงผล [${camName}] เรียบร้อยครับ`;
+        return;
+    }
+
     if (matchedCamId && camerasRegistry[matchedCamId]) {
-        switchActiveCamera(matchedCamId);
+        await switchActiveCamera(matchedCamId);
     }
 
     saveToHistory('user', text);
     statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
 
-    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
     if (isAskingForVision) {
         await captureAndSendSpecificCamera(activeCameraId, true);
         return;
