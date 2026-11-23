@@ -846,14 +846,19 @@ function startSpeechRecognition() {
 async function sendTextDirectly(text) {
     if (!ws || ws.readyState !== WebSocket.OPEN || isModelSpeaking || isEnrollingGuest) return;
 
-    const lowerText = text.toLowerCase();
+    const cleanText = String(text || '').trim();
+    if (!cleanText) return;
+
+    const lowerText = cleanText.toLowerCase();
     const cameraKeywords = {
-        "camera006": ["กล้องหลัก", "อายคาเมร่า", "กล้องเมน"]
+        "camera006": ["กล้องหลัก", "อายคาเมร่า", "กล้องเมน"],
+        "camera002": ["กล้องหน้าบ้าน", "หน้าบ้าน"],
+        "camera003": ["กล้องหลังบ้าน", "หลังบ้าน"]
     };
 
     let matchedCamId = null;
     for (const [camId, keywords] of Object.entries(cameraKeywords)) {
-        if (keywords.some(kw => lowerText.includes(kw))) {
+        if (camerasRegistry[camId] && keywords.some(kw => lowerText.includes(kw))) {
             matchedCamId = camId;
             break;
         }
@@ -861,27 +866,83 @@ async function sendTextDirectly(text) {
 
     if (!matchedCamId) {
         for (const [camId, camInfo] of Object.entries(camerasRegistry)) {
-            if (lowerText.includes(camId) || lowerText.includes(camInfo.name.toLowerCase())) {
+            if (lowerText.includes(camId.toLowerCase()) || lowerText.includes(camInfo.name.toLowerCase())) {
                 matchedCamId = camId;
                 break;
             }
         }
     }
 
-    if (matchedCamId && camerasRegistry[matchedCamId]) {
-        switchActiveCamera(matchedCamId);
+    const isAskingForVision = [
+        "เห็นอะไร", "มีอะไรไหม", "มีใคร", "ช่วยดู", "วิเคราะห์ภาพ", "เช็กภาพ", "เช็กกล้อง"
+    ].some(kw => lowerText.includes(kw));
+
+    const isSwitchOnly = Boolean(matchedCamId) && !isAskingForVision && [
+        "เปลี่ยน", "สลับ", "เปิดกล้อง", "ไปดูกล้อง", "ดูกล้อง"
+    ].some(kw => lowerText.includes(kw));
+
+    // 1. ถ้าเป็นการสลับกล้องดูเองบนหน้าจอ -> จัดการทันทีในหน้าบ้าน ไม่ต้องส่งเข้า WebSocket
+    if (isSwitchOnly) {
+        await switchActiveCamera(matchedCamId);
+        const camName = camerasRegistry[matchedCamId].name;
+        saveToHistory('user', cleanText);
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📺 สลับหน้าจอ:</strong> แสดงผล [${camName}] เรียบร้อยครับ`;
+        return;
     }
 
-    saveToHistory('user', text);
-    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${text}<br><strong>⏳ เจกำลังประมวลผล...</strong>`;
+    if (matchedCamId && camerasRegistry[matchedCamId]) {
+        await switchActiveCamera(matchedCamId);
+    }
 
-    const isAskingForVision = lowerText.includes("ภาพ") || lowerText.includes("เห็นอะไร") || lowerText.includes("ดูกล้อง") || lowerText.includes("เช็ก") || lowerText.includes("ตอนนี้") || lowerText.includes("ดู");
+    saveToHistory('user', cleanText);
+    statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${cleanText}<br><strong>⏳ กำลังตรวจสอบเส้นทางคำสั่ง...</strong>`;
+
+    // 2. ส่งข้อความไปเช็กที่ server.js ก่อนว่าเป็นคำสั่งหลังบ้านไหม
+    try {
+        const routeRes = await fetch(`${SERVER_URL}/api/voice/route`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: cleanText,
+                user: authenticatedUser,
+                activeCameraId: activeCameraId
+            })
+        });
+        const routeData = await routeRes.json();
+
+        if (routeData.handledByBackend) {
+            const backendMsg = routeData.replyText || `ดำเนินการคำสั่ง "${cleanText}" เรียบร้อยแล้วครับ`;
+            saveToHistory('model', backendMsg);
+            statusText.innerHTML = `<span class="status-dot"></span><strong>⚙️ หลังบ้านจัดการแล้ว:</strong> ${backendMsg}`;
+
+            // ถ้าต้องการให้เจออกเสียงยืนยันผ่าน WebSocket ด้วย ให้ส่งคำสั่งสั้นๆ ให้เจพูดตามข้อความนี้
+            if (routeData.speakViaWs && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    clientContent: {
+                        turns: [{ role: "user", parts: [{ text: `กรุณาพูดยืนยันสั้นๆ ว่า: ${backendMsg}` }] }],
+                        turnComplete: true
+                    }
+                }));
+            }
+            return;
+        }
+    } catch (err) {
+        console.warn('⚠️ เรียก /api/voice/route ไม่สำเร็จ ส่งต่อให้ WebSocket แทน:', err.message);
+    }
+
+    // 3. ถ้าขอดู/วิเคราะห์ภาพ -> ส่งภาพของกล้องปัจจุบันให้ Gemini
     if (isAskingForVision) {
         await captureAndSendSpecificCamera(activeCameraId, true);
         return;
     }
 
-    ws.send(JSON.stringify({ clientContent: { turns: [{ role: "user", parts: [{ text: text }] }], turnComplete: true } }));
+    // 4. ประโยคทั่วไป -> ส่งเข้า Gemini WebSocket ตามปกติ
+    ws.send(JSON.stringify({
+        clientContent: {
+            turns: [{ role: "user", parts: [{ text: cleanText }] }],
+            turnComplete: true
+        }
+    }));
 }
 
 function playAudioChunk(base64Data) {
