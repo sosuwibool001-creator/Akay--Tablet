@@ -80,7 +80,28 @@
             background: #000;
             object-fit: cover;
             border: 2px solid var(--accent-green);
-            margin-bottom: 20px;
+            margin-bottom: 16px;
+        }
+
+        .setup-voice-box {
+            width: 100%;
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 14px;
+            margin-bottom: 16px;
+            box-sizing: border-box;
+            text-align: left;
+            color: #1d1d1f;
+            font-size: 13px;
+        }
+
+        .setup-voice-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 10px;
+            flex-wrap: wrap;
         }
 
         .input-group {
@@ -135,7 +156,6 @@
             margin-bottom: 15px;
         }
 
-        /* 🚀 ใช้ go2rtc iframe เป็นจอหลักเพื่อให้เป็นสตรีมสดจริง ไม่สโลโมชั่น */
         #activeMainFrame {
             width: 100%;
             height: 100%;
@@ -249,6 +269,7 @@
         }
         button.stop-btn { background-color: var(--accent-red); }
         button.clear-btn { background-color: var(--accent-orange); }
+        button.rec-btn { background-color: #16a34a; }
 
         #output {
             padding: 15px;
@@ -297,14 +318,23 @@
         </button>
     </div>
 
-    <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรกผ่าน IMOU -->
+    <!-- Step 1.2: ลงทะเบียนเจ้าของเครื่องครั้งแรก (เก็บรูป + ไฟล์เสียง แยกเข้าหลังบ้าน) -->
     <div id="stepSetup">
-        <div class="logo-box" style="font-size: 24px;">🛠️ ลงทะเบียนเจ้าของเครื่อง (ผ่านอายคาเมร่า)</div>
-        <div class="subtitle">สวัสดีครับ เจระบบผู้ช่วยพร้อมดูแลครับ กำลังดึงภาพจากกล้อง IMOU เพื่อสแกนใบหน้า...</div>
+        <div class="logo-box" style="font-size: 24px;">🛠️ ลงทะเบียนเจ้าของเครื่องครั้งแรก</div>
+        <div class="subtitle">เก็บรูปนิ่งจากกล้องหลักและไฟล์เสียงเจ้าของเครื่อง เพื่อบันทึกแยกเข้าโฟลเดอร์เจ้าของเครื่องก่อนเข้าโปรแกรม</div>
         <img id="setupImouImg" src="" alt="Setup Feed">
+
+        <div class="setup-voice-box">
+            <div><strong>🎙️ บันทึกไฟล์เสียงเจ้าของเครื่อง (ครั้งแรก):</strong> กดอัดเสียงสั้นๆ (เช่น พูดทักทายหรือชื่อตัวเอง) แล้วค่อยกดยืนยันสิทธิ์</div>
+            <div class="setup-voice-actions">
+                <button type="button" id="recordOwnerVoiceBtn" class="standard-btn rec-btn">🎙️ อัดเสียงเจ้าของเครื่อง (4 วิ)</button>
+                <span id="ownerVoiceStatus" style="color:#475569;">ยังไม่ได้บันทึกเสียง</span>
+            </div>
+        </div>
+
         <div class="input-group">
             <input type="text" id="ownerNameInput" placeholder="ระบุชื่อเจ้าของเครื่อง (เช่น เพื่อนเอก)..." value="เพื่อนเอก (Ake)">
-            <button id="registerOwnerBtn" class="standard-btn" style="padding: 12px; font-size: 14px;">✅ ยืนยันสิทธิ์เจ้าของเครื่องผ่าน IMOU</button>
+            <button id="registerOwnerBtn" class="standard-btn" style="padding: 12px; font-size: 14px;">✅ บันทึกรูปและเสียงเจ้าของเครื่อง</button>
             <button id="cancelSetupBtn" class="standard-btn stop-btn" style="padding: 10px; font-size: 13px;">❌ ยกเลิก</button>
         </div>
     </div>
@@ -317,7 +347,7 @@
         <button id="cancelAuthBtn" class="standard-btn stop-btn" style="margin-top: 15px;">❌ ยกเลิก</button>
     </div>
 
-    <!-- Step 2: แดชบอร์ดหลัก (บังคับเปิดสตรีมสด go2rtc ของกล้องหลัก camera006 ทันที) -->
+    <!-- Step 2: แดชบอร์ดหลัก -->
     <div id="step2">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
             <div style="font-size: 17px; font-weight: 700; color: var(--accent-blue); display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
@@ -329,7 +359,6 @@
         <div class="main-viewer-box">
             <div id="mainCamBadge" class="main-badge">🔴 กำลังแสดงผล: อายคาเมร่า (กล้องหลัก)</div>
             <div id="countdownBadge" class="countdown-overlay">🎙️ กำลังบันทึกเสียงโปรไฟล์: 5</div>
-            <!-- 🚀 ใช้ go2rtc iframe แสดงผลสตรีมสดหลัก -->
             <iframe id="activeMainFrame" src="" allow="microphone; camera; autoplay" allowfullscreen></iframe>
         </div>
         <div id="thumbnailsGrid" class="thumbnails-grid"></div>
@@ -359,10 +388,19 @@
 
 <script>
 // =========================================================================
-// 🔒 [IMOU Hardware Exclusive Mode] บล็อกไมค์/ลำโพงโน้ตบุ๊ค 100%
+// 🔒 [IMOU Hardware Exclusive Mode] เก็บ getUserMedia ดั้งเดิมไว้ใช้เฉพาะตอนอัดเสียงลงทะเบียนเจ้าของเครื่อง
 // =========================================================================
+const _nativeGetUserMedia = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
+    ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
+    : null;
+
+let allowEnrollmentMicOnce = false;
+
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia = async function(constraints) {
+        if (allowEnrollmentMicOnce && _nativeGetUserMedia) {
+            return await _nativeGetUserMedia(constraints);
+        }
         console.warn("🚫 [System Blocked] ปิดการเข้าถึงไมค์และเว็บแคมโน้ตบุ๊ค บังคับใช้กล้อง IMOU เท่านั้น");
         throw new Error("Laptop Mic/Camera Disabled by IMOU Exclusive Mode");
     };
@@ -385,7 +423,7 @@ if ('speechSynthesis' in window) {
 let BACKEND_API_KEY = "";
 const SERVER_URL = "http://localhost:3000";
 const GO2RTC_BASE_URL = "http://localhost:1984";
-const PRIMARY_CAMERA_ID = "camera006"; // ล็อกกล้องหลักเป็นอายคาเมร่าตัวเดียว
+const PRIMARY_CAMERA_ID = "camera006";
 
 async function initConfig() {
     try {
@@ -426,6 +464,8 @@ const setupImouImg = document.getElementById('setupImouImg');
 const authImouImg = document.getElementById('authImouImg');
 const ownerNameInput = document.getElementById('ownerNameInput');
 const registerOwnerBtn = document.getElementById('registerOwnerBtn');
+const recordOwnerVoiceBtn = document.getElementById('recordOwnerVoiceBtn');
+const ownerVoiceStatus = document.getElementById('ownerVoiceStatus');
 const authStatusText = document.getElementById('authStatusText');
 const userNameDisplay = document.getElementById('userNameDisplay');
 const countdownBadge = document.getElementById('countdownBadge');
@@ -452,6 +492,10 @@ let recognition = null;
 let isUserActiveSession = false;
 let authenticatedUser = "เพื่อนเอก (Ake)";
 
+// 🎙️ ตัวแปรเก็บไฟล์เสียงเจ้าของเครื่องรอบลงทะเบียนครั้งแรก
+let capturedOwnerAudioBase64 = null;
+let isRecordingOwnerVoice = false;
+
 let isModelSpeaking = false;
 let speakingTimeout = null;
 let speechBuffer = "";
@@ -473,6 +517,62 @@ clearMemBtn.addEventListener('click', () => {
     alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
 });
 
+// 🎙️ อัดเสียงเจ้าของเครื่องสั้นๆ 4 วินาทีในขั้นตอนลงทะเบียนครั้งแรก
+async function recordOwnerVoiceSample(durationMs = 4000) {
+    if (isRecordingOwnerVoice) return;
+    if (!_nativeGetUserMedia || typeof MediaRecorder === 'undefined') {
+        ownerVoiceStatus.innerText = "เบราว์เซอร์ไม่รองรับการอัดเสียง";
+        return;
+    }
+
+    isRecordingOwnerVoice = true;
+    allowEnrollmentMicOnce = true;
+    recordOwnerVoiceBtn.disabled = true;
+    ownerVoiceStatus.innerText = "🔴 กำลังอัดเสียงเจ้าของเครื่อง (4 วินาที)...";
+
+    let stream = null;
+    try {
+        stream = await _nativeGetUserMedia({ audio: true, video: false });
+        const chunks = [];
+        const recorder = new MediaRecorder(stream);
+
+        recorder.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) chunks.push(e.data);
+        };
+
+        const base64Result = await new Promise((resolve, reject) => {
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            };
+            recorder.onerror = reject;
+            recorder.start();
+            setTimeout(() => {
+                if (recorder.state !== 'inactive') recorder.stop();
+            }, durationMs);
+        });
+
+        capturedOwnerAudioBase64 = base64Result;
+        ownerVoiceStatus.innerText = "✅ อัดเสียงเจ้าของเครื่องเรียบร้อยแล้ว (พร้อมส่งบันทึก)";
+    } catch (err) {
+        ownerVoiceStatus.innerText = `⚠️ อัดเสียงไม่สำเร็จ: ${err.message}`;
+    } finally {
+        if (stream) {
+            stream.getTracks().forEach(t => t.stop());
+        }
+        allowEnrollmentMicOnce = false;
+        isRecordingOwnerVoice = false;
+        recordOwnerVoiceBtn.disabled = false;
+    }
+}
+
+recordOwnerVoiceBtn.addEventListener('click', () => {
+    recordOwnerVoiceSample(4000);
+});
+
 startAuthBtn.addEventListener('click', async () => {
     if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
         alert("กรุณาตั้งค่า BACKEND_API_KEY ก่อนครับเพื่อนเอก!");
@@ -485,6 +585,8 @@ startAuthBtn.addEventListener('click', async () => {
         step1.style.display = 'none';
 
         if (!data.registered) {
+            capturedOwnerAudioBase64 = null;
+            ownerVoiceStatus.innerText = "ยังไม่ได้บันทึกเสียง";
             stepSetup.style.display = 'flex';
             startImouStreamPreview(setupImouImg, PRIMARY_CAMERA_ID, (intervalId) => { setupImouInterval = intervalId; });
         } else {
@@ -519,15 +621,36 @@ registerOwnerBtn.addEventListener('click', async () => {
 
     try {
         if (setupImouInterval) clearInterval(setupImouInterval);
-        const res = await fetch(`${SERVER_URL}/api/owner/register`, {
+
+        // ดึงภาพนิ่งปัจจุบันจาก img หรือ endpoint กล้องหลัก
+        let currentImageBase64 = null;
+        if (setupImouImg && setupImouImg.src && setupImouImg.src.startsWith('data:image')) {
+            currentImageBase64 = setupImouImg.src;
+        } else {
+            try {
+                const latestRes = await fetch(`${SERVER_URL}/api/camera/latest/${PRIMARY_CAMERA_ID}`);
+                const latestData = await latestRes.json();
+                if (latestData.success && latestData.imageBase64) {
+                    currentImageBase64 = `data:image/jpeg;base64,${latestData.imageBase64}`;
+                }
+            } catch (e) {}
+        }
+
+        // บันทึกรูป + ไฟล์เสียงเจ้าของเครื่องครั้งแรกแยกเข้าโฟลเดอร์เจ้าของเครื่อง
+        const res = await fetch(`${SERVER_URL}/api/owner/register-media`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ownerName: name })
+            body: JSON.stringify({
+                ownerName: name,
+                imageBase64: currentImageBase64,
+                audioBase64: capturedOwnerAudioBase64,
+                cameraId: PRIMARY_CAMERA_ID
+            })
         });
         const data = await res.json();
 
         if (data.success) {
-            alert(`🎉 ยืนยันสิทธิ์เจ้าของเครื่องผ่าน IMOU สำเร็จ: ${name}`);
+            alert(`🎉 บันทึกรูป (${data.savedPhoto ? 'สำเร็จ' : 'ไม่มีภาพ'}) และเสียง (${data.savedAudio ? 'สำเร็จ' : 'ไม่มีเสียง'}) ของเจ้าของเครื่อง ${name} เรียบร้อยแล้วครับ`);
             stepSetup.style.display = 'none';
             step2.style.display = 'block';
             authenticatedUser = name;
@@ -535,7 +658,7 @@ registerOwnerBtn.addEventListener('click', async () => {
             await initCameraSystem();
             startMainAppSession();
         } else {
-            alert("เกิดข้อผิดพลาดในการบันทึกสิทธิ์: " + data.message);
+            alert("เกิดข้อผิดพลาดในการบันทึกสิทธิ์: " + (data.message || data.error));
         }
     } catch (e) {
         alert("ไม่สามารถบันทึกสิทธิ์ได้: " + e.message);
@@ -567,6 +690,7 @@ cancelAuthBtn.addEventListener('click', () => {
 
 cancelSetupBtn.addEventListener('click', () => {
     if (setupImouInterval) clearInterval(setupImouInterval);
+    capturedOwnerAudioBase64 = null;
     stepSetup.style.display = 'none';
     step1.style.display = 'flex';
 });
@@ -579,7 +703,6 @@ async function initCameraSystem() {
         camerasRegistry = {};
         if (data.success && data.cameras) {
             for (const [camId, camInfo] of Object.entries(data.cameras)) {
-                // กรองเฉพาะกล้องหลัก active และไม่ใช่ camera001
                 if (camInfo.active !== false && camId !== 'camera001') {
                     camerasRegistry[camId] = {
                         name: camInfo.name,
@@ -628,7 +751,6 @@ function renderDynamicThumbnails() {
         card.id = `thumb-card-${camId}`;
         card.onclick = () => switchActiveCamera(camId);
 
-        // 🚀 ช่องย่อยดึงสตรีมสดผ่าน go2rtc iframe โดยตรง ไม่ใช้ภาพเก่า
         card.innerHTML = `
             <div class="thumb-video-container">
                 <iframe src="${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1" style="width:100%; height:100%; border:none; pointer-events:none;" allow="autoplay"></iframe>
@@ -655,7 +777,6 @@ async function switchActiveCamera(camId) {
     if (mainCamBadge) mainCamBadge.innerText = `🔴 กำลังแสดงผล: ${camInfo.name}`;
     if (cameraDropdownSelect) cameraDropdownSelect.value = camId;
 
-    // 🚀 สลับจอหลักไปที่สตรีม go2rtc iframe ของกล้องนั้นๆ ทันที (สตรีมสดแท้ 100%)
     activeMainFrame.src = `${GO2RTC_BASE_URL}/stream.html?src=${camId}&muted=1`;
     activeMainFrame.setAttribute('allow', 'microphone; camera; autoplay');
 
@@ -881,7 +1002,6 @@ async function sendTextDirectly(text) {
         "เปลี่ยน", "สลับ", "เปิดกล้อง", "ไปดูกล้อง", "ดูกล้อง"
     ].some(kw => lowerText.includes(kw));
 
-    // 1. ถ้าเป็นการสลับกล้องดูเองบนหน้าจอ -> จัดการทันทีในหน้าบ้าน ไม่ต้องส่งเข้า WebSocket
     if (isSwitchOnly) {
         await switchActiveCamera(matchedCamId);
         const camName = camerasRegistry[matchedCamId].name;
@@ -897,7 +1017,6 @@ async function sendTextDirectly(text) {
     saveToHistory('user', cleanText);
     statusText.innerHTML = `<span class="status-dot"></span><strong>🗣️ ได้ยินเสียง:</strong> ${cleanText}<br><strong>⏳ กำลังตรวจสอบเส้นทางคำสั่ง...</strong>`;
 
-    // 2. ส่งข้อความไปเช็กที่ server.js ก่อนว่าเป็นคำสั่งหลังบ้านไหม
     try {
         const routeRes = await fetch(`${SERVER_URL}/api/voice/route`, {
             method: 'POST',
@@ -915,7 +1034,6 @@ async function sendTextDirectly(text) {
             saveToHistory('model', backendMsg);
             statusText.innerHTML = `<span class="status-dot"></span><strong>⚙️ หลังบ้านจัดการแล้ว:</strong> ${backendMsg}`;
 
-            // ถ้าต้องการให้เจออกเสียงยืนยันผ่าน WebSocket ด้วย ให้ส่งคำสั่งสั้นๆ ให้เจพูดตามข้อความนี้
             if (routeData.speakViaWs && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     clientContent: {
@@ -930,13 +1048,11 @@ async function sendTextDirectly(text) {
         console.warn('⚠️ เรียก /api/voice/route ไม่สำเร็จ ส่งต่อให้ WebSocket แทน:', err.message);
     }
 
-    // 3. ถ้าขอดู/วิเคราะห์ภาพ -> ส่งภาพของกล้องปัจจุบันให้ Gemini
     if (isAskingForVision) {
         await captureAndSendSpecificCamera(activeCameraId, true);
         return;
     }
 
-    // 4. ประโยคทั่วไป -> ส่งเข้า Gemini WebSocket ตามปกติ
     ws.send(JSON.stringify({
         clientContent: {
             turns: [{ role: "user", parts: [{ text: cleanText }] }],
