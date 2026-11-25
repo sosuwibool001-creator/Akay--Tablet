@@ -1037,7 +1037,7 @@ registerOwnerBtn.addEventListener('click', async () => {
 });
 
 // =========================================================================
-// 🛡️🔊 ด่านแรก: ตรวจจับใบหน้าหันเข้ากล้อง (แจ้งเป็นเสียงพูดเท่านั้น + รองรับ fallback ไม่ค้าง)
+// 🛡️🔊 ด่านแรก: ตรวจจับใบหน้าหันเข้ากล้องจริงเท่านั้น (ไม่นับผ่านจากความสว่างภาพ)
 // =========================================================================
 let faceGateModelsLoaded = false;
 let faceGateLoadingPromise = null;
@@ -1045,12 +1045,12 @@ let authVerifyTimer = null;
 let lastFaceGateSpokenAt = 0;
 let lastFaceGateSpokenCode = '';
 
-function speakFaceGateOnly(text, code = '') {
+function speakFaceGateOnly(text, code = '', forceImmediate = false) {
     const clean = String(text || '').trim();
     if (!clean) return;
 
     const now = Date.now();
-    if (code && code === lastFaceGateSpokenCode && (now - lastFaceGateSpokenAt) < 4500) {
+    if (!forceImmediate && code && code === lastFaceGateSpokenCode && (now - lastFaceGateSpokenAt) < 4500) {
         return;
     }
 
@@ -1073,6 +1073,7 @@ async function ensureFaceGateModels() {
     if (faceGateLoadingPromise) return await faceGateLoadingPromise;
 
     const modelUrls = [
+        './models',
         'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model',
         'https://justadudewhohacks.github.io/face-api.js/models'
     ];
@@ -1118,28 +1119,7 @@ function isFrontFacingByLandmarks(landmarks) {
     const eyeCenterX = (lx + rx) / 2;
     const yawRatio = Math.abs(noseTip.x - eyeCenterX) / eyeSpan;
 
-    return yawRatio <= 0.42;
-}
-
-// ตัวสำรองตรวจเฟรมภาพบนแคนวาสกรณี CDN โมเดลโหลดไม่สำเร็จจริงๆ เพื่อไม่ให้ค้าง
-function hasActiveCameraFrame(imgEl) {
-    if (!imgEl || !imgEl.complete || !imgEl.naturalWidth || !imgEl.naturalHeight) return false;
-    try {
-        const cvs = document.createElement('canvas');
-        cvs.width = 64;
-        cvs.height = 64;
-        const ctx = cvs.getContext('2d');
-        ctx.drawImage(imgEl, 0, 0, 64, 64);
-        const data = ctx.getImageData(0, 0, 64, 64).data;
-        let sum = 0;
-        for (let i = 0; i < data.length; i += 16) {
-            sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
-        }
-        const avgBrightness = sum / (data.length / 16);
-        return avgBrightness > 8;
-    } catch (e) {
-        return true;
-    }
+    return yawRatio <= 0.38;
 }
 
 function runAutoVerification(ownerName) {
@@ -1149,65 +1129,68 @@ function runAutoVerification(ownerName) {
 
     let matchedStreak = 0;
     let elapsedMs = 0;
-    const maxWaitMs = 20000;
+    const maxWaitMs = 25000;
 
-    speakFaceGateOnly("กรุณามองกล้องหน้าตรงครับ", "START_FRONT");
+    speakFaceGateOnly("กรุณามองกล้องหน้าตรงครับ", "START_FRONT", true);
     ensureFaceGateModels();
 
     authVerifyTimer = setInterval(async () => {
         elapsedMs += 1000;
 
         if (!authImouImg || !authImouImg.complete || !authImouImg.naturalWidth) {
+            matchedStreak = 0;
             speakFaceGateOnly("รอภาพจากกล้องหลักครับ กรุณามองกล้องหน้าตรง", "WAIT_CAM");
             return;
         }
 
         const ready = await ensureFaceGateModels();
         if (!ready) {
-            if (elapsedMs >= 4000 && hasActiveCameraFrame(authImouImg)) {
-                matchedStreak += 1;
-            } else {
-                return;
+            matchedStreak = 0;
+            if (elapsedMs >= 5000) {
+                speakFaceGateOnly("ระบบตรวจจับใบหน้ายังไม่พร้อมครับ", "MODEL_ERR");
             }
-        } else {
-            try {
-                const detection = await faceapi
-                    .detectSingleFace(authImouImg, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.45 }))
-                    .withFaceLandmarks(true);
-
-                if (!detection) {
-                    matchedStreak = 0;
-                    speakFaceGateOnly("ไม่พบใบหน้าครับ กรุณามองกล้องหน้าตรงด้วยครับ", "NO_FACE");
-                } else if (!isFrontFacingByLandmarks(detection.landmarks)) {
-                    matchedStreak = 0;
-                    speakFaceGateOnly("กรุณาหันหน้าตรงเข้ากล้องครับ", "TURN_FRONT");
-                } else {
-                    matchedStreak += 1;
-                }
-            } catch (err) {}
-        }
-
-        if (matchedStreak >= 2) {
-            clearInterval(authVerifyTimer);
-            authVerifyTimer = null;
-            authenticatedUser = ownerName;
-            userNameDisplay.innerText = authenticatedUser;
-            speakFaceGateOnly(`ยินดีต้อนรับครับคุณ${ownerName}`, "PASSED");
-
-            setTimeout(async () => {
-                if (authImouInterval) clearInterval(authImouInterval);
-                stepAuth.style.display = 'none';
-                step2.style.display = 'block';
-                await initCameraSystem();
-                startMainAppSession();
-            }, 600);
             return;
         }
 
-        if (elapsedMs >= maxWaitMs) {
-            clearInterval(authVerifyTimer);
-            authVerifyTimer = null;
-            speakFaceGateOnly("ยังไม่พบใบหน้าหันหน้าตรงครับ กรุณาลองใหม่อีกครั้ง", "TIMEOUT");
+        try {
+            const detection = await faceapi
+                .detectSingleFace(authImouImg, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
+                .withFaceLandmarks(true);
+
+            if (!detection) {
+                matchedStreak = 0;
+                speakFaceGateOnly("ไม่พบใบหน้าครับ กรุณามองกล้องหน้าตรงด้วยครับ", "NO_FACE");
+            } else if (!isFrontFacingByLandmarks(detection.landmarks)) {
+                matchedStreak = 0;
+                speakFaceGateOnly("กรุณาหันหน้าตรงเข้ากล้องครับ", "TURN_FRONT");
+            } else {
+                matchedStreak += 1;
+            }
+
+            if (matchedStreak >= 2) {
+                clearInterval(authVerifyTimer);
+                authVerifyTimer = null;
+                authenticatedUser = ownerName;
+                userNameDisplay.innerText = authenticatedUser;
+                speakFaceGateOnly(`ยินดีต้อนรับครับคุณ${ownerName}`, "PASSED", true);
+
+                setTimeout(async () => {
+                    if (authImouInterval) clearInterval(authImouInterval);
+                    stepAuth.style.display = 'none';
+                    step2.style.display = 'block';
+                    await initCameraSystem();
+                    startMainAppSession();
+                }, 600);
+                return;
+            }
+
+            if (elapsedMs >= maxWaitMs) {
+                clearInterval(authVerifyTimer);
+                authVerifyTimer = null;
+                speakFaceGateOnly("ยังไม่พบใบหน้าหันหน้าตรงครับ กรุณาลองใหม่อีกครั้ง", "TIMEOUT", true);
+            }
+        } catch (err) {
+            matchedStreak = 0;
         }
     }, 1000);
 }
