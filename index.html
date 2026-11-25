@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Project-J (Beta) - Ake ❤️ Guardian Edition (go2rtc Live Stream)</title>
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -1037,29 +1036,42 @@ registerOwnerBtn.addEventListener('click', async () => {
 });
 
 // =========================================================================
-// 🛡️🔊 ด่านแรก: ตรวจจับใบหน้าหันเข้ากล้องจริงเท่านั้น (ไม่นับผ่านจากความสว่างภาพ)
+// 📷🔍 สแกนหน้าโดยแคปรูปส่งไปเทียบกับไฟล์ owner ที่หลังบ้านโดยตรง
 // =========================================================================
-let faceGateModelsLoaded = false;
-let faceGateLoadingPromise = null;
 let authVerifyTimer = null;
-let lastFaceGateSpokenAt = 0;
-let lastFaceGateSpokenCode = '';
+let isAuthComparing = false;
+let lastAuthVoiceAt = 0;
+let lastAuthVoiceCode = '';
 
-function speakFaceGateOnly(text, code = '', forceImmediate = false) {
+async function stopAllAuthVoice(notifyBackend = true) {
+    lastAuthVoiceCode = '';
+    lastAuthVoiceAt = 0;
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+            Object.getPrototypeOf(window.speechSynthesis)?.cancel?.call(window.speechSynthesis);
+        } catch (e) {}
+    }
+    if (notifyBackend) {
+        try {
+            await fetch(`${SERVER_URL}/api/camera/imou-speak/stop`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cameraId: PRIMARY_CAMERA_ID })
+            });
+        } catch (e) {}
+    }
+}
+
+function speakAuthLine(text, code = '') {
     const clean = String(text || '').trim();
     if (!clean) return;
-
     const now = Date.now();
-    if (!forceImmediate && code && code === lastFaceGateSpokenCode && (now - lastFaceGateSpokenAt) < 4500) {
-        return;
-    }
-
-    lastFaceGateSpokenCode = code;
-    lastFaceGateSpokenAt = now;
+    if (code && code === lastAuthVoiceCode && (now - lastAuthVoiceAt) < 4000) return;
+    lastAuthVoiceCode = code;
+    lastAuthVoiceAt = now;
 
     if (typeof SpeechSynthesisUtterance !== 'undefined' && window.speechSynthesis) {
         try {
-            window.speechSynthesis.cancel();
             const utter = new SpeechSynthesisUtterance(clean);
             utter.lang = 'th-TH';
             window.speechSynthesis.speak(utter);
@@ -1067,137 +1079,101 @@ function speakFaceGateOnly(text, code = '', forceImmediate = false) {
     }
 }
 
-async function ensureFaceGateModels() {
-    if (faceGateModelsLoaded) return true;
-    if (typeof faceapi === 'undefined') return false;
-    if (faceGateLoadingPromise) return await faceGateLoadingPromise;
-
-    const modelUrls = [
-        './models',
-        'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model',
-        'https://justadudewhohacks.github.io/face-api.js/models'
-    ];
-
-    faceGateLoadingPromise = (async () => {
-        for (const url of modelUrls) {
-            try {
-                await Promise.all([
-                    faceapi.nets.tinyFaceDetector.loadFromUri(url),
-                    faceapi.nets.faceLandmark68TinyNet.loadFromUri(url)
-                ]);
-                faceGateModelsLoaded = true;
-                return true;
-            } catch (err) {
-                console.warn('⚠️ โหลดโมเดลจาก', url, 'ไม่สำเร็จ:', err.message);
-            }
-        }
-        return false;
-    })();
-
-    const result = await faceGateLoadingPromise;
-    faceGateLoadingPromise = null;
-    return result;
+function captureCurrentAuthImageBase64() {
+    if (authImouImg && authImouImg.src && authImouImg.src.startsWith('data:image')) {
+        return authImouImg.src;
+    }
+    if (authImouImg && authImouImg.complete && authImouImg.naturalWidth > 0) {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = authImouImg.naturalWidth;
+            canvas.height = authImouImg.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(authImouImg, 0, 0);
+            return canvas.toDataURL('image/jpeg', 0.85);
+        } catch (e) {}
+    }
+    return null;
 }
 
-function isFrontFacingByLandmarks(landmarks) {
-    if (!landmarks) return false;
-    const leftEye = landmarks.getLeftEye();
-    const rightEye = landmarks.getRightEye();
-    const nose = landmarks.getNose();
-    if (!leftEye?.length || !rightEye?.length || !nose?.length) return false;
-
-    const avgPt = (pts) => pts.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-    const lSum = avgPt(leftEye);
-    const rSum = avgPt(rightEye);
-    const lx = lSum.x / leftEye.length;
-    const rx = rSum.x / rightEye.length;
-
-    const noseTip = nose[nose.length - 1];
-    const eyeSpan = Math.abs(rx - lx);
-    if (eyeSpan < 10) return false;
-
-    const eyeCenterX = (lx + rx) / 2;
-    const yawRatio = Math.abs(noseTip.x - eyeCenterX) / eyeSpan;
-
-    return yawRatio <= 0.38;
+async function verifyFaceAgainstOwnerBackend(imageBase64) {
+    const res = await fetch(`${SERVER_URL}/api/owner/verify-face`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            imageBase64,
+            cameraId: PRIMARY_CAMERA_ID
+        })
+    });
+    return await res.json();
 }
 
 function runAutoVerification(ownerName) {
     if (authVerifyTimer) clearInterval(authVerifyTimer);
-    lastFaceGateSpokenCode = '';
-    lastFaceGateSpokenAt = 0;
+    isAuthComparing = false;
+    lastAuthVoiceCode = '';
+    lastAuthVoiceAt = 0;
 
-    let matchedStreak = 0;
-    let elapsedMs = 0;
-    const maxWaitMs = 25000;
-
-    speakFaceGateOnly("กรุณามองกล้องหน้าตรงครับ", "START_FRONT", true);
-    ensureFaceGateModels();
+    speakAuthLine("กรุณามองกล้องครับ กำลังเทียบใบหน้ากับเจ้าของระบบ", "START_VERIFY");
 
     authVerifyTimer = setInterval(async () => {
-        elapsedMs += 1000;
+        if (isAuthComparing) return;
 
-        if (!authImouImg || !authImouImg.complete || !authImouImg.naturalWidth) {
-            matchedStreak = 0;
-            speakFaceGateOnly("รอภาพจากกล้องหลักครับ กรุณามองกล้องหน้าตรง", "WAIT_CAM");
+        let snapBase64 = captureCurrentAuthImageBase64();
+        if (!snapBase64) {
+            try {
+                const latestRes = await fetch(`${SERVER_URL}/api/camera/latest/${PRIMARY_CAMERA_ID}`);
+                const latestData = await latestRes.json();
+                if (latestData && latestData.success && latestData.imageBase64) {
+                    snapBase64 = `data:image/jpeg;base64,${latestData.imageBase64}`;
+                }
+            } catch (e) {}
+        }
+
+        if (!snapBase64) {
+            speakAuthLine("รอภาพจากกล้องครับ", "NO_SNAP");
             return;
         }
 
-        const ready = await ensureFaceGateModels();
-        if (!ready) {
-            matchedStreak = 0;
-            if (elapsedMs >= 5000) {
-                speakFaceGateOnly("ระบบตรวจจับใบหน้ายังไม่พร้อมครับ", "MODEL_ERR");
-            }
-            return;
-        }
-
+        isAuthComparing = true;
         try {
-            const detection = await faceapi
-                .detectSingleFace(authImouImg, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
-                .withFaceLandmarks(true);
+            const result = await verifyFaceAgainstOwnerBackend(snapBase64);
 
-            if (!detection) {
-                matchedStreak = 0;
-                speakFaceGateOnly("ไม่พบใบหน้าครับ กรุณามองกล้องหน้าตรงด้วยครับ", "NO_FACE");
-            } else if (!isFrontFacingByLandmarks(detection.landmarks)) {
-                matchedStreak = 0;
-                speakFaceGateOnly("กรุณาหันหน้าตรงเข้ากล้องครับ", "TURN_FRONT");
-            } else {
-                matchedStreak += 1;
-            }
-
-            if (matchedStreak >= 2) {
+            // ต้องตรงกับไฟล์ owner ที่หลังบ้านจริงเท่านั้นจึงจะเข้าหน้าหลักได้
+            if (result && result.success && result.matched === true) {
                 clearInterval(authVerifyTimer);
                 authVerifyTimer = null;
-                authenticatedUser = ownerName;
+
+                const resolvedName = result.ownerName || ownerName || "เจ้าของระบบ";
+                authenticatedUser = resolvedName;
                 userNameDisplay.innerText = authenticatedUser;
-                speakFaceGateOnly(`ยินดีต้อนรับครับคุณ${ownerName}`, "PASSED", true);
+
+                await stopAllAuthVoice(true);
+                speakAuthLine(`ยินดีต้อนรับครับคุณ${resolvedName}`, "MATCH_OK");
 
                 setTimeout(async () => {
-                    if (authImouInterval) clearInterval(authImouInterval);
+                    if (authImouInterval) { clearInterval(authImouInterval); authImouInterval = null; }
                     stepAuth.style.display = 'none';
                     step2.style.display = 'block';
                     await initCameraSystem();
                     startMainAppSession();
                 }, 600);
-                return;
-            }
-
-            if (elapsedMs >= maxWaitMs) {
-                clearInterval(authVerifyTimer);
-                authVerifyTimer = null;
-                speakFaceGateOnly("ยังไม่พบใบหน้าหันหน้าตรงครับ กรุณาลองใหม่อีกครั้ง", "TIMEOUT", true);
+            } else {
+                // หน้าไม่ตรง: ไม่เข้าหน้าหลัก
+                speakAuthLine(result?.reason || "ใบหน้าไม่ตรงกับเจ้าของระบบครับ", "NOT_MATCH");
             }
         } catch (err) {
-            matchedStreak = 0;
+            speakAuthLine("ไม่สามารถเชื่อมต่อระบบเทียบใบหน้าหลังบ้านได้ครับ", "API_ERR");
+        } finally {
+            isAuthComparing = false;
         }
-    }, 1000);
+    }, 1500);
 }
 
 cancelAuthBtn.addEventListener('click', () => {
     if (authVerifyTimer) { clearInterval(authVerifyTimer); authVerifyTimer = null; }
     if (authImouInterval) { clearInterval(authImouInterval); authImouInterval = null; }
+    stopAllAuthVoice(true);
     stepAuth.style.display = 'none';
     step1.style.display = 'flex';
 });
@@ -1205,8 +1181,13 @@ cancelAuthBtn.addEventListener('click', () => {
 cancelSetupBtn.addEventListener('click', () => {
     if (setupImouInterval) clearInterval(setupImouInterval);
     capturedOwnerAudioBase64 = null;
+    stopAllAuthVoice(true);
     stepSetup.style.display = 'none';
     step1.style.display = 'flex';
+});
+
+window.addEventListener('pagehide', () => {
+    stopAllAuthVoice(true);
 });
 
 async function initCameraSystem() {
@@ -1484,6 +1465,7 @@ async function sendTextDirectly(text) {
     const cleanText = String(text || '').trim();
     if (!cleanText) return;
 
+    // ดักคำสั่งแนะนำ/เพิ่มคนด้วยเสียงหรือข้อความก่อน
     if (await tryHandleVoiceAddPersonCommand(cleanText)) return;
 
     const lowerText = cleanText.toLowerCase();
@@ -1635,6 +1617,7 @@ function stopSession() {
     isModelSpeaking = false;
     isEnrollingGuest = false;
     isAddingPersonByVoice = false;
+    stopAllAuthVoice(true);
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
@@ -1657,4 +1640,3 @@ stopBtn.addEventListener('click', stopSession);
 
 </body>
 </html>
-
