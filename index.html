@@ -388,7 +388,7 @@
 
 <script>
 // =========================================================================
-// 🔒 [IMOU Hardware Exclusive Mode] เก็บ getUserMedia ดั้งเดิมไว้ใช้เฉพาะตอนอัดเสียงลงทะเบียนเจ้าของเครื่อง
+// 🔒 [IMOU Hardware Exclusive Mode] เก็บ getUserMedia ดั้งเดิมไว้ใช้เฉพาะตอนอัดเสียงลงทะเบียน
 // =========================================================================
 const _nativeGetUserMedia = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia)
     ? navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices)
@@ -451,6 +451,7 @@ class AutoEnrollmentManager {
 
 let enrollmentManager = new AutoEnrollmentManager();
 let isEnrollingGuest = false;
+let isAddingPersonByVoice = false;
 
 const step1 = document.getElementById('step1');
 const stepSetup = document.getElementById('stepSetup');
@@ -484,6 +485,7 @@ const activeMainFrame = document.getElementById('activeMainFrame');
 
 let ws = null;
 let audioContext = null;
+let nextAudioTime = 0;
 let setupImouInterval = null;
 let authImouInterval = null;
 let remoteCheckInterval = null;
@@ -532,13 +534,13 @@ function encodeWAV(samples, sampleRate) {
     view.setUint32(4, 36 + samples.length * 2, true);
     writeString(8, 'WAVE');
     writeString(12, 'fmt ');
-    view.setUint32(16, 16, true); // PCM chunk size
-    view.setUint16(20, 1, true);  // Audio format 1 = PCM
-    view.setUint16(22, 1, true);  // Mono (1 channel)
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true); // Byte rate
-    view.setUint16(32, 2, true);  // Block align
-    view.setUint16(34, 16, true); // 16-bit
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
     writeString(36, 'data');
     view.setUint32(40, samples.length * 2, true);
 
@@ -586,7 +588,6 @@ async function recordOwnerVoiceSample(durationMs = 4000) {
         processor.disconnect();
         source.disconnect();
 
-        // รวมข้อมูลเสียงทั้งหมดเป็นก้อนเดียวแล้วเข้ารหัสเป็น WAV
         const totalLength = recordedChunks.reduce((acc, arr) => acc + arr.length, 0);
         const mergedSamples = new Float32Array(totalLength);
         let offset = 0;
@@ -619,6 +620,291 @@ async function recordOwnerVoiceSample(durationMs = 4000) {
 recordOwnerVoiceBtn.addEventListener('click', () => {
     recordOwnerVoiceSample(4000);
 });
+
+// =========================================================================
+// 🧑‍🤝‍🧑 [NEW] ระบบเพิ่มคนด้วยเสียง/ข้อความ (ไม่พึ่งปุ่มกด)
+// แคปรูป 3 ช็อต (หน้าตรง -> หันซ้าย -> หันขวา ท่าละเตรียมตัว ~4 วิ) + อัดเสียง 7 วิ (.wav)
+// =========================================================================
+function parseAddPersonIntent(rawText = '') {
+    const text = String(rawText || '').trim();
+    if (!text) return null;
+
+    const triggerMatch = text.match(/เจ.*?(?:ขอแนะนำ|แนะนำ).*(?:ให้รู้จัก|รู้จัก)/i);
+    if (!triggerMatch) return null;
+
+    let group = 'acquaintances';
+    let relation = 'เพื่อนใหม่';
+
+    if (/ลูกชาย/.test(text)) {
+        group = 'family';
+        relation = 'ลูกชาย';
+    } else if (/ลูกสาว/.test(text)) {
+        group = 'family';
+        relation = 'ลูกสาว';
+    } else if (/ลูก/.test(text)) {
+        group = 'family';
+        relation = 'ลูก';
+    } else if (/พ่อ/.test(text)) {
+        group = 'family';
+        relation = 'พ่อ';
+    } else if (/แม่/.test(text)) {
+        group = 'family';
+        relation = 'แม่';
+    } else if (/พี่|น้อง|ญาติ|ครอบครัว/.test(text)) {
+        group = 'family';
+        relation = 'ครอบครัว';
+    } else if (/เพื่อนใหม่/.test(text)) {
+        group = 'acquaintances';
+        relation = 'เพื่อนใหม่';
+    } else if (/เพื่อน/.test(text)) {
+        group = 'acquaintances';
+        relation = 'เพื่อน';
+    } else if (/คนรู้จัก/.test(text)) {
+        group = 'acquaintances';
+        relation = 'คนรู้จัก';
+    }
+
+    let personName = 'ไม่ระบุชื่อ';
+    const nameMatch = text.match(/ชื่อ\s*([ก-ฮะ-์a-zA-Z0-9_.\-\s]{1,40})$/i);
+    if (nameMatch && nameMatch[1]) {
+        personName = nameMatch[1].trim();
+    }
+
+    return {
+        group,
+        relation,
+        name: personName,
+        rawText: text
+    };
+}
+
+function speakLocalThaiText(text, onDone = null) {
+    return new Promise((resolve) => {
+        const clean = String(text || '').trim();
+        if (!clean) {
+            if (onDone) onDone();
+            resolve();
+            return;
+        }
+
+        const finish = () => {
+            if (onDone) onDone();
+            resolve();
+        };
+
+        if (typeof SpeechSynthesisUtterance !== 'undefined' && window.speechSynthesis) {
+            try {
+                window.speechSynthesis.cancel();
+                const utter = new SpeechSynthesisUtterance(clean);
+                utter.lang = 'th-TH';
+                utter.onend = finish;
+                utter.onerror = finish;
+                window.speechSynthesis.speak(utter);
+                return;
+            } catch (e) {}
+        }
+
+        setTimeout(finish, 1800);
+    });
+}
+
+async function fetchLatestCameraSnapshotBase64(camId = PRIMARY_CAMERA_ID) {
+    try {
+        const res = await fetch(`${SERVER_URL}/api/camera/latest/${camId}`);
+        const data = await res.json();
+        if (data && data.success && data.imageBase64) {
+            return `data:image/jpeg;base64,${data.imageBase64}`;
+        }
+    } catch (e) {}
+    return null;
+}
+
+async function captureSinglePoseWithCountdown(poseInstruction, poseLabel, prepareSeconds = 4, camId = PRIMARY_CAMERA_ID) {
+    statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${poseInstruction}`;
+    saveToHistory('model', poseInstruction);
+    await speakLocalThaiText(poseInstruction);
+
+    for (let sec = prepareSeconds; sec >= 1; sec--) {
+        if (countdownBadge) {
+            countdownBadge.style.display = 'block';
+            countdownBadge.innerText = `📸 ${poseLabel}: เตรียมตัว ${sec} วิ`;
+        }
+        statusText.innerHTML = `<span class="status-dot"></span><strong>📸 เตรียมแคปรูป (${poseLabel}):</strong> เหลืออีก ${sec} วินาที`;
+        await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    if (countdownBadge) {
+        countdownBadge.style.display = 'block';
+        countdownBadge.innerText = `📸 กำลังแคป: ${poseLabel}`;
+    }
+
+    const snapBase64 = await fetchLatestCameraSnapshotBase64(camId);
+    if (countdownBadge) countdownBadge.style.display = 'none';
+
+    return snapBase64;
+}
+
+async function captureThreePosesForEnrollment(camId = PRIMARY_CAMERA_ID, prepareSeconds = 4) {
+    const snapshots = [];
+
+    // 1. หน้าตรง (1 ช็อต)
+    const frontShot = await captureSinglePoseWithCountdown(
+        "ขออนุญาตแคปรูปหน้าตรงครับ กรุณามองกล้องหน้าตรงนะ",
+        "หน้าตรง (1/3)",
+        prepareSeconds,
+        camId
+    );
+    if (frontShot) snapshots.push(frontShot);
+
+    // 2. หันซ้าย (1 ช็อต)
+    const leftShot = await captureSinglePoseWithCountdown(
+        "กรุณาหันซ้ายครับ เดี๋ยวเจแคปรูปหันซ้ายให้นะ",
+        "หันซ้าย (2/3)",
+        prepareSeconds,
+        camId
+    );
+    if (leftShot) snapshots.push(leftShot);
+
+    // 3. หันขวา (1 ช็อต)
+    const rightShot = await captureSinglePoseWithCountdown(
+        "กรุณาหันขวาครับ เดี๋ยวเจแคปรูปหันขวาให้นะ",
+        "หันขวา (3/3)",
+        prepareSeconds,
+        camId
+    );
+    if (rightShot) snapshots.push(rightShot);
+
+    return snapshots;
+}
+
+async function recordVoiceFor7Seconds(durationMs = 7000) {
+    if (!_nativeGetUserMedia) {
+        return { audioBase64: null, error: 'เบราว์เซอร์ไม่รองรับไมโครโฟน' };
+    }
+
+    allowEnrollmentMicOnce = true;
+    let stream = null;
+    let tempCtx = null;
+
+    try {
+        stream = await _nativeGetUserMedia({ audio: true, video: false });
+        tempCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        const source = tempCtx.createMediaStreamSource(stream);
+        const processor = tempCtx.createScriptProcessor(4096, 1, 1);
+        const chunks = [];
+
+        processor.onaudioprocess = (e) => {
+            chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
+        };
+
+        source.connect(processor);
+        processor.connect(tempCtx.destination);
+
+        const totalSec = Math.round(durationMs / 1000);
+        for (let sec = totalSec; sec >= 1; sec--) {
+            if (countdownBadge) {
+                countdownBadge.style.display = 'block';
+                countdownBadge.innerText = `🎙️ กำลังอัดเสียง: ${sec} วิ`;
+            }
+            statusText.innerHTML = `<span class="status-dot"></span><strong>🎙️ กำลังอัดเสียงแนะนำตัว:</strong> เหลืออีก ${sec} วินาที`;
+            await new Promise((r) => setTimeout(r, 1000));
+        }
+
+        processor.disconnect();
+        source.disconnect();
+
+        const totalLen = chunks.reduce((acc, arr) => acc + arr.length, 0);
+        const merged = new Float32Array(totalLen);
+        let offset = 0;
+        for (const chunk of chunks) {
+            merged.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        const wavBlob = encodeWAV(merged, tempCtx.sampleRate);
+        const audioBase64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(wavBlob);
+        });
+
+        return { audioBase64, error: null };
+    } catch (err) {
+        return { audioBase64: null, error: err.message };
+    } finally {
+        if (countdownBadge) countdownBadge.style.display = 'none';
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+        if (tempCtx) await tempCtx.close();
+        allowEnrollmentMicOnce = false;
+    }
+}
+
+async function runVoiceAddPersonFlow(intent) {
+    if (isAddingPersonByVoice) return;
+    isAddingPersonByVoice = true;
+    isEnrollingGuest = true;
+    if (recognition) { try { recognition.stop(); } catch (e) {} }
+
+    try {
+        const targetCamId = activeCameraId || PRIMARY_CAMERA_ID;
+
+        // 1. บทสนทนาแรก: ขออนุญาตแคปรูปและอัดเสียง
+        const introLine = "สวัสดีครับ นี่เจเองคับ จะขออนุญาตแคปรูปและอัดเสียงเพื่อเก็บไว้เป็นฐานข้อมูลในระบบของเจครับ";
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${introLine}`;
+        saveToHistory('model', introLine);
+        await speakLocalThaiText(introLine);
+
+        // 2. แคปรูป 3 ช็อต (หน้าตรง -> หันซ้าย -> หันขวา ท่าละเตรียมตัว ~4 วินาที)
+        const imagesBase64 = await captureThreePosesForEnrollment(targetCamId, 4);
+
+        // 3. ก่อนอัดเสียง 7 วินาที: แจ้งให้พูดแนะนำตัวบอกชื่อ วันเดือนปีเกิด แล้วนับถอยหลัง 7 วินาที
+        const voicePrompt = "กรุณาพูดแนะนำตัวบอกชื่อ วันเดือนปีเกิด ให้เจด้วยครับ";
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${voicePrompt}`;
+        saveToHistory('model', voicePrompt);
+        await speakLocalThaiText(voicePrompt);
+
+        const { audioBase64 } = await recordVoiceFor7Seconds(7000);
+
+        // ส่งข้อมูลรูป (3 ช็อต) + ไฟล์เสียง (.wav) ไปเก็บที่หลังบ้าน
+        const saveRes = await fetch(`${SERVER_URL}/api/profiles/enroll-media-step`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: intent.name,
+                relation: intent.relation,
+                group: intent.group,
+                cameraId: targetCamId,
+                imagesBase64,
+                audioBase64
+            })
+        });
+        const saveData = await saveRes.json();
+
+        // 4. ปิดท้ายด้วยประโยค "ขอบคุณคุณ...คับ"
+        const outroLine = `ขอบคุณคุณ${intent.name}คับ`;
+        statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${outroLine} (เก็บรูป ${saveData.savedImagesCount || imagesBase64.length} ช็อต / เสียง ${saveData.savedAudio ? 'สำเร็จ' : 'ไม่มีไฟล์เสียง'})`;
+        saveToHistory('model', outroLine);
+        await speakLocalThaiText(outroLine);
+    } catch (err) {
+        statusText.innerHTML = `<span class="status-dot" style="background:#ff3b30;"></span><strong>❌ เพิ่มคนไม่สำเร็จ:</strong> ${err.message}`;
+    } finally {
+        if (countdownBadge) countdownBadge.style.display = 'none';
+        isAddingPersonByVoice = false;
+        isEnrollingGuest = false;
+        if (isUserActiveSession && recognition) {
+            try { recognition.start(); } catch (e) {}
+        }
+    }
+}
+
+async function tryHandleVoiceAddPersonCommand(text) {
+    const intent = parseAddPersonIntent(text);
+    if (!intent) return false;
+    saveToHistory('user', text);
+    await runVoiceAddPersonFlow(intent);
+    return true;
+}
 
 startAuthBtn.addEventListener('click', async () => {
     if (!BACKEND_API_KEY || BACKEND_API_KEY.includes("YOUR_REAL_API_KEY")) {
@@ -669,7 +955,6 @@ registerOwnerBtn.addEventListener('click', async () => {
     try {
         if (setupImouInterval) clearInterval(setupImouInterval);
 
-        // ดึงภาพนิ่งปัจจุบันจาก img หรือ endpoint กล้องหลัก
         let currentImageBase64 = null;
         if (setupImouImg && setupImouImg.src && setupImouImg.src.startsWith('data:image')) {
             currentImageBase64 = setupImouImg.src;
@@ -683,7 +968,6 @@ registerOwnerBtn.addEventListener('click', async () => {
             } catch (e) {}
         }
 
-        // บันทึกรูป + ไฟล์เสียงเจ้าของเครื่องครั้งแรกแยกเข้าโฟลเดอร์เจ้าของเครื่อง
         const res = await fetch(`${SERVER_URL}/api/owner/register-media`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1007,7 +1291,7 @@ function startSpeechRecognition() {
     };
 
     recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isEnrollingGuest) setTimeout(startSpeechRecognition, 500); };
-    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isModelSpeaking && !isEnrollingGuest) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
+    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isEnrollingGuest) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
     try { recognition.start(); } catch(e) {}
 }
 
@@ -1016,6 +1300,9 @@ async function sendTextDirectly(text) {
 
     const cleanText = String(text || '').trim();
     if (!cleanText) return;
+
+    // ดักคำสั่งแนะนำ/เพิ่มคนด้วยเสียงหรือข้อความก่อน
+    if (await tryHandleVoiceAddPersonCommand(cleanText)) return;
 
     const lowerText = cleanText.toLowerCase();
     const cameraKeywords = {
@@ -1165,6 +1452,7 @@ function stopSession() {
     isUserActiveSession = false;
     isModelSpeaking = false;
     isEnrollingGuest = false;
+    isAddingPersonByVoice = false;
     if (speakingTimeout) clearTimeout(speakingTimeout);
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
