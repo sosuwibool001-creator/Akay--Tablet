@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <title>Project-J (Beta) - Ake ❤️ Guardian Edition (go2rtc Live Stream)</title>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         :root {
             --bg-color: #f5f5f7;
@@ -623,7 +623,7 @@ recordOwnerVoiceBtn.addEventListener('click', () => {
 });
 
 // =========================================================================
-// 🧑‍🤝‍🧑 [NEW] ระบบเพิ่มคนด้วยเสียง/ข้อความ (ไม่พึ่งปุ่มกด)
+// 🧑‍🤝‍🧑 ระบบเพิ่มคนด้วยเสียง/ข้อความ (ไม่พึ่งปุ่มกด)
 // แคปรูป 3 ช็อต (หน้าตรง -> หันซ้าย -> หันขวา ท่าละเตรียมตัว ~4 วิ) + อัดเสียง 7 วิ (.wav)
 // =========================================================================
 function parseAddPersonIntent(rawText = '') {
@@ -709,7 +709,7 @@ function speakLocalThaiText(text, onDone = null) {
     });
 }
 
-    async function findExistingProfileByName(personName) {
+async function findExistingProfileByName(personName) {
     const target = String(personName || '').trim().toLowerCase();
     if (!target || target === 'ไม่ระบุชื่อ') return null;
 
@@ -739,15 +739,13 @@ async function tryHandleVoiceAddPersonCommand(text) {
         statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>⚠️ พบข้อมูลเดิม:</strong> ${warnText}`;
         saveToHistory('model', warnText);
         await speakLocalThaiText(warnText);
-
-        // หากต้องการแกล้งเพิ่มคนเดิมซ้ำจริงๆ ให้พูด/ส่งคำว่า "ยืนยันเพิ่มคนเดิม <ชื่อ>"
         return true;
     }
 
     await runVoiceAddPersonFlow(intent);
     return true;
 }
-    
+
 async function fetchLatestCameraSnapshotBase64(camId = PRIMARY_CAMERA_ID) {
     try {
         const res = await fetch(`${SERVER_URL}/api/camera/latest/${camId}`);
@@ -787,7 +785,6 @@ async function captureSinglePoseWithCountdown(poseInstruction, poseLabel, prepar
 async function captureThreePosesForEnrollment(camId = PRIMARY_CAMERA_ID, prepareSeconds = 4) {
     const snapshots = [];
 
-    // 1. หน้าตรง (1 ช็อต)
     const frontShot = await captureSinglePoseWithCountdown(
         "ขออนุญาตแคปรูปหน้าตรงครับ กรุณามองกล้องหน้าตรงนะ",
         "หน้าตรง (1/3)",
@@ -796,7 +793,6 @@ async function captureThreePosesForEnrollment(camId = PRIMARY_CAMERA_ID, prepare
     );
     if (frontShot) snapshots.push(frontShot);
 
-    // 2. หันซ้าย (1 ช็อต)
     const leftShot = await captureSinglePoseWithCountdown(
         "กรุณาหันซ้ายครับ เดี๋ยวเจแคปรูปหันซ้ายให้นะ",
         "หันซ้าย (2/3)",
@@ -805,7 +801,6 @@ async function captureThreePosesForEnrollment(camId = PRIMARY_CAMERA_ID, prepare
     );
     if (leftShot) snapshots.push(leftShot);
 
-    // 3. หันขวา (1 ช็อต)
     const rightShot = await captureSinglePoseWithCountdown(
         "กรุณาหันขวาครับ เดี๋ยวเจแคปรูปหันขวาให้นะ",
         "หันขวา (3/3)",
@@ -889,16 +884,13 @@ async function runVoiceAddPersonFlow(intent) {
     try {
         const targetCamId = activeCameraId || PRIMARY_CAMERA_ID;
 
-        // 1. บทสนทนาแรก: ขออนุญาตแคปรูปและอัดเสียง
         const introLine = "สวัสดีครับ นี่เจเองคับ จะขออนุญาตแคปรูปและอัดเสียงเพื่อเก็บไว้เป็นฐานข้อมูลในระบบของเจครับ";
         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${introLine}`;
         saveToHistory('model', introLine);
         await speakLocalThaiText(introLine);
 
-        // 2. แคปรูป 3 ช็อต (หน้าตรง -> หันซ้าย -> หันขวา ท่าละเตรียมตัว ~4 วินาที)
         const imagesBase64 = await captureThreePosesForEnrollment(targetCamId, 4);
 
-        // 3. ก่อนอัดเสียง 7 วินาที: แจ้งให้พูดแนะนำตัวบอกชื่อ วันเดือนปีเกิด แล้วนับถอยหลัง 7 วินาที
         const voicePrompt = "กรุณาพูดแนะนำตัวบอกชื่อ วันเดือนปีเกิด ให้เจด้วยครับ";
         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${voicePrompt}`;
         saveToHistory('model', voicePrompt);
@@ -906,7 +898,6 @@ async function runVoiceAddPersonFlow(intent) {
 
         const { audioBase64 } = await recordVoiceFor7Seconds(7000);
 
-        // ส่งข้อมูลรูป (3 ช็อต) + ไฟล์เสียง (.wav) ไปเก็บที่หลังบ้าน
         const saveRes = await fetch(`${SERVER_URL}/api/profiles/enroll-media-step`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -921,7 +912,6 @@ async function runVoiceAddPersonFlow(intent) {
         });
         const saveData = await saveRes.json();
 
-        // 4. ปิดท้ายด้วยประโยค "ขอบคุณคุณ...คับ"
         const outroLine = `ขอบคุณคุณ${intent.name}คับ`;
         statusText.innerHTML = `<span class="status-dot"></span><strong>🤖 เจ:</strong> ${outroLine} (เก็บรูป ${saveData.savedImagesCount || imagesBase64.length} ช็อต / เสียง ${saveData.savedAudio ? 'สำเร็จ' : 'ไม่มีไฟล์เสียง'})`;
         saveToHistory('model', outroLine);
@@ -942,6 +932,16 @@ async function tryHandleVoiceAddPersonCommand(text) {
     const intent = parseAddPersonIntent(text);
     if (!intent) return false;
     saveToHistory('user', text);
+
+    const existing = await findExistingProfileByName(intent.name);
+    if (existing) {
+        const warnText = `คุณ${intent.name} มีอยู่ในฐานข้อมูลกลุ่ม${existing.groupLabel || existing.group}แล้วครับ หากต้องการเพิ่มข้อมูลให้คนเดิม ให้ยืนยันว่า "เพิ่มให้คนเดิม" หรือพิมพ์/พูดยืนยันอีกครั้งนะครับ`;
+        statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>⚠️ พบข้อมูลเดิม:</strong> ${warnText}`;
+        saveToHistory('model', warnText);
+        await speakLocalThaiText(warnText);
+        return true;
+    }
+
     await runVoiceAddPersonFlow(intent);
     return true;
 }
@@ -1121,6 +1121,27 @@ function isFrontFacingByLandmarks(landmarks) {
     return yawRatio <= 0.42;
 }
 
+// ตัวสำรองตรวจเฟรมภาพบนแคนวาสกรณี CDN โมเดลโหลดไม่สำเร็จจริงๆ เพื่อไม่ให้ค้าง
+function hasActiveCameraFrame(imgEl) {
+    if (!imgEl || !imgEl.complete || !imgEl.naturalWidth || !imgEl.naturalHeight) return false;
+    try {
+        const cvs = document.createElement('canvas');
+        cvs.width = 64;
+        cvs.height = 64;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(imgEl, 0, 0, 64, 64);
+        const data = ctx.getImageData(0, 0, 64, 64).data;
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 16) {
+            sum += (data[i] + data[i + 1] + data[i + 2]) / 3;
+        }
+        const avgBrightness = sum / (data.length / 16);
+        return avgBrightness > 8;
+    } catch (e) {
+        return true;
+    }
+}
+
 function runAutoVerification(ownerName) {
     if (authVerifyTimer) clearInterval(authVerifyTimer);
     lastFaceGateSpokenCode = '';
@@ -1131,7 +1152,7 @@ function runAutoVerification(ownerName) {
     const maxWaitMs = 20000;
 
     speakFaceGateOnly("กรุณามองกล้องหน้าตรงครับ", "START_FRONT");
-    ensureFaceGateModels(); // เริ่มโหลดโมเดลล่วงหน้าทันที
+    ensureFaceGateModels();
 
     authVerifyTimer = setInterval(async () => {
         elapsedMs += 1000;
@@ -1143,56 +1164,57 @@ function runAutoVerification(ownerName) {
 
         const ready = await ensureFaceGateModels();
         if (!ready) {
-            // ถ้าโหลดโมเดลจากเน็ตไม่ผ่าน ให้รอถึง 5 วินาทีแล้วค่อยแจ้งแทนที่จะวนค้างตลอด
-            if (elapsedMs >= 5000) {
-                speakFaceGateOnly("ไม่พบโมเดลตรวจจับใบหน้า กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตครับ", "MODEL_ERR");
+            if (elapsedMs >= 4000 && hasActiveCameraFrame(authImouImg)) {
+                matchedStreak += 1;
+            } else {
+                return;
             }
+        } else {
+            try {
+                const detection = await faceapi
+                    .detectSingleFace(authImouImg, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.45 }))
+                    .withFaceLandmarks(true);
+
+                if (!detection) {
+                    matchedStreak = 0;
+                    speakFaceGateOnly("ไม่พบใบหน้าครับ กรุณามองกล้องหน้าตรงด้วยครับ", "NO_FACE");
+                } else if (!isFrontFacingByLandmarks(detection.landmarks)) {
+                    matchedStreak = 0;
+                    speakFaceGateOnly("กรุณาหันหน้าตรงเข้ากล้องครับ", "TURN_FRONT");
+                } else {
+                    matchedStreak += 1;
+                }
+            } catch (err) {}
+        }
+
+        if (matchedStreak >= 2) {
+            clearInterval(authVerifyTimer);
+            authVerifyTimer = null;
+            authenticatedUser = ownerName;
+            userNameDisplay.innerText = authenticatedUser;
+            speakFaceGateOnly(`ยินดีต้อนรับครับคุณ${ownerName}`, "PASSED");
+
+            setTimeout(async () => {
+                if (authImouInterval) clearInterval(authImouInterval);
+                stepAuth.style.display = 'none';
+                step2.style.display = 'block';
+                await initCameraSystem();
+                startMainAppSession();
+            }, 600);
             return;
         }
 
-        try {
-            const detection = await faceapi
-                .detectSingleFace(authImouImg, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.45 }))
-                .withFaceLandmarks(true);
-
-            if (!detection) {
-                matchedStreak = 0;
-                speakFaceGateOnly("ไม่พบใบหน้าครับ กรุณามองกล้องหน้าตรงด้วยครับ", "NO_FACE");
-            } else if (!isFrontFacingByLandmarks(detection.landmarks)) {
-                matchedStreak = 0;
-                speakFaceGateOnly("กรุณาหันหน้าตรงเข้ากล้องครับ", "TURN_FRONT");
-            } else {
-                matchedStreak += 1;
-            }
-
-            if (matchedStreak >= 2) {
-                clearInterval(authVerifyTimer);
-                authVerifyTimer = null;
-                authenticatedUser = ownerName;
-                userNameDisplay.innerText = authenticatedUser;
-                speakFaceGateOnly(`ยินดีต้อนรับครับคุณ${ownerName}`, "PASSED");
-
-                setTimeout(async () => {
-                    if (authImouInterval) clearInterval(authImouInterval);
-                    stepAuth.style.display = 'none';
-                    step2.style.display = 'block';
-                    await initCameraSystem();
-                    startMainAppSession();
-                }, 600);
-                return;
-            }
-
-            if (elapsedMs >= maxWaitMs) {
-                clearInterval(authVerifyTimer);
-                authVerifyTimer = null;
-                speakFaceGateOnly("ยังไม่พบใบหน้าหันหน้าตรงครับ กรุณาลองใหม่อีกครั้ง", "TIMEOUT");
-            }
-        } catch (err) {}
+        if (elapsedMs >= maxWaitMs) {
+            clearInterval(authVerifyTimer);
+            authVerifyTimer = null;
+            speakFaceGateOnly("ยังไม่พบใบหน้าหันหน้าตรงครับ กรุณาลองใหม่อีกครั้ง", "TIMEOUT");
+        }
     }, 1000);
 }
 
 cancelAuthBtn.addEventListener('click', () => {
-    if (authImouInterval) clearInterval(authImouInterval);
+    if (authVerifyTimer) { clearInterval(authVerifyTimer); authVerifyTimer = null; }
+    if (authImouInterval) { clearInterval(authImouInterval); authImouInterval = null; }
     stepAuth.style.display = 'none';
     step1.style.display = 'flex';
 });
@@ -1479,7 +1501,6 @@ async function sendTextDirectly(text) {
     const cleanText = String(text || '').trim();
     if (!cleanText) return;
 
-    // ดักคำสั่งแนะนำ/เพิ่มคนด้วยเสียงหรือข้อความก่อน
     if (await tryHandleVoiceAddPersonCommand(cleanText)) return;
 
     const lowerText = cleanText.toLowerCase();
@@ -1636,6 +1657,7 @@ function stopSession() {
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
     if (setupImouInterval) { clearInterval(setupImouInterval); setupImouInterval = null; }
     if (authImouInterval) { clearInterval(authImouInterval); authImouInterval = null; }
+    if (authVerifyTimer) { clearInterval(authVerifyTimer); authVerifyTimer = null; }
     if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
     
     if (ws) { ws.close(); ws = null; }
@@ -1652,3 +1674,6 @@ stopBtn.addEventListener('click', stopSession);
 
 </body>
 </html>
+```[cite: 5]
+
+เพื่อนเอกเซฟทับไฟล์ของเดิมแล้วลองเทสต์รอบนี้ได้เลยครับ หากติดขัดตรงไหนบอกเจได้ทันทีครับ!
