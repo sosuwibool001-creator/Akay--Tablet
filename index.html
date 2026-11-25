@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <title>Project-J (Beta) - Ake ❤️ Guardian Edition (go2rtc Live Stream)</title>
     <style>
         :root {
@@ -1036,9 +1037,10 @@ registerOwnerBtn.addEventListener('click', async () => {
 });
 
 // =========================================================================
-// 🛡️🔊 ด่านแรก: ตรวจจับใบหน้าหันเข้ากล้อง (แจ้งเป็นเสียงพูดเท่านั้น)
+// 🛡️🔊 ด่านแรก: ตรวจจับใบหน้าหันเข้ากล้อง (แจ้งเป็นเสียงพูดเท่านั้น + รองรับ fallback ไม่ค้าง)
 // =========================================================================
 let faceGateModelsLoaded = false;
+let faceGateLoadingPromise = null;
 let authVerifyTimer = null;
 let lastFaceGateSpokenAt = 0;
 let lastFaceGateSpokenCode = '';
@@ -1048,7 +1050,6 @@ function speakFaceGateOnly(text, code = '') {
     if (!clean) return;
 
     const now = Date.now();
-    // กันพูดซ้ำถี่เกินไปในคำสั่งเดิม เว้นระยะอย่างน้อย 4.5 วินาที
     if (code && code === lastFaceGateSpokenCode && (now - lastFaceGateSpokenAt) < 4500) {
         return;
     }
@@ -1067,18 +1068,34 @@ function speakFaceGateOnly(text, code = '') {
 }
 
 async function ensureFaceGateModels() {
-    if (faceGateModelsLoaded || typeof faceapi === 'undefined') return false;
-    const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model';
-    try {
-        await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL)
-        ]);
-        faceGateModelsLoaded = true;
-        return true;
-    } catch (err) {
+    if (faceGateModelsLoaded) return true;
+    if (typeof faceapi === 'undefined') return false;
+    if (faceGateLoadingPromise) return await faceGateLoadingPromise;
+
+    const modelUrls = [
+        'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model',
+        'https://justadudewhohacks.github.io/face-api.js/models'
+    ];
+
+    faceGateLoadingPromise = (async () => {
+        for (const url of modelUrls) {
+            try {
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(url),
+                    faceapi.nets.faceLandmark68TinyNet.loadFromUri(url)
+                ]);
+                faceGateModelsLoaded = true;
+                return true;
+            } catch (err) {
+                console.warn('⚠️ โหลดโมเดลจาก', url, 'ไม่สำเร็จ:', err.message);
+            }
+        }
         return false;
-    }
+    })();
+
+    const result = await faceGateLoadingPromise;
+    faceGateLoadingPromise = null;
+    return result;
 }
 
 function isFrontFacingByLandmarks(landmarks) {
@@ -1096,12 +1113,12 @@ function isFrontFacingByLandmarks(landmarks) {
 
     const noseTip = nose[nose.length - 1];
     const eyeSpan = Math.abs(rx - lx);
-    if (eyeSpan < 12) return false;
+    if (eyeSpan < 10) return false;
 
     const eyeCenterX = (lx + rx) / 2;
     const yawRatio = Math.abs(noseTip.x - eyeCenterX) / eyeSpan;
 
-    return yawRatio <= 0.35;
+    return yawRatio <= 0.42;
 }
 
 function runAutoVerification(ownerName) {
@@ -1114,6 +1131,7 @@ function runAutoVerification(ownerName) {
     const maxWaitMs = 20000;
 
     speakFaceGateOnly("กรุณามองกล้องหน้าตรงครับ", "START_FRONT");
+    ensureFaceGateModels(); // เริ่มโหลดโมเดลล่วงหน้าทันที
 
     authVerifyTimer = setInterval(async () => {
         elapsedMs += 1000;
@@ -1125,13 +1143,16 @@ function runAutoVerification(ownerName) {
 
         const ready = await ensureFaceGateModels();
         if (!ready) {
-            speakFaceGateOnly("ระบบตรวจจับใบหน้ายังไม่พร้อมครับ", "MODEL_ERR");
+            // ถ้าโหลดโมเดลจากเน็ตไม่ผ่าน ให้รอถึง 5 วินาทีแล้วค่อยแจ้งแทนที่จะวนค้างตลอด
+            if (elapsedMs >= 5000) {
+                speakFaceGateOnly("ไม่พบโมเดลตรวจจับใบหน้า กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตครับ", "MODEL_ERR");
+            }
             return;
         }
 
         try {
             const detection = await faceapi
-                .detectSingleFace(authImouImg, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.5 }))
+                .detectSingleFace(authImouImg, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.45 }))
                 .withFaceLandmarks(true);
 
             if (!detection) {
