@@ -708,6 +708,45 @@ function speakLocalThaiText(text, onDone = null) {
     });
 }
 
+    async function findExistingProfileByName(personName) {
+    const target = String(personName || '').trim().toLowerCase();
+    if (!target || target === 'ไม่ระบุชื่อ') return null;
+
+    try {
+        const res = await fetch(`${SERVER_URL}/api/profiles/faces`);
+        const data = await res.json();
+        if (data && data.success && Array.isArray(data.profiles)) {
+            return data.profiles.find((p) =>
+                String(p.name || '').trim().toLowerCase() === target
+            ) || null;
+        }
+    } catch (e) {
+        console.warn('⚠️ เช็กฐานข้อมูลโปรไฟล์ไม่สำเร็จ:', e.message);
+    }
+    return null;
+}
+
+async function tryHandleVoiceAddPersonCommand(text) {
+    const intent = parseAddPersonIntent(text);
+    if (!intent) return false;
+
+    saveToHistory('user', text);
+
+    const existing = await findExistingProfileByName(intent.name);
+    if (existing) {
+        const warnText = `คุณ${intent.name} มีอยู่ในฐานข้อมูลกลุ่ม${existing.groupLabel || existing.group}แล้วครับ หากต้องการเพิ่มข้อมูลให้คนเดิม ให้ยืนยันว่า "เพิ่มให้คนเดิม" หรือพิมพ์/พูดยืนยันอีกครั้งนะครับ`;
+        statusText.innerHTML = `<span class="status-dot" style="background:#ff9500;"></span><strong>⚠️ พบข้อมูลเดิม:</strong> ${warnText}`;
+        saveToHistory('model', warnText);
+        await speakLocalThaiText(warnText);
+
+        // หากต้องการแกล้งเพิ่มคนเดิมซ้ำจริงๆ ให้พูด/ส่งคำว่า "ยืนยันเพิ่มคนเดิม <ชื่อ>"
+        return true;
+    }
+
+    await runVoiceAddPersonFlow(intent);
+    return true;
+}
+    
 async function fetchLatestCameraSnapshotBase64(camId = PRIMARY_CAMERA_ID) {
     try {
         const res = await fetch(`${SERVER_URL}/api/camera/latest/${camId}`);
