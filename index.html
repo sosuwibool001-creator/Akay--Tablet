@@ -517,10 +517,44 @@ clearMemBtn.addEventListener('click', () => {
     alert("ล้างประวัติความจำบทสนทนาเรียบร้อยแล้วครับ!");
 });
 
-// 🎙️ อัดเสียงเจ้าของเครื่องสั้นๆ 4 วินาทีในขั้นตอนลงทะเบียนครั้งแรก
+// ฟังก์ชันแปลง Float32 PCM เป็นไฟล์ WAV มาตรฐาน (RIFF Header ครบถ้วน)
+function encodeWAV(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+
+    const writeString = (offset, string) => {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true); // PCM chunk size
+    view.setUint16(20, 1, true);  // Audio format 1 = PCM
+    view.setUint16(22, 1, true);  // Mono (1 channel)
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true); // Byte rate
+    view.setUint16(32, 2, true);  // Block align
+    view.setUint16(34, 16, true); // 16-bit
+    writeString(36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+
+    let offset = 44;
+    for (let i = 0; i < samples.length; i++, offset += 2) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+}
+
+// 🎙️ อัดเสียงเจ้าของเครื่องสั้นๆ 4 วินาที เป็นไฟล์ WAV มาตรฐานแท้ 100%
 async function recordOwnerVoiceSample(durationMs = 4000) {
     if (isRecordingOwnerVoice) return;
-    if (!_nativeGetUserMedia || typeof MediaRecorder === 'undefined') {
+    if (!_nativeGetUserMedia) {
         ownerVoiceStatus.innerText = "เบราว์เซอร์ไม่รองรับการอัดเสียง";
         return;
     }
@@ -531,38 +565,51 @@ async function recordOwnerVoiceSample(durationMs = 4000) {
     ownerVoiceStatus.innerText = "🔴 กำลังอัดเสียงเจ้าของเครื่อง (4 วินาที)...";
 
     let stream = null;
+    let tempAudioCtx = null;
     try {
         stream = await _nativeGetUserMedia({ audio: true, video: false });
-        const chunks = [];
-        const recorder = new MediaRecorder(stream);
+        tempAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        const source = tempAudioCtx.createMediaStreamSource(stream);
+        const processor = tempAudioCtx.createScriptProcessor(4096, 1, 1);
+        const recordedChunks = [];
 
-        recorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) chunks.push(e.data);
+        processor.onaudioprocess = (e) => {
+            const input = e.inputBuffer.getChannelData(0);
+            recordedChunks.push(new Float32Array(input));
         };
 
+        source.connect(processor);
+        processor.connect(tempAudioCtx.destination);
+
+        await new Promise((resolve) => setTimeout(resolve, durationMs));
+
+        processor.disconnect();
+        source.disconnect();
+
+        // รวมข้อมูลเสียงทั้งหมดเป็นก้อนเดียวแล้วเข้ารหัสเป็น WAV
+        const totalLength = recordedChunks.reduce((acc, arr) => acc + arr.length, 0);
+        const mergedSamples = new Float32Array(totalLength);
+        let offset = 0;
+        for (const chunk of recordedChunks) {
+            mergedSamples.set(chunk, offset);
+            offset += chunk.length;
+        }
+
+        const wavBlob = encodeWAV(mergedSamples, tempAudioCtx.sampleRate);
         const base64Result = await new Promise((resolve, reject) => {
-            recorder.onstop = () => {
-                const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            };
-            recorder.onerror = reject;
-            recorder.start();
-            setTimeout(() => {
-                if (recorder.state !== 'inactive') recorder.stop();
-            }, durationMs);
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(wavBlob);
         });
 
         capturedOwnerAudioBase64 = base64Result;
-        ownerVoiceStatus.innerText = "✅ อัดเสียงเจ้าของเครื่องเรียบร้อยแล้ว (พร้อมส่งบันทึก)";
+        ownerVoiceStatus.innerText = "✅ อัดเสียง WAV มาตรฐานเรียบร้อยแล้ว (พร้อมส่งบันทึก)";
     } catch (err) {
         ownerVoiceStatus.innerText = `⚠️ อัดเสียงไม่สำเร็จ: ${err.message}`;
     } finally {
-        if (stream) {
-            stream.getTracks().forEach(t => t.stop());
-        }
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        if (tempAudioCtx) await tempAudioCtx.close();
         allowEnrollmentMicOnce = false;
         isRecordingOwnerVoice = false;
         recordOwnerVoiceBtn.disabled = false;
