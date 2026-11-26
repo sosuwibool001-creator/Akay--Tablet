@@ -500,6 +500,7 @@ let isRecordingOwnerVoice = false;
 
 let isModelSpeaking = false;
 let speakingTimeout = null;
+let speakingReleaseTimer = null;
 let speechBuffer = "";
 let speechTimeout = null;
 
@@ -1139,7 +1140,6 @@ function runAutoVerification(ownerName) {
         try {
             const result = await verifyFaceAgainstOwnerBackend(snapBase64);
 
-            // ต้องตรงกับไฟล์ owner ที่หลังบ้านจริงเท่านั้นจึงจะเข้าหน้าหลักได้
             if (result && result.success && result.matched === true) {
                 clearInterval(authVerifyTimer);
                 authVerifyTimer = null;
@@ -1159,7 +1159,6 @@ function runAutoVerification(ownerName) {
                     startMainAppSession();
                 }, 600);
             } else {
-                // หน้าไม่ตรง: ไม่เข้าหน้าหลัก
                 speakAuthLine(result?.reason || "ใบหน้าไม่ตรงกับเจ้าของระบบครับ", "NOT_MATCH");
             }
         } catch (err) {
@@ -1425,10 +1424,60 @@ async function captureAndSendSpecificCamera(camId, isManualTrigger = false) {
     }
 }
 
+// =========================================================================
+// 🔇 กันเสียงเจย้อนเข้าไมค์ (Anti-Feedback Loop) + รับเสียงเฉพาะตอนเจเงียบจริง
+// =========================================================================
+function enterModelSpeakingLock(extraHoldMs = 1200) {
+    isModelSpeaking = true;
+    speechBuffer = "";
+    if (speechTimeout) {
+        clearTimeout(speechTimeout);
+        speechTimeout = null;
+    }
+    if (speakingTimeout) {
+        clearTimeout(speakingTimeout);
+        speakingTimeout = null;
+    }
+    if (recognition) {
+        try {
+            recognition.onend = null;
+            recognition.onerror = null;
+            recognition.stop();
+        } catch (e) {}
+    }
+
+    const audioRemainingMs = audioContext
+        ? Math.max(0, (nextAudioTime - audioContext.currentTime) * 1000)
+        : 0;
+    const totalHoldMs = audioRemainingMs + extraHoldMs;
+
+    if (speakingReleaseTimer) clearTimeout(speakingReleaseTimer);
+    speakingReleaseTimer = setTimeout(() => {
+        const stillPlaying = audioContext && (nextAudioTime - audioContext.currentTime) > 0.05;
+        if (stillPlaying) {
+            enterModelSpeakingLock(extraHoldMs);
+            return;
+        }
+        isModelSpeaking = false;
+        audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
+        if (isUserActiveSession && !isEnrollingGuest && ws && ws.readyState === WebSocket.OPEN) {
+            startSpeechRecognition();
+        }
+    }, totalHoldMs);
+}
+
 function startSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
-    if (recognition) { try { recognition.stop(); } catch(e){} }
+    if (isModelSpeaking || isEnrollingGuest || !isUserActiveSession) return;
+
+    if (recognition) {
+        try {
+            recognition.onend = null;
+            recognition.onerror = null;
+            recognition.stop();
+        } catch (e) {}
+    }
 
     recognition = new SpeechRecognition();
     recognition.lang = 'th-TH';
@@ -1436,10 +1485,16 @@ function startSpeechRecognition() {
     recognition.interimResults = true;
 
     recognition.onresult = (event) => {
-        if (isModelSpeaking || isEnrollingGuest) return;
+        if (isModelSpeaking || isEnrollingGuest) {
+            speechBuffer = "";
+            return;
+        }
+
         let currentChunk = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) currentChunk += event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                currentChunk += event.results[i][0].transcript;
+            }
         }
         if (currentChunk.trim()) {
             speechBuffer += " " + currentChunk.trim();
@@ -1450,13 +1505,31 @@ function startSpeechRecognition() {
                 if (finalTextToSend && !isModelSpeaking && !isEnrollingGuest) {
                     sendTextDirectly(finalTextToSend);
                 }
-            }, 800);
+            }, 900);
         }
     };
 
-    recognition.onerror = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isEnrollingGuest) setTimeout(startSpeechRecognition, 500); };
-    recognition.onend = () => { if (isUserActiveSession && ws && ws.readyState === WebSocket.OPEN && !isEnrollingGuest) setTimeout(() => { try { recognition.start(); } catch(e){} }, 300); };
-    try { recognition.start(); } catch(e) {}
+    recognition.onerror = () => {
+        if (isUserActiveSession && !isModelSpeaking && !isEnrollingGuest && ws && ws.readyState === WebSocket.OPEN) {
+            setTimeout(() => {
+                if (!isModelSpeaking && !isEnrollingGuest) startSpeechRecognition();
+            }, 700);
+        }
+    };
+
+    recognition.onend = () => {
+        if (isUserActiveSession && !isModelSpeaking && !isEnrollingGuest && ws && ws.readyState === WebSocket.OPEN) {
+            setTimeout(() => {
+                if (!isModelSpeaking && !isEnrollingGuest) {
+                    try { recognition.start(); } catch (e) {}
+                }
+            }, 500);
+        }
+    };
+
+    try {
+        recognition.start();
+    } catch (e) {}
 }
 
 async function sendTextDirectly(text) {
@@ -1465,7 +1538,6 @@ async function sendTextDirectly(text) {
     const cleanText = String(text || '').trim();
     if (!cleanText) return;
 
-    // ดักคำสั่งแนะนำ/เพิ่มคนด้วยเสียงหรือข้อความก่อน
     if (await tryHandleVoiceAddPersonCommand(cleanText)) return;
 
     const lowerText = cleanText.toLowerCase();
@@ -1561,8 +1633,6 @@ async function sendTextDirectly(text) {
 
 function playAudioChunk(base64Data) {
     if (!audioContext || isEnrollingGuest) return;
-    isModelSpeaking = true;
-    if (recognition) { try { recognition.stop(); } catch(e) {} }
 
     const binaryString = atob(base64Data);
     const bytes = new Uint8Array(binaryString.length);
@@ -1583,15 +1653,7 @@ function playAudioChunk(base64Data) {
     source.start(nextAudioTime);
     nextAudioTime += audioBuffer.duration;
 
-    const remainingTime = (nextAudioTime - audioContext.currentTime) * 1000 + 800;
-    if (speakingTimeout) clearTimeout(speakingTimeout);
-    speakingTimeout = setTimeout(() => {
-        isModelSpeaking = false;
-        audioStats.innerText = `🎙️ Project-J Live: เจพูดจบแล้ว พร้อมรับฟังเสียง`;
-        if (isUserActiveSession && recognition && !isEnrollingGuest) { 
-            try { recognition.start(); } catch(e) {} 
-        }
-    }, remainingTime);
+    enterModelSpeakingLock(1200);
 }
 
 sendTextBtn.addEventListener('click', sendTextMessage);
@@ -1618,7 +1680,8 @@ function stopSession() {
     isEnrollingGuest = false;
     isAddingPersonByVoice = false;
     stopAllAuthVoice(true);
-    if (speakingTimeout) clearTimeout(speakingTimeout);
+    if (speakingTimeout) { clearTimeout(speakingTimeout); speakingTimeout = null; }
+    if (speakingReleaseTimer) { clearTimeout(speakingReleaseTimer); speakingReleaseTimer = null; }
     if (pingInterval) { clearInterval(pingInterval); pingInterval = null; }
     if (remoteCheckInterval) { clearInterval(remoteCheckInterval); remoteCheckInterval = null; }
     if (setupImouInterval) { clearInterval(setupImouInterval); setupImouInterval = null; }
@@ -1640,3 +1703,6 @@ stopBtn.addEventListener('click', stopSession);
 
 </body>
 </html>
+```[cite: 5]
+
+เพื่อนเอกลองรัน `index_4.html` แล้วเทสต์ดูนะครับว่าอาการเจได้ยินเสียงตัวเองและตอบวนไปเรื่อยๆ หายไปไหมครับ?
